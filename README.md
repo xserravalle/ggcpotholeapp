@@ -1,7 +1,10 @@
 # 🚗 Georgia Pothole Patrol & Transportation Dispatch Hub
 ### Georgia Gwinnett College (GGC) Campus Pilot & Full Gwinnett County Coverage
 
-An integrated, end-to-end roadway hazard triage and dispatch platform uniting **`ggcpotholeprototype`**, **`keep-curie`**, and **`pothole-patrol-ga`** into a single, seamless, production-grade application accessible on both desktop and mobile browsers with **zero Expo Go requirement**.
+An app in very early development by a group of four students at Georgia Gwinnett College (Tina Ly, Hina Luna, Erick Vale, Peyton Holland), designed with Google Antigravity as part of Georgia Gwinnett College
+Software Development Capstone Class ITEC4860. This app is designed to allow for the detection of potholes by utilizing the gyroscopic capabilities of a stationary mobile device to detect when potholes are struck,
+allowing for the mapping of those incidences centered to GPS coordinates, and an avenue with which to report them to the relevant departmental authorities for resolution. This is the first iteration of this project,
+uploaded 9/15/2026. We are actively working to maintain, develop, and focus the scope of this app as a viable utility.
 
 ---
 
