@@ -354,10 +354,13 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
           <MapController center={mapTarget.center} zoom={mapTarget.zoom} />
           <MapClickHandler onMapClick={handleMapClick} />
 
-          {/* High-contrast Voyager Map Tiles */}
+          {/* OpenStreetMap standard tiles. CARTO's basemaps now require an API key and
+              drew "API KEY REQUIRED" over the map; OSM's need no key (attribution required,
+              light use only: https://operations.osmfoundation.org/policies/tiles/). */}
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={19}
           />
 
           {/* GGC Campus 1-Mile Radius Circle (from ggcpotholeprototype) */}
