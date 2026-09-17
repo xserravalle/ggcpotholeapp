@@ -25,15 +25,18 @@ interface MunicipalDispatcherModalProps {
   onUpdateStatus: (id: string, newStatus: PotholeReport['status']) => void;
 }
 
-export const MunicipalDispatcherModal: React.FC<MunicipalDispatcherModalProps> = ({
-  isOpen,
+// Hooks must run in the same order on every render, so the open check lives in this
+// wrapper. The dialog mounts fresh each time it opens, exactly as before.
+export const MunicipalDispatcherModal: React.FC<MunicipalDispatcherModalProps> = (props) =>
+  props.isOpen ? <MunicipalDispatcherDialogBody {...props} /> : null;
+
+const MunicipalDispatcherDialogBody: React.FC<MunicipalDispatcherModalProps> = ({
   onClose,
   pothole,
   allPotholes,
   onSelectPothole,
   onUpdateStatus
 }) => {
-  if (!isOpen) return null;
 
   // Selected or active pothole
   const activePothole = pothole || allPotholes[0];

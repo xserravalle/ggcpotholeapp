@@ -41,14 +41,17 @@ const PRESETS = [
   { label: '⚡ GA-316 Express @ Sugarloaf', lat: 33.9712, lng: -84.0320, road: 'SR 316 (University Pkwy)', city: 'Lawrenceville' }
 ];
 
-export const PotholeReportModal: React.FC<PotholeReportModalProps> = ({
-  isOpen,
+// Hooks must run in the same order on every render, so the open check lives in this
+// wrapper. The dialog mounts fresh each time it opens, exactly as before.
+export const PotholeReportModal: React.FC<PotholeReportModalProps> = (props) =>
+  props.isOpen ? <PotholeReportDialogBody {...props} /> : null;
+
+const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   onClose,
   onSubmitReport,
   initialTelemetry,
   initialCoords
 }) => {
-  if (!isOpen) return null;
 
   const [title, setTitle] = useState('');
   const [address, setAddress] = useState(initialCoords?.address || '1000 University Center Ln, Lawrenceville, GA 30043');
