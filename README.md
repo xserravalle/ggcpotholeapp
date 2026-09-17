@@ -68,13 +68,22 @@ uploaded 9/15/2026. We are actively working to maintain, develop, and focus the 
 ## 🚀 Quickstart Guide
 
 ### 1. Launch the Development Server
+Requires **Node.js 20.19+ or 22.12+** (Vite 8).
 ```bash
-cd C:\Users\peyto\.gemini\antigravity\scratch\ggc-pothole-patrol
+git clone https://github.com/xserravalle/ggcpotholeapp.git
+cd ggcpotholeapp
+npm ci          # install the exact versions in package-lock.json
 
 # Start the interactive app
 npm run dev
 ```
 Open your browser at [http://localhost:5173](http://localhost:5173).
+
+Before pushing, check that it still builds and lints without errors:
+```bash
+npm run build   # type-check + production build
+npm run lint    # must report 0 errors (warnings are known: mostly unused imports)
+```
 
 ### 2. Build for Production
 ```bash
