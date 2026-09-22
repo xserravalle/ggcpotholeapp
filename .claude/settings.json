@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "global": [
+      "read",
+      "bash",
+      "edit",
+      "write"
+    ]
+  },
+  "hooks": {}
+}
