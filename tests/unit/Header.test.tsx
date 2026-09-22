@@ -1,24 +1,33 @@
-import { describe, it, expect } from 'vitest';
+import React from 'react';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '../helpers/render';
-import Header from '@/components/Header';
+import { Header } from '@/components/Header';
 
 describe('Header Component', () => {
-  it('should render the header without crashing', () => {
-    const { container } = render(<Header mode="campus" setMode={() => {}} />);
+  const mockProps = {
+    activeTab: 'potholes' as const,
+    setActiveTab: vi.fn(),
+    onOpenReportModal: vi.fn(),
+    potholeCount: 42,
+    criticalPotholeCount: 3,
+    campusPotholeCount: 15,
+    congestedLotsCount: 2,
+    simulationTime: '2026-09-22 14:30',
+  };
+
+  it('should render without crashing', () => {
+    const { container } = render(<Header {...mockProps} />);
     expect(container).toBeTruthy();
   });
 
-  it('should render mode switcher buttons', () => {
-    render(<Header mode="campus" setMode={() => {}} />);
-    const buttons = screen.getAllByRole('button');
-    expect(buttons.length).toBeGreaterThan(0);
+  it('should render header element', () => {
+    const { container } = render(<Header {...mockProps} />);
+    const header = container.querySelector('header');
+    expect(header).toBeTruthy();
   });
 
-  it('should display current mode', () => {
-    const { rerender } = render(<Header mode="campus" setMode={() => {}} />);
-    expect(screen.getByText(/campus/i, { hidden: true })).toBeTruthy();
-
-    rerender(<Header mode="county" setMode={() => {}} />);
-    expect(screen.getByText(/county/i, { hidden: true })).toBeTruthy();
+  it('should display pothole count', () => {
+    render(<Header {...mockProps} />);
+    expect(screen.getByText(/42/)).toBeTruthy();
   });
 });
