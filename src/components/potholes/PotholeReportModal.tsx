@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PotholeReport, SeverityLevel, HazardType } from '../../types/pothole';
 import { classifyJurisdiction } from '../../services/jurisdictionClassifier';
 import { reverseGeocode } from '../../services/reverseGeocoding';
+import { compressImageFile } from '../../utils/imageCompressor';
 import { 
   Camera, 
   X, 
@@ -81,11 +82,15 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   const assignedAuth = classification.authority;
 
   // Handle Photo Capture / Upload
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setPhotoPreview(url);
+      try {
+        const compressedDataUrl = await compressImageFile(file);
+        setPhotoPreview(compressedDataUrl);
+      } catch (err) {
+        console.error('Failed to compress image:', err);
+      }
     }
   };
 
