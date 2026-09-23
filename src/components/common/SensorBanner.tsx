@@ -52,9 +52,18 @@ export const SensorBanner: React.FC<SensorBannerProps> = ({ onImpactDetected }) 
     setTimeout(() => setHasImpact(false), 4000);
   };
 
+  // handleMotion is a new function on every render (about 100 a second while sensing),
+  // so add and remove must use one stable listener. Before, "Pause Sensor" removed a
+  // different copy than the one added: the banner said STANDBY while impacts still fired.
+  const latestHandleMotion = useRef(handleMotion);
+  useEffect(() => {
+    latestHandleMotion.current = handleMotion;
+  });
+  const [motionListener] = useState(() => (event: DeviceMotionEvent) => latestHandleMotion.current(event));
+
   const toggleSensor = async () => {
     if (isActive) {
-      window.removeEventListener('devicemotion', handleMotion);
+      window.removeEventListener('devicemotion', motionListener);
       setIsActive(false);
       return;
     }
@@ -69,7 +78,7 @@ export const SensorBanner: React.FC<SensorBannerProps> = ({ onImpactDetected }) 
         const res = await deviceMotion.requestPermission();
         if (res === 'granted') {
           setPermissionState('granted');
-          window.addEventListener('devicemotion', handleMotion);
+          window.addEventListener('devicemotion', motionListener);
           setIsActive(true);
         } else {
           setPermissionState('denied');
@@ -79,7 +88,7 @@ export const SensorBanner: React.FC<SensorBannerProps> = ({ onImpactDetected }) 
         console.error(err);
       }
     } else if ('ondevicemotion' in window) {
-      window.addEventListener('devicemotion', handleMotion);
+      window.addEventListener('devicemotion', motionListener);
       setIsActive(true);
     } else {
       setIsActive(true);
@@ -88,10 +97,10 @@ export const SensorBanner: React.FC<SensorBannerProps> = ({ onImpactDetected }) 
 
   useEffect(() => {
     return () => {
-      window.removeEventListener('devicemotion', handleMotion);
+      window.removeEventListener('devicemotion', motionListener);
       if (peakResetTimerRef.current) clearTimeout(peakResetTimerRef.current);
     };
-  }, []);
+  }, [motionListener]);
 
   return (
     <div className={`transition-all duration-300 border-b ${

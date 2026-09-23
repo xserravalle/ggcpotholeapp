@@ -9,12 +9,15 @@ interface GgcReportDialogProps {
   potholes: PotholeReport[];
 }
 
-export const GgcReportDialog: React.FC<GgcReportDialogProps> = ({
-  isOpen,
+// Hooks must run in the same order on every render, so the open check lives in this
+// wrapper. The dialog mounts fresh each time it opens, exactly as before.
+export const GgcReportDialog: React.FC<GgcReportDialogProps> = (props) =>
+  props.isOpen ? <GgcReportDialogBody {...props} /> : null;
+
+const GgcReportDialogBody: React.FC<GgcReportDialogProps> = ({
   onClose,
   potholes
 }) => {
-  if (!isOpen) return null;
 
   const [copied, setCopied] = useState(false);
   const reportText = buildGgcTextReport(potholes);

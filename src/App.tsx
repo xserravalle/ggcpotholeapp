@@ -27,7 +27,6 @@ import { PotholeReportModal } from './components/potholes/PotholeReportModal';
 import { DocketSuccessModal } from './components/potholes/DocketSuccessModal';
 import { MunicipalDispatcherModal } from './components/potholes/MunicipalDispatcherModal';
 import { LotDetailModal } from './components/parking/LotDetailModal';
-import { Plus } from 'lucide-react';
 
 export function App() {
   // Navigation: Default to Map & Hazards
@@ -303,20 +302,6 @@ export function App() {
         )}
       </main>
 
-      {/* Persistent Floating Action Button (FAB) on Desktop */}
-      <div className="hidden md:block fixed bottom-8 right-8 z-40">
-        <button
-          onClick={() => {
-            setSensorTriggeredTelemetry(undefined);
-            setIsReportModalOpen(true);
-          }}
-          className="flex items-center space-x-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black px-5 py-3.5 rounded-full shadow-2xl shadow-teal-500/40 active:scale-95 transition group border border-teal-300/40"
-          aria-label="Report Road Hazard"
-        >
-          <Plus className="w-5 h-5 stroke-[3] group-hover:rotate-90 transition-transform duration-200" />
-          <span className="text-sm font-black tracking-tight">Report Hazard</span>
-        </button>
-      </div>
 
       {/* Pothole Inspector Drawer */}
       <PotholeDetailDrawer

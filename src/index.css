@@ -31,6 +31,9 @@
   height: 100%;
   background-color: #0f172a !important;
   font-family: inherit;
+  /* Leaflet gives its layers z-index 400-1000. Without a stacking context of its
+     own, the map drew over dialogs (z-50) opened on top of it. */
+  isolation: isolate;
 }
 
 .leaflet-popup-content-wrapper {
