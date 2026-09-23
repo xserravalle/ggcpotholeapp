@@ -1,6 +1,8 @@
 import { PotholeReport } from '../types/pothole';
+import { TrackedHazardSpot } from '../types/sensorQueue';
 
 const STORAGE_KEY = 'ggc-pothole-patrol-reports-v2';
+const SPOTS_STORAGE_KEY = 'ggc-pothole-patrol-tracked-spots-v1';
 
 export function loadStoredPotholes(fallbackList: PotholeReport[]): PotholeReport[] {
   try {
@@ -18,6 +20,25 @@ export function saveStoredPotholes(list: PotholeReport[]): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   } catch (err) {
     console.error('Failed to save potholes to localStorage', err);
+  }
+}
+
+export function loadTrackedSpots(): TrackedHazardSpot[] {
+  try {
+    const raw = localStorage.getItem(SPOTS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveTrackedSpots(spots: TrackedHazardSpot[]): void {
+  try {
+    localStorage.setItem(SPOTS_STORAGE_KEY, JSON.stringify(spots));
+  } catch (err) {
+    console.error('Failed to save tracked spots to localStorage', err);
   }
 }
 
