@@ -56,6 +56,9 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     const city = 'Lawrenceville';
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    let spotToPromote: TrackedHazardSpot | null = null;
+    let statusMsg: string | null = null;
+
     setTrackedSpots(prevSpots => {
       // Find matching spot within cluster radius
       const existingIndex = prevSpots.findIndex(s => 
@@ -84,12 +87,10 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
         // Check 3x threshold
         if (newHitCount >= 3 && !updatedSpot.promotedToReportId) {
           updatedSpot.promotedToReportId = `GW-POT-${Date.now()}`;
-          if (onPromoteSpotToReport) {
-            onPromoteSpotToReport(updatedSpot);
-          }
-          setQuietStatusMessage(`🎯 Spot hit 3x: Auto-promoted to My Reports! (${updatedSpot.roadName})`);
+          spotToPromote = updatedSpot;
+          statusMsg = `🎯 Spot hit 3x: Auto-promoted to My Reports! (${updatedSpot.roadName})`;
         } else {
-          setQuietStatusMessage(`📍 Road spot registered ${newHitCount}/3 hits (${updatedSpot.roadName})`);
+          statusMsg = `📍 Road spot registered ${newHitCount}/3 hits (${updatedSpot.roadName})`;
         }
 
         updatedList[existingIndex] = updatedSpot;
@@ -111,14 +112,21 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           ]
         };
         updatedList = [newSpot, ...updatedList];
-        setQuietStatusMessage(`📍 New road spot detected (1/3 hits). Needs 3 strikes to generate report.`);
+        statusMsg = `📍 New road spot detected (1/3 hits). Needs 3 strikes to generate report.`;
       }
-
-      if (statusTimer.current) clearTimeout(statusTimer.current);
-      statusTimer.current = window.setTimeout(() => setQuietStatusMessage(null), 5000);
 
       return updatedList;
     });
+
+    // Execute side-effects safely outside the React state updater
+    if (spotToPromote && onPromoteSpotToReport) {
+      onPromoteSpotToReport(spotToPromote);
+    }
+    if (statusMsg) {
+      setQuietStatusMessage(statusMsg);
+      if (statusTimer.current) clearTimeout(statusTimer.current);
+      statusTimer.current = window.setTimeout(() => setQuietStatusMessage(null), 5000);
+    }
 
     setTimeout(() => {
       setRecentSpike(null);
