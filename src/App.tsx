@@ -106,9 +106,9 @@ export function App() {
   const handleSubmitNewReport = (
     newReportData: Omit<PotholeReport, 'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt'>
   ) => {
-    const randomSuffix = Math.floor(1020 + Math.random() * 8800);
-    const trackingCode = `GAP-2026-${randomSuffix}`;
-    const newId = `GW-POT-${randomSuffix}`;
+    const uuid = crypto.randomUUID();
+    const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
+    const newId = `GW-POT-${uuid}`;
     const dist = distanceFromCampusMiles({ lat: newReportData.latitude, lng: newReportData.longitude });
 
     const newReport: PotholeReport = {
@@ -119,7 +119,7 @@ export function App() {
       userConfirmed: true,
       reportedAt: new Date().toISOString(),
       lastVerifiedAt: new Date().toISOString(),
-      workOrderNumber: `DISP-${newId}`,
+      workOrderNumber: `DISP-${trackingCode}`,
       distanceFromGgcMiles: dist,
       source: 'user'
     };
@@ -152,9 +152,9 @@ export function App() {
 
   // Promote a spot that hit 3x into an official confirmed PotholeReport
   const handlePromoteSpotToReport = (spot: TrackedHazardSpot) => {
-    const randomSuffix = Math.floor(1020 + Math.random() * 8800);
-    const trackingCode = `GAP-2026-${randomSuffix}`;
-    const newId = `GW-POT-${randomSuffix}`;
+    const uuid = crypto.randomUUID();
+    const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
+    const newId = `GW-POT-${uuid}`;
     const dist = distanceFromCampusMiles({ lat: spot.latitude, lng: spot.longitude });
     const classification = classifyJurisdiction(spot.latitude, spot.longitude, spot.roadName);
 

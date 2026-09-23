@@ -80,13 +80,13 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           lastHitAt: timeStr,
           hits: [
             ...spot.hits,
-            { id: `HIT-${Date.now()}`, timestamp: timeStr, gForce: roundedG }
+            { id: `HIT-${crypto.randomUUID()}`, timestamp: timeStr, gForce: roundedG }
           ]
         };
 
         // Check 3x threshold
         if (newHitCount >= 3 && !updatedSpot.promotedToReportId) {
-          updatedSpot.promotedToReportId = `GW-POT-${Date.now()}`;
+          updatedSpot.promotedToReportId = `GW-POT-${crypto.randomUUID()}`;
           spotToPromote = updatedSpot;
           statusMsg = `🎯 Spot hit 3x: Auto-promoted to My Reports! (${updatedSpot.roadName})`;
         } else {
@@ -97,7 +97,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
       } else {
         // First time hitting this spot (1/3)
         const newSpot: TrackedHazardSpot = {
-          id: `SPOT-${Date.now()}`,
+          id: `SPOT-${crypto.randomUUID()}`,
           latitude: lat,
           longitude: lng,
           roadName: road,
@@ -108,7 +108,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           createdAt: timeStr,
           lastHitAt: timeStr,
           hits: [
-            { id: `HIT-${Date.now()}`, timestamp: timeStr, gForce: roundedG }
+            { id: `HIT-${crypto.randomUUID()}`, timestamp: timeStr, gForce: roundedG }
           ]
         };
         updatedList = [newSpot, ...updatedList];
