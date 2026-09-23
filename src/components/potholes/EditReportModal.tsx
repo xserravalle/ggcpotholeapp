@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PotholeReport, SeverityLevel } from '../../types/pothole';
+import { compressImageFile } from '../../utils/imageCompressor';
 import { 
   X, 
   Save, 
@@ -56,11 +57,15 @@ export const EditReportModal: React.FC<EditReportModalProps> = ({
 
   if (!isOpen || !report) return null;
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setPhotoPreview(url);
+      try {
+        const compressedDataUrl = await compressImageFile(file);
+        setPhotoPreview(compressedDataUrl);
+      } catch (err) {
+        console.error('Failed to compress image:', err);
+      }
     }
   };
 
