@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { PotholeReport, SeverityLevel } from './types/pothole';
-import { QueuedImpact } from './types/sensorQueue';
+import { TrackedHazardSpot } from './types/sensorQueue';
 import { ParkingLot, SimulationParams } from './types/parking';
 import { INITIAL_POTHOLES } from './data/potholesData';
 import { HIGH_RISK_ROAD_SEGMENTS } from './data/roadSegmentsData';
 import { PARKING_LOTS } from './data/parkingLotsData';
 import { loadStoredPotholes, saveStoredPotholes } from './services/storageService';
 import { distanceFromCampusMiles } from './services/distanceCalculator';
+import { classifyJurisdiction } from './services/jurisdictionClassifier';
 
 // Common Components
 import { Header, ActiveTab } from './components/Header';
@@ -149,100 +150,64 @@ export function App() {
     setIsDispatcherOpen(true);
   };
 
-  // Confirm single impact from Park & Review queue
-  const handleConfirmQueuedImpact = (impact: QueuedImpact) => {
+  // Promote a spot that hit 3x into an official confirmed PotholeReport
+  const handlePromoteSpotToReport = (spot: TrackedHazardSpot) => {
     const randomSuffix = Math.floor(1020 + Math.random() * 8800);
     const trackingCode = `GAP-2026-${randomSuffix}`;
     const newId = `GW-POT-${randomSuffix}`;
-    const dist = distanceFromCampusMiles({ lat: impact.latitude, lng: impact.longitude });
+    const dist = distanceFromCampusMiles({ lat: spot.latitude, lng: spot.longitude });
+    const classification = classifyJurisdiction(spot.latitude, spot.longitude, spot.roadName);
 
     const newReport: PotholeReport = {
       id: newId,
       trackingCode,
-      title: `Accelerometer Shock (${impact.gForce}G)`,
-      roadName: impact.roadName || 'Detected Road Hazard',
-      address: `${impact.latitude.toFixed(5)}, ${impact.longitude.toFixed(5)}`,
-      city: impact.city || 'Lawrenceville',
-      jurisdiction: 'Gwinnett County DOT',
-      latitude: impact.latitude,
-      longitude: impact.longitude,
-      severity: impact.severity,
+      title: `Verified Hazard (3x Hits) on ${spot.roadName}`,
+      roadName: spot.roadName || 'Detected Road Hazard',
+      address: `${spot.latitude.toFixed(5)}, ${spot.longitude.toFixed(5)}`,
+      city: spot.city || 'Lawrenceville',
+      jurisdiction: classification.authority.name,
+      authorityId: classification.authority.id,
+      authorityName: classification.authority.name,
+      authorityEmail: classification.authority.contactEmail,
+      latitude: spot.latitude,
+      longitude: spot.longitude,
+      severity: spot.severity,
+      hazardType: 'POTHOLE',
       status: 'reported',
-      verificationsCount: 1,
+      verificationsCount: spot.hitCount,
       userConfirmed: true,
       reportedAt: new Date().toISOString(),
       lastVerifiedAt: new Date().toISOString(),
-      description: `Auto-logged accelerometer impact at ${impact.timestamp}. Peak acceleration: ${impact.gForce}G. Confirmed by driver during Park & Review.`,
-      estimatedDepthInches: impact.gForce >= 6.0 ? 3.5 : 2.0,
-      estimatedWidthInches: impact.gForce >= 6.0 ? 18 : 12,
+      description: `Automated road hazard confirmed after detecting 3 impact shocks at this location (Peak: ${spot.maxGForce}G).`,
+      estimatedDepthInches: spot.maxGForce >= 6.0 ? 3.5 : 2.5,
+      estimatedWidthInches: spot.maxGForce >= 6.0 ? 20 : 14,
       surfaceType: 'Asphalt',
-      damageRisk: impact.gForce >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
+      damageRisk: spot.maxGForce >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
       detectedBy: 'Vehicle Accelerometer Telemetry',
       sensorDetected: true,
-      bumpIntensity: impact.gForce,
+      bumpIntensity: spot.maxGForce,
       workOrderNumber: `DISP-${newId}`,
       distanceFromGgcMiles: dist,
       source: 'user'
     };
 
     setPotholes(prev => [newReport, ...prev]);
-    setSelectedPothole(newReport);
   };
 
-  // Batch confirm all pending impacts from Park & Review queue
-  const handleBatchConfirmQueuedImpacts = (impacts: QueuedImpact[]) => {
-    const newReports: PotholeReport[] = impacts.map(impact => {
-      const randomSuffix = Math.floor(1020 + Math.random() * 8800);
-      const trackingCode = `GAP-2026-${randomSuffix}`;
-      const newId = `GW-POT-${randomSuffix}`;
-      const dist = distanceFromCampusMiles({ lat: impact.latitude, lng: impact.longitude });
-
-      return {
-        id: newId,
-        trackingCode,
-        title: `Accelerometer Shock (${impact.gForce}G)`,
-        roadName: impact.roadName || 'Detected Road Hazard',
-        address: `${impact.latitude.toFixed(5)}, ${impact.longitude.toFixed(5)}`,
-        city: impact.city || 'Lawrenceville',
-        jurisdiction: 'Gwinnett County DOT',
-        latitude: impact.latitude,
-        longitude: impact.longitude,
-        severity: impact.severity,
-        status: 'reported',
-        verificationsCount: 1,
-        userConfirmed: true,
-        reportedAt: new Date().toISOString(),
-        lastVerifiedAt: new Date().toISOString(),
-        description: `Auto-logged accelerometer impact at ${impact.timestamp}. Peak acceleration: ${impact.gForce}G. Confirmed by driver during Park & Review.`,
-        estimatedDepthInches: impact.gForce >= 6.0 ? 3.5 : 2.0,
-        estimatedWidthInches: impact.gForce >= 6.0 ? 18 : 12,
-        surfaceType: 'Asphalt',
-        damageRisk: impact.gForce >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
-        detectedBy: 'Vehicle Accelerometer Telemetry',
-        sensorDetected: true,
-        bumpIntensity: impact.gForce,
-        workOrderNumber: `DISP-${newId}`,
-        distanceFromGgcMiles: dist,
-        source: 'user'
-      };
-    });
-
-    setPotholes(prev => [...newReports, ...prev]);
+  // Update report details (from My Reports edit modal)
+  const handleUpdateReport = (updatedReport: PotholeReport) => {
+    setPotholes(prev => prev.map(p => p.id === updatedReport.id ? updatedReport : p));
+    if (selectedPothole && selectedPothole.id === updatedReport.id) {
+      setSelectedPothole(updatedReport);
+    }
   };
 
-  // When driver parks and wants to snap photo / add details for a specific impact
-  const handleAddDetailsToReport = (impact: QueuedImpact) => {
-    setSensorTriggeredTelemetry({
-      sensorDetected: true,
-      bumpIntensity: impact.gForce,
-      severity: impact.severity
-    });
-    setDroppedPinCoords({
-      lat: impact.latitude,
-      lng: impact.longitude,
-      address: `${impact.roadName || 'Detected Road Hazard'}, ${impact.city || 'Lawrenceville'}`
-    });
-    setIsReportModalOpen(true);
+  // Delete report (from My Reports edit modal)
+  const handleDeleteReport = (id: string) => {
+    setPotholes(prev => prev.filter(p => p.id !== id));
+    if (selectedPothole && selectedPothole.id === id) {
+      setSelectedPothole(null);
+    }
   };
 
   return (
@@ -293,12 +258,11 @@ export function App() {
           />
         )}
 
-        {/* Tab 3: Dedicated Drive Sensor View with Silent Auto-Logging & Park & Review */}
+        {/* Tab 3: Dedicated Drive Sensor View with Silent 3x Auto-Logging */}
         {activeTab === 'sensor' && (
           <DriveSensorView
-            onConfirmImpact={handleConfirmQueuedImpact}
-            onBatchConfirmImpacts={handleBatchConfirmQueuedImpacts}
-            onAddDetailsToReport={handleAddDetailsToReport}
+            onPromoteSpotToReport={handlePromoteSpotToReport}
+            onNavigateToMyReports={() => setActiveTab('my-reports')}
           />
         )}
 
@@ -312,6 +276,8 @@ export function App() {
               setIsReportModalOpen(true);
             }}
             onNavigateToMap={() => setActiveTab('potholes')}
+            onUpdateReport={handleUpdateReport}
+            onDeleteReport={handleDeleteReport}
           />
         )}
 
