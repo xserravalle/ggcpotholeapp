@@ -1,7 +1,7 @@
 # 🚗 Georgia Pothole Patrol & Smart-Commute Transportation Hub
-### Georgia Gwinnett College (GGC) Campus Pilot, Gwinnett County & Statewide Regional Coverage
+### Georgia Gwinnett College (GGC) Campus Pilot & Gwinnett County Coverage
 
-An application developed by students at **Georgia Gwinnett College** (Tina Ly, Hina Luna, Erick Vale, Peyton Holland) as part of the **ITEC 4860 Software Development Senior Capstone Project**.
+An application developed by students at **Georgia Gwinnett College** (Tina Ly, Hina Luna, Erick Vale, Peyton Holland), designed with Google Antigravity as part of the **ITEC 4860 Software Development Capstone Project**.
 
 The platform is a unified **smart-commute and civic infrastructure hub** that pairs automated in-vehicle road hazard detection with campus parking forecasting and cross-jurisdictional municipal work order routing across GGC Facilities, Gwinnett County DOT, GDOT District 1, and 16 municipal public works departments.
 
@@ -109,4 +109,4 @@ Compiles TypeScript and creates an optimized static bundle in the `dist/` direct
 * **Erick Vale**
 * **Peyton Holland**
 
-*Georgia Gwinnett College &bull; School of Science and Technology &bull; ITEC 4860 Senior Software Development Capstone*
+*Georgia Gwinnett College &bull; School of Science and Technology &bull; ITEC 4860 Software Development Capstone*
