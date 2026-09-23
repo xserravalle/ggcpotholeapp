@@ -42,6 +42,16 @@ export function saveTrackedSpots(spots: TrackedHazardSpot[]): void {
   }
 }
 
+function sanitizeCsvCell(value: string | number | boolean | null | undefined): string {
+  if (value === null || value === undefined) return '""';
+  let str = String(value).trim();
+  // Prevent CSV Formula Injection (OWASP): prepend an apostrophe if string starts with risky calculation prefixes
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = `'${str}`;
+  }
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
 export function exportPotholesToCsv(list: PotholeReport[], filename = 'gwinnett_pothole_work_orders.csv'): void {
   const headers = [
     'Work Order / Tracking Code',
@@ -66,24 +76,24 @@ export function exportPotholesToCsv(list: PotholeReport[], filename = 'gwinnett_
   ];
 
   const rows = list.map(item => [
-    `"${item.trackingCode || item.workOrderNumber || item.id}"`,
-    `"${(item.title || '').replace(/"/g, '""')}"`,
-    item.severity.toUpperCase(),
-    item.hazardType || 'POTHOLE',
-    item.status.toUpperCase(),
-    `"${item.jurisdiction}"`,
-    `"${(item.address || '').replace(/"/g, '""')}"`,
+    sanitizeCsvCell(item.trackingCode || item.workOrderNumber || item.id),
+    sanitizeCsvCell(item.title || ''),
+    sanitizeCsvCell(item.severity.toUpperCase()),
+    sanitizeCsvCell(item.hazardType || 'POTHOLE'),
+    sanitizeCsvCell(item.status.toUpperCase()),
+    sanitizeCsvCell(item.jurisdiction),
+    sanitizeCsvCell(item.address || ''),
     item.latitude.toFixed(6),
     item.longitude.toFixed(6),
     (item.distanceFromGgcMiles ?? 0).toFixed(2),
     item.estimatedDepthInches || 0,
     item.estimatedWidthInches || 0,
-    item.surfaceType || 'Asphalt',
-    `"${item.damageRisk || ''}"`,
-    `"${item.detectedBy}"`,
+    sanitizeCsvCell(item.surfaceType || 'Asphalt'),
+    sanitizeCsvCell(item.damageRisk || ''),
+    sanitizeCsvCell(item.detectedBy),
     item.sensorDetected ? 'YES' : 'NO',
     item.bumpIntensity || 0,
-    item.reportedAt || '',
+    sanitizeCsvCell(item.reportedAt || ''),
     item.verificationsCount || 0
   ]);
 
