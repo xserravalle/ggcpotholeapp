@@ -1,26 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { PotholeReport, SeverityLevel } from './types/pothole';
+import { QueuedImpact } from './types/sensorQueue';
 import { ParkingLot, SimulationParams } from './types/parking';
 import { INITIAL_POTHOLES } from './data/potholesData';
 import { HIGH_RISK_ROAD_SEGMENTS } from './data/roadSegmentsData';
 import { PARKING_LOTS } from './data/parkingLotsData';
-import { calculateParkingState } from './services/predictiveParking';
 import { loadStoredPotholes, saveStoredPotholes } from './services/storageService';
 import { distanceFromCampusMiles } from './services/distanceCalculator';
 
 // Common Components
 import { Header, ActiveTab } from './components/Header';
 import { MobileNavBar } from './components/common/MobileNavBar';
-import { SensorBanner } from './components/common/SensorBanner';
 
 // Views
-import { DualOverview } from './components/overview/DualOverview';
+import { UnifiedDashboard } from './components/dashboard/UnifiedDashboard';
 import { PotholeMapView } from './components/potholes/PotholeMapView';
+import { DriveSensorView } from './components/sensor/DriveSensorView';
+import { MyReportsView } from './components/potholes/MyReportsView';
 import { AuthorityHubView } from './components/dispatcher/AuthorityHubView';
-import { AIDashcamLab } from './components/potholes/AIDashcamLab';
 import { PotholeAnalyticsView } from './components/potholes/PotholeAnalyticsView';
-import { ParkingDashboard } from './components/parking/ParkingDashboard';
-import { ParkingPredictorView } from './components/parking/ParkingPredictorView';
 
 // Modals & Drawers
 import { PotholeDetailDrawer } from './components/potholes/PotholeDetailDrawer';
@@ -28,9 +26,10 @@ import { PotholeReportModal } from './components/potholes/PotholeReportModal';
 import { DocketSuccessModal } from './components/potholes/DocketSuccessModal';
 import { MunicipalDispatcherModal } from './components/potholes/MunicipalDispatcherModal';
 import { LotDetailModal } from './components/parking/LotDetailModal';
+import { Plus } from 'lucide-react';
 
 export function App() {
-  // Navigation: Default to Map & Reporting
+  // Navigation: Default to Map & Hazards
   const [activeTab, setActiveTab] = useState<ActiveTab>('potholes');
 
   // Core Data State with Local Persistence
@@ -42,9 +41,6 @@ export function App() {
   useEffect(() => {
     saveStoredPotholes(potholes);
   }, [potholes]);
-
-  // Parking Sub-view (Cards vs Predictive Curves)
-  const [parkingSubView, setParkingSubView] = useState<'cards' | 'curves'>('cards');
 
   // Interactive Selection State
   const [selectedPothole, setSelectedPothole] = useState<PotholeReport | null>(null);
@@ -80,26 +76,6 @@ export function App() {
     isGgcClassChange: false,
     isRainWeather: false
   });
-
-  // Calculate live statistics
-  const criticalPotholeCount = potholes.filter(
-    p => (p.severity === 'critical' || p.severity === 'severe') && p.status !== 'repaired'
-  ).length;
-
-  const campusPotholeCount = potholes.filter(
-    p => p.authorityId === 'GGC' || p.jurisdiction?.includes('GGC')
-  ).length;
-
-  const congestedLotsCount = parkingLots.filter(l => {
-    const s = calculateParkingState(l, simulationParams);
-    return s.congestionStatus === 'full' || s.occupancyPercent >= 90;
-  }).length;
-
-  const simulationTimeDisplay = `${simulationParams.dayOfWeek} ${
-    simulationParams.hourOfDay > 12 ? simulationParams.hourOfDay - 12 : simulationParams.hourOfDay
-  }:${simulationParams.minuteOfDay < 10 ? '0' + simulationParams.minuteOfDay : simulationParams.minuteOfDay} ${
-    simulationParams.hourOfDay >= 12 ? 'PM' : 'AM'
-  }`;
 
   // Verification Handler (Upvote)
   const handleVerifyPothole = (id: string) => {
@@ -143,7 +119,8 @@ export function App() {
       reportedAt: new Date().toISOString(),
       lastVerifiedAt: new Date().toISOString(),
       workOrderNumber: `DISP-${newId}`,
-      distanceFromGgcMiles: dist
+      distanceFromGgcMiles: dist,
+      source: 'user'
     };
 
     setPotholes(prev => [newReport, ...prev]);
@@ -172,38 +149,106 @@ export function App() {
     setIsDispatcherOpen(true);
   };
 
-  // When Sensor detects impact spike while driving
-  const handleImpactDetected = (gForce: number) => {
-    setSensorTriggeredTelemetry({
+  // Confirm single impact from Park & Review queue
+  const handleConfirmQueuedImpact = (impact: QueuedImpact) => {
+    const randomSuffix = Math.floor(1020 + Math.random() * 8800);
+    const trackingCode = `GAP-2026-${randomSuffix}`;
+    const newId = `GW-POT-${randomSuffix}`;
+    const dist = distanceFromCampusMiles({ lat: impact.latitude, lng: impact.longitude });
+
+    const newReport: PotholeReport = {
+      id: newId,
+      trackingCode,
+      title: `Accelerometer Shock (${impact.gForce}G)`,
+      roadName: impact.roadName || 'Detected Road Hazard',
+      address: `${impact.latitude.toFixed(5)}, ${impact.longitude.toFixed(5)}`,
+      city: impact.city || 'Lawrenceville',
+      jurisdiction: 'Gwinnett County DOT',
+      latitude: impact.latitude,
+      longitude: impact.longitude,
+      severity: impact.severity,
+      status: 'reported',
+      verificationsCount: 1,
+      userConfirmed: true,
+      reportedAt: new Date().toISOString(),
+      lastVerifiedAt: new Date().toISOString(),
+      description: `Auto-logged accelerometer impact at ${impact.timestamp}. Peak acceleration: ${impact.gForce}G. Confirmed by driver during Park & Review.`,
+      estimatedDepthInches: impact.gForce >= 6.0 ? 3.5 : 2.0,
+      estimatedWidthInches: impact.gForce >= 6.0 ? 18 : 12,
+      surfaceType: 'Asphalt',
+      damageRisk: impact.gForce >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
+      detectedBy: 'Vehicle Accelerometer Telemetry',
       sensorDetected: true,
-      bumpIntensity: gForce,
-      severity: 'critical'
+      bumpIntensity: impact.gForce,
+      workOrderNumber: `DISP-${newId}`,
+      distanceFromGgcMiles: dist,
+      source: 'user'
+    };
+
+    setPotholes(prev => [newReport, ...prev]);
+    setSelectedPothole(newReport);
+  };
+
+  // Batch confirm all pending impacts from Park & Review queue
+  const handleBatchConfirmQueuedImpacts = (impacts: QueuedImpact[]) => {
+    const newReports: PotholeReport[] = impacts.map(impact => {
+      const randomSuffix = Math.floor(1020 + Math.random() * 8800);
+      const trackingCode = `GAP-2026-${randomSuffix}`;
+      const newId = `GW-POT-${randomSuffix}`;
+      const dist = distanceFromCampusMiles({ lat: impact.latitude, lng: impact.longitude });
+
+      return {
+        id: newId,
+        trackingCode,
+        title: `Accelerometer Shock (${impact.gForce}G)`,
+        roadName: impact.roadName || 'Detected Road Hazard',
+        address: `${impact.latitude.toFixed(5)}, ${impact.longitude.toFixed(5)}`,
+        city: impact.city || 'Lawrenceville',
+        jurisdiction: 'Gwinnett County DOT',
+        latitude: impact.latitude,
+        longitude: impact.longitude,
+        severity: impact.severity,
+        status: 'reported',
+        verificationsCount: 1,
+        userConfirmed: true,
+        reportedAt: new Date().toISOString(),
+        lastVerifiedAt: new Date().toISOString(),
+        description: `Auto-logged accelerometer impact at ${impact.timestamp}. Peak acceleration: ${impact.gForce}G. Confirmed by driver during Park & Review.`,
+        estimatedDepthInches: impact.gForce >= 6.0 ? 3.5 : 2.0,
+        estimatedWidthInches: impact.gForce >= 6.0 ? 18 : 12,
+        surfaceType: 'Asphalt',
+        damageRisk: impact.gForce >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
+        detectedBy: 'Vehicle Accelerometer Telemetry',
+        sensorDetected: true,
+        bumpIntensity: impact.gForce,
+        workOrderNumber: `DISP-${newId}`,
+        distanceFromGgcMiles: dist,
+        source: 'user'
+      };
     });
 
-    // Automatically attempt to acquire current GPS position
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          setDroppedPinCoords({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude
-          });
-          setIsReportModalOpen(true);
-        },
-        () => {
-          setIsReportModalOpen(true);
-        },
-        { enableHighAccuracy: true, timeout: 4000 }
-      );
-    } else {
-      setIsReportModalOpen(true);
-    }
+    setPotholes(prev => [...newReports, ...prev]);
+  };
+
+  // When driver parks and wants to snap photo / add details for a specific impact
+  const handleAddDetailsToReport = (impact: QueuedImpact) => {
+    setSensorTriggeredTelemetry({
+      sensorDetected: true,
+      bumpIntensity: impact.gForce,
+      severity: impact.severity
+    });
+    setDroppedPinCoords({
+      lat: impact.latitude,
+      lng: impact.longitude,
+      address: `${impact.roadName || 'Detected Road Hazard'}, ${impact.city || 'Lawrenceville'}`
+    });
+    setIsReportModalOpen(true);
   };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-teal-500 selection:text-slate-950 pb-16 md:pb-0">
       
-      {/* Universal Header */}
+      {/* Universal Streamlined Header */}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -212,18 +257,29 @@ export function App() {
           setIsReportModalOpen(true);
         }}
         potholeCount={potholes.length}
-        criticalPotholeCount={criticalPotholeCount}
-        campusPotholeCount={campusPotholeCount}
-        congestedLotsCount={congestedLotsCount}
-        simulationTime={simulationTimeDisplay}
       />
-
-      {/* In-Vehicle Accelerometer & Drive Sensor Banner */}
-      <SensorBanner onImpactDetected={handleImpactDetected} />
 
       {/* Main Tab Content */}
       <main className="flex-1">
-        {/* Tab 1: Pothole Detection & Map (Integrated GGC 1-Mile Circle & Gwinnett) */}
+        {/* Tab 1: Consolidated Dashboard */}
+        {activeTab === 'dashboard' && (
+          <UnifiedDashboard
+            potholes={potholes}
+            parkingLots={parkingLots}
+            simulationParams={simulationParams}
+            onChangeSimulationParams={setSimulationParams}
+            onNavigateTab={setActiveTab}
+            onSelectPothole={setSelectedPothole}
+            onSelectLot={setSelectedLot}
+            onOpenReportModal={() => {
+              setSensorTriggeredTelemetry(undefined);
+              setIsReportModalOpen(true);
+            }}
+            onVerifyPothole={handleVerifyPothole}
+          />
+        )}
+
+        {/* Tab 2: Interactive OpenStreetMap Hazard Map */}
         {activeTab === 'potholes' && (
           <PotholeMapView
             potholes={potholes}
@@ -231,18 +287,35 @@ export function App() {
             selectedPothole={selectedPothole}
             onSelectPothole={setSelectedPothole}
             onVerifyPothole={handleVerifyPothole}
-            onOpenDispatcher={handleOpenDispatcher}
-            onOpenReportModal={() => {
-              setSensorTriggeredTelemetry(undefined);
-              setIsReportModalOpen(true);
-            }}
             onMapDropPin={(lat, lng, address) => {
               setDroppedPinCoords({ lat, lng, address });
             }}
           />
         )}
 
-        {/* Tab 2: Authority & Dispatcher Hub (/admin capabilities) */}
+        {/* Tab 3: Dedicated Drive Sensor View with Silent Auto-Logging & Park & Review */}
+        {activeTab === 'sensor' && (
+          <DriveSensorView
+            onConfirmImpact={handleConfirmQueuedImpact}
+            onBatchConfirmImpacts={handleBatchConfirmQueuedImpacts}
+            onAddDetailsToReport={handleAddDetailsToReport}
+          />
+        )}
+
+        {/* Tab 4: My Reports Submissions View */}
+        {activeTab === 'my-reports' && (
+          <MyReportsView
+            potholes={potholes}
+            onSelectPothole={setSelectedPothole}
+            onOpenReportModal={() => {
+              setSensorTriggeredTelemetry(undefined);
+              setIsReportModalOpen(true);
+            }}
+            onNavigateToMap={() => setActiveTab('potholes')}
+          />
+        )}
+
+        {/* Secondary Tab: Municipal Dispatcher Hub (accessible via hamburger menu) */}
         {activeTab === 'dispatcher' && (
           <AuthorityHubView
             potholes={potholes}
@@ -255,85 +328,29 @@ export function App() {
           />
         )}
 
-        {/* Tab 3: AI Dashcam Vision & Sensor Telemetry Lab */}
-        {activeTab === 'ai-lab' && (
-          <AIDashcamLab />
-        )}
-
-        {/* Tab 4: Unified Command Overview */}
-        {activeTab === 'overview' && (
-          <DualOverview
-            potholes={potholes}
-            roadSegments={roadSegments}
-            parkingLots={parkingLots}
-            simulationParams={simulationParams}
-            onNavigateTab={setActiveTab}
-            onSelectPothole={setSelectedPothole}
-            onSelectLot={setSelectedLot}
-            onOpenReportModal={() => {
-              setSensorTriggeredTelemetry(undefined);
-              setIsReportModalOpen(true);
-            }}
-          />
-        )}
-
-        {/* Tab 5: Corridor & Pavement Analytics */}
+        {/* Secondary Tab: Pavement Corridor Analytics (accessible via hamburger menu) */}
         {activeTab === 'analytics' && (
           <PotholeAnalyticsView
             potholes={potholes}
             roadSegments={roadSegments}
           />
         )}
-
-        {/* Tab 6: Campus & Commuter Parking Forecaster */}
-        {activeTab === 'parking' && (
-          <div>
-            {/* Sub-view Switcher Bar */}
-            <div className="bg-slate-900/80 border-b border-slate-800 px-4 sm:px-8 py-2 flex items-center justify-between">
-              <span className="text-xs text-slate-400 font-medium">
-                GGC Campus Decks & Regional Shopping Centers (Sugarloaf Mills, Mall of GA)
-              </span>
-              <div className="flex items-center space-x-1 bg-slate-800 p-1 rounded-xl text-xs">
-                <button
-                  onClick={() => setParkingSubView('cards')}
-                  className={`px-3 py-1 rounded-lg font-medium transition ${
-                    parkingSubView === 'cards'
-                      ? 'bg-blue-600 text-white shadow'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Facility Cards
-                </button>
-                <button
-                  onClick={() => setParkingSubView('curves')}
-                  className={`px-3 py-1 rounded-lg font-medium transition ${
-                    parkingSubView === 'curves'
-                      ? 'bg-blue-600 text-white shadow'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  Predictive Surge Curves
-                </button>
-              </div>
-            </div>
-
-            {parkingSubView === 'cards' ? (
-              <ParkingDashboard
-                parkingLots={parkingLots}
-                simulationParams={simulationParams}
-                onChangeSimulationParams={setSimulationParams}
-                onSelectLot={setSelectedLot}
-              />
-            ) : (
-              <ParkingPredictorView
-                parkingLots={parkingLots}
-                simulationParams={simulationParams}
-                onChangeSimulationParams={setSimulationParams}
-              />
-            )}
-          </div>
-        )}
       </main>
+
+      {/* Persistent Floating Action Button (FAB) on Desktop */}
+      <div className="hidden md:block fixed bottom-8 right-8 z-40">
+        <button
+          onClick={() => {
+            setSensorTriggeredTelemetry(undefined);
+            setIsReportModalOpen(true);
+          }}
+          className="flex items-center space-x-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black px-5 py-3.5 rounded-full shadow-2xl shadow-teal-500/40 active:scale-95 transition group border border-teal-300/40"
+          aria-label="Report Road Hazard"
+        >
+          <Plus className="w-5 h-5 stroke-[3] group-hover:rotate-90 transition-transform duration-200" />
+          <span className="text-sm font-black tracking-tight">Report Hazard</span>
+        </button>
+      </div>
 
       {/* Pothole Inspector Drawer */}
       <PotholeDetailDrawer
@@ -393,7 +410,7 @@ export function App() {
         }}
       />
 
-      {/* Bottom Navigation Bar for Mobile Phones (Thumb-friendly) */}
+      {/* Bottom Navigation Bar for Mobile Phones */}
       <MobileNavBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -401,18 +418,29 @@ export function App() {
           setSensorTriggeredTelemetry(undefined);
           setIsReportModalOpen(true);
         }}
-        criticalPotholeCount={criticalPotholeCount}
       />
 
-      {/* Desktop Footer */}
+      {/* Streamlined Desktop Footer */}
       <footer className="hidden md:block bg-slate-900 border-t border-slate-800 py-3.5 px-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
-          <span className="text-slate-400">
-            © 2026 Georgia Pothole Patrol &bull; Georgia Gwinnett College (GGC) & Gwinnett County DOT Pilot
+          <span className="text-slate-400 font-medium">
+            &copy; 2026 Gwinnett P3 &bull; Georgia Gwinnett College (GGC) & Gwinnett County Commuter Pilot
           </span>
-          <span className="text-slate-500">
-            Routing across Lawrenceville, Duluth, Norcross, Snellville, Suwanee, Peachtree Corners & GDOT District 1
-          </span>
+          <div className="flex items-center space-x-4 text-slate-500">
+            <button
+              onClick={() => setActiveTab('dispatcher')}
+              className="hover:text-slate-300 transition"
+            >
+              Agency Dispatch
+            </button>
+            <span>&bull;</span>
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className="hover:text-slate-300 transition"
+            >
+              Pavement Analytics
+            </button>
+          </div>
         </div>
       </footer>
 

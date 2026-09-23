@@ -1,78 +1,72 @@
 import React from 'react';
-import { MapPin, PlusCircle, ShieldAlert, Activity, Sparkles, Car } from 'lucide-react';
-
-export type ActiveTab = 'overview' | 'potholes' | 'dispatcher' | 'ai-lab' | 'analytics' | 'parking';
+import { LayoutDashboard, MapPin, Plus, Activity, CheckCircle2 } from 'lucide-react';
+import { ActiveTab } from '../Header';
 
 interface MobileNavBarProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
   onOpenReportModal: () => void;
-  criticalPotholeCount: number;
 }
 
 export const MobileNavBar: React.FC<MobileNavBarProps> = ({
   activeTab,
   setActiveTab,
-  onOpenReportModal,
-  criticalPotholeCount
+  onOpenReportModal
 }) => {
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-slate-950/95 backdrop-blur-md border-t border-slate-800 z-40 px-2 py-1.5 flex items-center justify-around safe-bottom">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-slate-950/95 backdrop-blur-lg border-t border-slate-800 z-40 px-3 py-2 flex items-center justify-around safe-bottom shadow-2xl">
       
       {/* Map Tab */}
       <button
         onClick={() => setActiveTab('potholes')}
-        className={`flex flex-col items-center justify-center p-1.5 rounded-lg transition ${
-          activeTab === 'potholes' ? 'text-teal-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
+          activeTab === 'potholes' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
         }`}
       >
         <MapPin className="w-5 h-5" />
         <span className="text-[10px] mt-0.5">Map</span>
       </button>
 
-      {/* AI Vision Lab Tab */}
+      {/* Dashboard Tab */}
       <button
-        onClick={() => setActiveTab('ai-lab')}
-        className={`flex flex-col items-center justify-center p-1.5 rounded-lg transition ${
-          activeTab === 'ai-lab' ? 'text-purple-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+        onClick={() => setActiveTab('dashboard')}
+        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
+          activeTab === 'dashboard' ? 'text-teal-400 font-bold' : 'text-slate-400 hover:text-slate-200'
         }`}
       >
-        <Sparkles className="w-5 h-5" />
-        <span className="text-[10px] mt-0.5">AI Vision</span>
+        <LayoutDashboard className="w-5 h-5" />
+        <span className="text-[10px] mt-0.5">Dashboard</span>
       </button>
 
-      {/* Center Report Action Button */}
+      {/* Center Report Action Button (Elevated FAB) */}
       <button
         onClick={onOpenReportModal}
-        className="flex flex-col items-center justify-center -mt-5 bg-gradient-to-tr from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white rounded-full p-3 shadow-lg shadow-teal-500/30 active:scale-95 transition"
-        aria-label="Report Pothole"
+        className="flex flex-col items-center justify-center -mt-6 bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black rounded-full p-3.5 shadow-xl shadow-teal-500/40 active:scale-95 transition border-2 border-slate-950"
+        aria-label="Report Hazard"
       >
-        <PlusCircle className="w-6 h-6" />
+        <Plus className="w-6 h-6 stroke-[3]" />
       </button>
 
-      {/* Authority Hub Tab */}
+      {/* Drive Sensor Tab */}
       <button
-        onClick={() => setActiveTab('dispatcher')}
-        className={`flex flex-col items-center justify-center p-1.5 rounded-lg relative transition ${
-          activeTab === 'dispatcher' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+        onClick={() => setActiveTab('sensor')}
+        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
+          activeTab === 'sensor' ? 'text-purple-400 font-bold' : 'text-slate-400 hover:text-slate-200'
         }`}
       >
-        <ShieldAlert className="w-5 h-5" />
-        {criticalPotholeCount > 0 && (
-          <span className="absolute top-1 right-2 w-2 h-2 bg-rose-500 rounded-full"></span>
-        )}
-        <span className="text-[10px] mt-0.5">Authority</span>
+        <Activity className="w-5 h-5" />
+        <span className="text-[10px] mt-0.5">Sensor</span>
       </button>
 
-      {/* Parking / Commute Tab */}
+      {/* My Reports Tab */}
       <button
-        onClick={() => setActiveTab('parking')}
-        className={`flex flex-col items-center justify-center p-1.5 rounded-lg transition ${
-          activeTab === 'parking' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+        onClick={() => setActiveTab('my-reports')}
+        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
+          activeTab === 'my-reports' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
         }`}
       >
-        <Car className="w-5 h-5" />
-        <span className="text-[10px] mt-0.5">Commute</span>
+        <CheckCircle2 className="w-5 h-5" />
+        <span className="text-[10px] mt-0.5">My Reports</span>
       </button>
 
     </nav>
