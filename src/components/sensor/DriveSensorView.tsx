@@ -153,9 +153,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
       peakResetTimer.current = window.setTimeout(() => setPeakG(1.0), 2500);
     }
 
-    // Significant pothole or bump threshold
-if (magnitude >= 3.5) {
-      // Significant pothole or bump threshold
+       // Significant pothole or bump threshold
     if (magnitude >= 3.5) {
       if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(
