@@ -49,10 +49,12 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     const roundedG = parseFloat(gVal.toFixed(2));
     setRecentSpike(roundedG);
 
-    // Fallback coordinates near GGC campus corridor
-    const lat = latOverride ?? (33.9818 + (Math.random() - 0.5) * 0.012);
-    const lng = lngOverride ?? (-84.0042 + (Math.random() - 0.5) * 0.012);
-    const road = roadOverride || 'Collins Hill Rd @ GGC Entrance';
+    // Real impacts require real GPS coordinates. The demo supplies its own location.
+    if (latOverride == null || lngOverride == null) return;
+
+    const lat = latOverride;
+    const lng = lngOverride;
+    const road = roadOverride || 'GPS-detected road (name unverified)';
     const city = 'Lawrenceville';
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
@@ -152,15 +154,21 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     }
 
     // Significant pothole or bump threshold
+if (magnitude >= 3.5) {
+      // Significant pothole or bump threshold
     if (magnitude >= 3.5) {
       if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(
-          pos => silentlyRecordImpact(magnitude, pos.coords.latitude, pos.coords.longitude),
-          () => silentlyRecordImpact(magnitude),
+          pos => silentlyRecordImpact(
+            magnitude,
+            pos.coords.latitude,
+            pos.coords.longitude
+          ),
+          () => {
+            // Do not record a hit when its location is unknown.
+          },
           { enableHighAccuracy: true, timeout: 3000 }
         );
-      } else {
-        silentlyRecordImpact(magnitude);
       }
     }
   };
