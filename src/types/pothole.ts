@@ -18,6 +18,13 @@ export type Jurisdiction =
   | 'City of Dacula'
   | string;
 
+export interface SensorEvidence {
+  hitCount: number;
+  maxGForce: number;
+  firstDetectedAt: string;
+  lastDetectedAt: string;
+}
+
 export interface PotholeReport {
   id: string;
   trackingCode?: string; // e.g. GAP-2026-1002
@@ -48,6 +55,7 @@ export interface PotholeReport {
   damageRisk: 'Tire / Rim Damage' | 'Suspension / Alignment' | 'Loss of Control Hazard' | 'Cosmetic';
   detectedBy: 'User Mobile Report' | 'Dashcam AI Vision' | 'Vehicle Accelerometer Telemetry' | 'City Inspector' | 'Student Campus Report';
   sensorDetected?: boolean;
+  sensorEvidence?: SensorEvidence;
   bumpIntensity?: number; // Acceleration in Gs (e.g. 7.4G)
   imageUrl?: string;
   workOrderNumber?: string;

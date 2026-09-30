@@ -90,6 +90,36 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
           <p className="leading-relaxed">{pothole.description}</p>
         </div>
 
+        {/* Explain the sensor readings without presenting them as visual proof of a pothole. */}
+          {pothole.sensorEvidence && (
+          <section className="bg-teal-950/30 border border-teal-800/50 rounded-xl p-3.5 text-xs text-slate-200">
+            <h3 className="font-semibold text-teal-300 mb-2">
+              Why this sensor report was created
+            </h3>
+            <dl className="grid grid-cols-2 gap-2">
+              <div>
+                <dt className="text-slate-400">Impacts nearby</dt>
+                <dd>{pothole.sensorEvidence.hitCount}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-400">Highest reading</dt>
+                <dd>{pothole.sensorEvidence.maxGForce.toFixed(2)} G</dd>
+              </div>
+              <div>
+                <dt className="text-slate-400">First detection</dt>
+                <dd>{pothole.sensorEvidence.firstDetectedAt}</dd>
+              </div>
+              <div>
+                <dt className="text-slate-400">Latest detection</dt>
+                <dd>{pothole.sensorEvidence.lastDetectedAt}</dd>
+              </div>
+            </dl>
+            <p className="text-slate-400 mt-2">
+              These readings suggest a possible road hazard; they are not a visual confirmation.
+            </p>
+          </section>
+        )}
+
         {/* Physical Metrics Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           <div className="bg-slate-800/40 border border-slate-700/50 p-2.5 rounded-xl">
