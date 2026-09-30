@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { canRecordImpact } from '../../services/impactCooldown';
 import { 
   Activity, 
   Zap, 
@@ -39,6 +40,10 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
   const peakResetTimer = useRef<number | null>(null);
   const statusTimer = useRef<number | null>(null);
 
+  // Reserve one GPS lookup at a time; accept at most one real hit per cooldown.
+  const gpsRequestPending = useRef(false);
+  const lastAcceptedImpactAt = useRef<number | null>(null);
+
   // Auto-save tracked spots
   useEffect(() => {
     saveTrackedSpots(trackedSpots);
@@ -55,7 +60,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     const lat = latOverride;
     const lng = lngOverride;
     const road = roadOverride || 'GPS-detected road (name unverified)';
-    const city = 'Lawrenceville';
+    const city = roadOverride ? 'Lawrenceville' : 'Unknown (GPS coordinates only)';
     const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     let spotToPromote: TrackedHazardSpot | null = null;
@@ -153,21 +158,37 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
       peakResetTimer.current = window.setTimeout(() => setPeakG(1.0), 2500);
     }
 
-       // Significant pothole or bump threshold
-    if (magnitude >= 3.5) {
-      if ('geolocation' in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          pos => silentlyRecordImpact(
+    // A single bump produces many motion events. Request one location at a time
+    // and count only one GPS-located impact within each cooldown period.
+    if (
+      magnitude >= 3.5 &&
+      !gpsRequestPending.current &&
+      canRecordImpact(lastAcceptedImpactAt.current, Date.now()) &&
+      'geolocation' in navigator
+    ) {
+      gpsRequestPending.current = true;
+
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          gpsRequestPending.current = false;
+
+          // Recheck when GPS returns: another callback may have accepted a hit.
+          const now = Date.now();
+          if (!canRecordImpact(lastAcceptedImpactAt.current, now)) return;
+
+          lastAcceptedImpactAt.current = now;
+          silentlyRecordImpact(
             magnitude,
             pos.coords.latitude,
             pos.coords.longitude
-          ),
-          () => {
-            // Do not record a hit when its location is unknown.
-          },
-          { enableHighAccuracy: true, timeout: 3000 }
-        );
-      }
+          );
+        },
+        () => {
+          // Missing GPS must never create a report or consume the cooldown.
+          gpsRequestPending.current = false;
+        },
+        { enableHighAccuracy: true, timeout: 3000 }
+      );
     }
   };
 
