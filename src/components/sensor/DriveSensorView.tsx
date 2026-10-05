@@ -11,16 +11,13 @@ import {
   Target
 } from 'lucide-react';
 import { TrackedHazardSpot } from '../../types/sensorQueue';
-import { milesBetween } from '../../services/distanceCalculator';
 import { loadTrackedSpots, saveTrackedSpots } from '../../services/storageService';
+import { processImpact, DEFAULT_RADIUS_FEET } from '../../services/potholeAutoReportService';
 
 interface DriveSensorViewProps {
   onPromoteSpotToReport?: (spot: TrackedHazardSpot) => void;
   onNavigateToMyReports?: () => void;
 }
-
-// Clustering radius: ~115 feet (0.022 miles)
-const CLUSTER_DISTANCE_MILES = 0.022;
 
 export const DriveSensorView: React.FC<DriveSensorViewProps> = ({ 
   onPromoteSpotToReport,
@@ -57,78 +54,34 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     // Real impacts require real GPS coordinates. The demo supplies its own location.
     if (latOverride == null || lngOverride == null) return;
 
-    const lat = latOverride;
-    const lng = lngOverride;
-    const road = roadOverride || 'GPS-detected road (name unverified)';
-    const city = roadOverride ? 'Lawrenceville' : 'Unknown (GPS coordinates only)';
-    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const result = processImpact(
+      {
+        latitude: latOverride,
+        longitude: lngOverride,
+        gForce: gVal,
+        roadName: roadOverride,
+      },
+      trackedSpots,
+      { thresholdG: 3.0, radiusFeet: DEFAULT_RADIUS_FEET }
+    );
 
-    let spotToPromote: TrackedHazardSpot | null = null;
-    let statusMsg: string | null = null;
+    if (!result.accepted) return;
 
-    setTrackedSpots(prevSpots => {
-      // Find matching spot within cluster radius
-      const existingIndex = prevSpots.findIndex(s => 
-        milesBetween({ lat: s.latitude, lng: s.longitude }, { lat, lng }) <= CLUSTER_DISTANCE_MILES
-      );
+    setTrackedSpots(result.updatedSpots);
 
-      let updatedList = [...prevSpots];
-
-      if (existingIndex >= 0) {
-        const spot = updatedList[existingIndex];
-        const newHitCount = spot.hitCount + 1;
-        const newMaxG = Math.max(spot.maxGForce, roundedG);
-
-        const updatedSpot: TrackedHazardSpot = {
-          ...spot,
-          hitCount: newHitCount,
-          maxGForce: newMaxG,
-          severity: newMaxG >= 6.0 ? 'critical' : 'moderate',
-          lastHitAt: timeStr,
-          hits: [
-            ...spot.hits,
-            { id: `HIT-${crypto.randomUUID()}`, timestamp: timeStr, gForce: roundedG }
-          ]
-        };
-
-        // Check 3x threshold
-        if (newHitCount >= 3 && !updatedSpot.promotedToReportId) {
-          updatedSpot.promotedToReportId = `GW-POT-${crypto.randomUUID()}`;
-          spotToPromote = updatedSpot;
-          statusMsg = `🎯 Spot hit 3x: Auto-promoted to My Reports! (${updatedSpot.roadName})`;
-        } else {
-          statusMsg = `📍 Road spot registered ${newHitCount}/3 hits (${updatedSpot.roadName})`;
-        }
-
-        updatedList[existingIndex] = updatedSpot;
-      } else {
-        // First time hitting this spot (1/3)
-        const newSpot: TrackedHazardSpot = {
-          id: `SPOT-${crypto.randomUUID()}`,
-          latitude: lat,
-          longitude: lng,
-          roadName: road,
-          city,
-          hitCount: 1,
-          maxGForce: roundedG,
-          severity: roundedG >= 6.0 ? 'critical' : 'moderate',
-          createdAt: timeStr,
-          lastHitAt: timeStr,
-          hits: [
-            { id: `HIT-${crypto.randomUUID()}`, timestamp: timeStr, gForce: roundedG }
-          ]
-        };
-        updatedList = [newSpot, ...updatedList];
-        statusMsg = `📍 New road spot detected (1/3 hits). Needs 3 strikes to generate report.`;
-      }
-
-      return updatedList;
-    });
-
-    // Execute side-effects safely outside the React state updater
-    if (spotToPromote && onPromoteSpotToReport) {
-      onPromoteSpotToReport(spotToPromote);
+    if (result.reportCreated && onPromoteSpotToReport && result.spot) {
+      onPromoteSpotToReport(result.spot);
     }
+
+    let statusMsg: string | null = null;
+    if (result.spot) {
+      if (result.spot.hitCount >= 3) {
+        statusMsg = `🎯 Spot hit 3x: Auto-promoted to My Reports! (${result.spot.roadName})`;
+      } else {
+        statusMsg = `📍 Road spot registered ${result.spot.hitCount}/3 hits (${result.spot.roadName})`;
+      }
+    }
+
     if (statusMsg) {
       setQuietStatusMessage(statusMsg);
       if (statusTimer.current) clearTimeout(statusTimer.current);
