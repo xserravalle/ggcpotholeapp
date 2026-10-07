@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="colorblind">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GGC Pothole Tracker — Accessible Prototype</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Top Accessibility Ribbon -->
+    <aside class="a11y-bar" aria-label="Accessibility and display preferences">
+      <div class="a11y-container">
+        <!-- Font Size Manipulator -->
+        <div class="a11y-control-group" role="group" aria-label="Text size options">
+          <span class="a11y-heading">Text Size:</span>
+          <button type="button" id="font-small" class="a11y-btn" aria-label="Small font size" title="Set font size to Small">A−</button>
+          <button type="button" id="font-normal" class="a11y-btn active" aria-label="Default font size" title="Set font size to Default">A</button>
+          <button type="button" id="font-large" class="a11y-btn" aria-label="Large font size" title="Set font size to Large">A+</button>
+          <button type="button" id="font-huge" class="a11y-btn" aria-label="Extra large font size" title="Set font size to Extra Large">A++</button>
+        </div>
+
+        <!-- Colorblind & High-Contrast Mode Controls -->
+        <div class="a11y-control-group" role="group" aria-label="Color scheme mode">
+          <span class="a11y-heading">Color Vision:</span>
+          <button type="button" id="theme-btn" class="a11y-btn" aria-label="Switch visual color scheme" title="Switch between Colorblind-Safe, High Contrast, and Standard modes">
+            <span aria-hidden="true">🎨</span> Mode: <strong id="theme-label">Colorblind-Safe</strong>
+          </button>
+        </div>
+
+        <!-- Master Text-to-Speech Controls -->
+        <div class="a11y-control-group" role="group" aria-label="Speech assistant controls">
+          <button type="button" id="tts-summary-btn" class="a11y-btn speech-btn" aria-label="Listen to pothole summary aloud" title="Read summary of potholes out loud">
+            <span aria-hidden="true">🔊</span> Read Overview
+          </button>
+          <button type="button" id="tts-stop-btn" class="a11y-btn speech-stop-btn" aria-label="Stop audio narration" title="Stop speech narration" style="display: none;">
+            <span aria-hidden="true">⏹</span> Stop Audio
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- App Top Bar -->
+    <header class="topbar">
+      <div class="topbar-content">
+        <h1>GGC Pothole Prototype</h1>
+        <p class="subtitle">
+          Known potholes within 1 mile of Georgia Gwinnett College, Lawrenceville, GA.
+        </p>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" id="generate-report" class="action-btn">
+          📋 Generate Report
+        </button>
+        <button type="button" id="send-report" class="action-btn primary">
+          ✉️ Send to GDOT
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="layout">
+      <!-- Map Section -->
+      <section class="map-panel" aria-label="Interactive pothole map">
+        <div id="map" role="application" aria-label="Interactive map showing potholes around GGC"></div>
+        <p class="map-hint" id="map-hint">
+          📍 <strong>How to use:</strong> Click anywhere on the map inside the 1-mile circle to report a new pothole. Drag markers to adjust location.
+        </p>
+      </section>
+
+      <!-- Sidebar Listing Section -->
+      <aside class="sidebar" aria-label="List of recorded potholes">
+        <div class="sidebar-header">
+          <h2>Potholes in Range</h2>
+          <p id="count-label" class="count-badge" aria-live="polite">Loading potholes...</p>
+        </div>
+        <ul id="pothole-list" aria-label="Potholes in 1 mile radius"></ul>
+      </aside>
+    </main>
+
+    <!-- Report Dialog -->
+    <dialog id="report-dialog" aria-labelledby="report-dialog-title">
+      <form method="dialog" class="dialog-body">
+        <div class="dialog-header">
+          <h2 id="report-dialog-title">📋 GDOT Pothole Report</h2>
+          <button type="button" id="tts-report-btn" class="dialog-speech-btn" aria-label="Read full report aloud">
+            <span aria-hidden="true">🔊</span> Read Report Aloud
+          </button>
+        </div>
+        <pre id="report-text" tabindex="0" aria-label="Report text content"></pre>
+        <div class="dialog-actions">
+          <button type="button" id="download-report" class="action-btn">
+            💾 Download .txt
+          </button>
+          <button type="submit" value="close" class="action-btn primary">
+            Close
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Add Pothole Dialog -->
+    <dialog id="add-dialog" aria-labelledby="add-dialog-title">
+      <form id="add-form" class="dialog-body">
+        <h2 id="add-dialog-title">📍 Report a Pothole</h2>
+        <p id="add-coords" class="coords-display"></p>
+        
+        <label for="location-input" class="form-label">
+          Road or Landmark:
+          <input
+            type="text"
+            id="location-input"
+            name="locationName"
+            placeholder="e.g. Collins Hill Rd, Campus Loop…"
+            required
+          />
+        </label>
+
+        <label for="severity-select" class="form-label">
+          Severity Level:
+          <select id="severity-select" name="severity" required>
+            <option value="high">▲ High (Severe Hazard)</option>
+            <option value="medium" selected>◆ Medium (Noticeable Dip)</option>
+            <option value="low">● Low (Minor Wear)</option>
+          </select>
+        </label>
+
+        <label for="notes-input" class="form-label">
+          Notes & Description:
+          <textarea
+            id="notes-input"
+            name="notes"
+            rows="3"
+            placeholder="E.g., right lane near Collins Hill Rd, deep rim hazard…"
+          ></textarea>
+        </label>
+
+        <div class="dialog-actions">
+          <button type="button" id="cancel-add" class="action-btn" value="cancel">
+            Cancel
+          </button>
+          <button type="submit" class="action-btn primary">
+            Save Pothole
+          </button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Leaflet & App JS -->
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="app.js"></script>
+  </body>
+</html>
