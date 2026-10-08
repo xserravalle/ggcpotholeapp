@@ -6,15 +6,27 @@ import {
   Play, 
   Pause, 
   MapPin, 
-  Sparkles,
-  RotateCcw,
-  Target
+  Sparkles, 
+  RotateCcw, 
+  Target,
+  Volume2,
+  VolumeX,
+  AlertTriangle,
+  Radio
 } from 'lucide-react';
+import { PotholeReport } from '../../types/pothole';
 import { TrackedHazardSpot } from '../../types/sensorQueue';
-import { milesBetween } from '../../services/distanceCalculator';
-import { loadTrackedSpots, saveTrackedSpots } from '../../services/storageService';
+import { INITIAL_POTHOLES } from '../../data/potholesData';
+import { 
+  milesBetween, 
+  isHazardAhead, 
+  HAZARD_WARNING_DISTANCE_MILES 
+} from '../../services/distanceCalculator';
+import { loadTrackedSpots, saveTrackedSpots, loadStoredPotholes } from '../../services/storageService';
+import { playHazardWarning, cancelHazardWarning } from '../../services/audioAlertService';
 
 interface DriveSensorViewProps {
+  potholes?: PotholeReport[];
   onPromoteSpotToReport?: (spot: TrackedHazardSpot) => void;
   onNavigateToMyReports?: () => void;
 }
@@ -22,7 +34,16 @@ interface DriveSensorViewProps {
 // Clustering radius: ~115 feet (0.022 miles)
 const CLUSTER_DISTANCE_MILES = 0.022;
 
+export interface ActiveHazardAlert {
+  id: string;
+  title: string;
+  roadName: string;
+  distanceFeet: number;
+  phase: '200ft' | '100ft' | 'pass';
+}
+
 export const DriveSensorView: React.FC<DriveSensorViewProps> = ({ 
+  potholes,
   onPromoteSpotToReport,
   onNavigateToMyReports
 }) => {
@@ -32,6 +53,18 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
   const [recentSpike, setRecentSpike] = useState<number | null>(null);
   const [simulatedSpike, setSimulatedSpike] = useState(1.0);
 
+  // Audio Warning User Controls (Mute toggle, persists in localStorage)
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('ggc-pothole-sensor-audio-muted') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  // Approaching Hazard State (Visual Countdown)
+  const [activeHazardAlert, setActiveHazardAlert] = useState<ActiveHazardAlert | null>(null);
+
   // Tracked spots with 3x hit threshold
   const [trackedSpots, setTrackedSpots] = useState<TrackedHazardSpot[]>(() => loadTrackedSpots());
   const [quietStatusMessage, setQuietStatusMessage] = useState<string | null>(null);
@@ -39,6 +72,10 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const peakResetTimer = useRef<number | null>(null);
   const statusTimer = useRef<number | null>(null);
+  const simulationTimerRef = useRef<number | null>(null);
+
+  // Track hazard IDs already announced to prevent sound spam (alert once per pothole)
+  const alertedHazardIds = useRef<Set<string>>(new Set());
 
   // Reserve one GPS lookup at a time; accept at most one real hit per cooldown.
   const gpsRequestPending = useRef(false);
@@ -48,6 +85,88 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
   useEffect(() => {
     saveTrackedSpots(trackedSpots);
   }, [trackedSpots]);
+
+  // Toggle Mute handler (preserves sensor state)
+  const handleToggleMute = () => {
+    setIsMuted(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('ggc-pothole-sensor-audio-muted', String(next));
+      } catch (err) {
+        console.error(err);
+      }
+      if (next) {
+        cancelHazardWarning();
+      }
+      return next;
+    });
+  };
+
+  /**
+   * Continuous hazard detection:
+   * Checks current GPS coordinates against all reported potholes.
+   * Plays audio only once per hazard and displays a visual countdown.
+   */
+  const checkPotholeProximity = (
+    currentLat: number,
+    currentLng: number,
+    currentHeading?: number | null
+  ) => {
+    // Offline support: use prop list or fall back to local storage / initial data
+    const list = (potholes && potholes.length > 0) ? potholes : loadStoredPotholes(INITIAL_POTHOLES);
+    let nearest: { pothole: PotholeReport; distanceFeet: number } | null = null;
+
+    for (const p of list) {
+      const distMiles = milesBetween(
+        { lat: currentLat, lng: currentLng },
+        { lat: p.latitude, lng: p.longitude }
+      );
+
+      // Warning threshold: < 0.1 miles (528 feet)
+      if (distMiles <= HAZARD_WARNING_DISTANCE_MILES) {
+        const ahead = isHazardAhead(
+          currentHeading,
+          { lat: currentLat, lng: currentLng },
+          { lat: p.latitude, lng: p.longitude }
+        );
+
+        if (ahead) {
+          const distFeet = distMiles * 5280;
+          if (!nearest || distFeet < nearest.distanceFeet) {
+            nearest = { pothole: p, distanceFeet: distFeet };
+          }
+        }
+      }
+    }
+
+    if (nearest) {
+      const { pothole, distanceFeet } = nearest;
+      let phase: ActiveHazardAlert['phase'] = '200ft';
+      if (distanceFeet <= 50) {
+        phase = 'pass';
+      } else if (distanceFeet <= 150) {
+        phase = '100ft';
+      }
+
+      setActiveHazardAlert({
+        id: pothole.id,
+        title: pothole.title,
+        roadName: pothole.roadName || pothole.address,
+        distanceFeet,
+        phase
+      });
+
+      // Play audio warning ONLY ONCE per hazard
+      if (!alertedHazardIds.current.has(pothole.id)) {
+        alertedHazardIds.current.add(pothole.id);
+        if (!isMuted) {
+          playHazardWarning(distanceFeet, { muted: isMuted });
+        }
+      }
+    } else {
+      setActiveHazardAlert(null);
+    }
+  };
 
   // Record an impact silently: check clustering for 3x hits
   const silentlyRecordImpact = (gVal: number, latOverride?: number, lngOverride?: number, roadOverride?: string) => {
@@ -158,8 +277,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
       peakResetTimer.current = window.setTimeout(() => setPeakG(1.0), 2500);
     }
 
-    // A single bump produces many motion events. Request one location at a time
-    // and count only one GPS-located impact within each cooldown period.
+    // Significant pothole or bump threshold
     if (
       magnitude >= 3.5 &&
       !gpsRequestPending.current &&
@@ -172,7 +290,6 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
         pos => {
           gpsRequestPending.current = false;
 
-          // Recheck when GPS returns: another callback may have accepted a hit.
           const now = Date.now();
           if (!canRecordImpact(lastAcceptedImpactAt.current, now)) return;
 
@@ -184,7 +301,6 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           );
         },
         () => {
-          // Missing GPS must never create a report or consume the cooldown.
           gpsRequestPending.current = false;
         },
         { enableHighAccuracy: true, timeout: 3000 }
@@ -192,11 +308,45 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     }
   };
 
-  // Toggle monitoring silently: ZERO popups on start or stop
+  // Continuous GPS watch position when monitoring is active
+  useEffect(() => {
+    if (!isMonitoring) return;
+
+    let watchId: number | null = null;
+    if ('geolocation' in navigator) {
+      try {
+        watchId = navigator.geolocation.watchPosition(
+          pos => {
+            checkPotholeProximity(
+              pos.coords.latitude,
+              pos.coords.longitude,
+              pos.coords.heading
+            );
+          },
+          () => {
+            // Geolocation fallback
+          },
+          { enableHighAccuracy: true, maximumAge: 2000, timeout: 5000 }
+        );
+      } catch (err) {
+        console.error('watchPosition failed', err);
+      }
+    }
+
+    return () => {
+      if (watchId !== null && 'geolocation' in navigator) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [isMonitoring, potholes, isMuted]);
+
+  // Toggle monitoring
   const toggleMonitoring = async () => {
     if (isMonitoring) {
       window.removeEventListener('devicemotion', handleDeviceMotion);
+      cancelHazardWarning();
       setIsMonitoring(false);
+      setActiveHazardAlert(null);
       return;
     }
 
@@ -238,9 +388,68 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     silentlyRecordImpact(spike, fixedDemoLocation.lat, fixedDemoLocation.lng, fixedDemoLocation.road);
   };
 
+  /**
+   * Desktop Audio Warning & Visual Countdown Simulator
+   * Simulates approach towards a pothole: 200 ft -> 100 ft -> Pass
+   */
+  const handleSimulateHazardApproach = () => {
+    if (simulationTimerRef.current) {
+      window.clearTimeout(simulationTimerRef.current);
+    }
+
+    const targetList = (potholes && potholes.length > 0) ? potholes : loadStoredPotholes(INITIAL_POTHOLES);
+    const demoHazard = targetList[0] || {
+      id: 'DEMO-POT-1',
+      title: 'Deep Asphalt Crater',
+      roadName: 'Collins Hill Rd @ GGC Entrance'
+    };
+
+    // Step 1: 200 ft approaching (Trigger audio)
+    setActiveHazardAlert({
+      id: demoHazard.id,
+      title: demoHazard.title,
+      roadName: demoHazard.roadName || 'Collins Hill Rd',
+      distanceFeet: 210,
+      phase: '200ft'
+    });
+
+    // Play sound once
+    if (!isMuted) {
+      playHazardWarning(210, { muted: false });
+    }
+
+    // Step 2: 100 ft after 1.8s
+    simulationTimerRef.current = window.setTimeout(() => {
+      setActiveHazardAlert({
+        id: demoHazard.id,
+        title: demoHazard.title,
+        roadName: demoHazard.roadName || 'Collins Hill Rd',
+        distanceFeet: 110,
+        phase: '100ft'
+      });
+
+      // Step 3: Pass after another 1.8s
+      simulationTimerRef.current = window.setTimeout(() => {
+        setActiveHazardAlert({
+          id: demoHazard.id,
+          title: demoHazard.title,
+          roadName: demoHazard.roadName || 'Collins Hill Rd',
+          distanceFeet: 20,
+          phase: 'pass'
+        });
+
+        // Step 4: Clear after 2.5s
+        simulationTimerRef.current = window.setTimeout(() => {
+          setActiveHazardAlert(null);
+        }, 2500);
+      }, 1800);
+    }, 1800);
+  };
+
   const handleClearTrackedSpots = () => {
     setTrackedSpots([]);
     saveTrackedSpots([]);
+    alertedHazardIds.current.clear();
   };
 
   // Live Canvas Waveform Render
@@ -323,8 +532,10 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
   useEffect(() => {
     return () => {
       window.removeEventListener('devicemotion', handleDeviceMotion);
+      cancelHazardWarning();
       if (peakResetTimer.current) clearTimeout(peakResetTimer.current);
       if (statusTimer.current) clearTimeout(statusTimer.current);
+      if (simulationTimerRef.current) clearTimeout(simulationTimerRef.current);
     };
   }, []);
 
@@ -338,12 +549,95 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
       <div className="text-center space-y-1">
         <h2 className="text-2xl font-black tracking-tight text-white flex items-center justify-center gap-2">
           <Activity className="w-6 h-6 text-emerald-400" />
-          <span>Silent In-Vehicle Drive Sensor</span>
+          <span>In-Vehicle Drive Sensor & Audio Hazard Alerts</span>
         </h2>
         <p className="text-xs text-slate-400 max-w-lg mx-auto">
-          Runs 100% silently with zero popups, noises, or vibrations. Spots hit 3 times are automatically verified and added to your My Reports page.
+          Continuously senses road impacts at 100Hz and announces approaching potholes ahead within 0.1 miles with visual countdown warnings.
         </p>
       </div>
+
+      {/* Visual Hazard Alert & Distance Countdown Banner */}
+      {activeHazardAlert && (
+        <div 
+          role="region"
+          aria-label="Hazard ahead warning"
+          className="bg-gradient-to-r from-amber-950/90 via-slate-900 to-rose-950/90 border border-amber-500/80 rounded-3xl p-5 shadow-2xl space-y-3 animate-in fade-in slide-in-from-top-2 duration-300"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <AlertTriangle className="w-6 h-6 text-amber-400 animate-pulse shrink-0" />
+              <div>
+                <span className="text-[11px] font-black uppercase tracking-wider text-amber-300 block">
+                  Hazard Ahead Reported
+                </span>
+                <span className="text-sm font-bold text-white">
+                  {activeHazardAlert.roadName} ({activeHazardAlert.title})
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {isMuted ? (
+                <span className="text-[10px] bg-slate-800 text-slate-400 px-2.5 py-1 rounded-full border border-slate-700 flex items-center gap-1 font-semibold">
+                  <VolumeX className="w-3 h-3 text-slate-400" /> Audio Muted
+                </span>
+              ) : (
+                <span className="text-[10px] bg-emerald-950 text-emerald-300 px-2.5 py-1 rounded-full border border-emerald-800 flex items-center gap-1 font-semibold">
+                  <Radio className="w-3 h-3 text-emerald-400 animate-pulse" /> Audio Active
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Visual Progression: 200 ft → 100 ft → Pass */}
+          <div className="bg-slate-950/80 rounded-2xl p-4 border border-slate-800 space-y-2">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <span className="text-slate-400">Proximity Countdown:</span>
+              <span className="text-xl font-black text-rose-400 font-mono">
+                {Math.round(activeHazardAlert.distanceFeet)} ft
+              </span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-center text-xs font-bold pt-1">
+              <div 
+                data-testid="countdown-200ft"
+                className={`p-2.5 rounded-xl border transition ${
+                  activeHazardAlert.phase === '200ft'
+                    ? 'bg-amber-600/30 text-amber-300 border-amber-500 ring-2 ring-amber-500/40 shadow'
+                    : 'bg-slate-900 text-slate-500 border-slate-800'
+                }`}
+              >
+                <div className="text-sm">200 ft</div>
+                <div className="text-[10px] font-normal">Approaching</div>
+              </div>
+              
+              <div 
+                data-testid="countdown-100ft"
+                className={`p-2.5 rounded-xl border transition ${
+                  activeHazardAlert.phase === '100ft'
+                    ? 'bg-rose-600/30 text-rose-300 border-rose-500 ring-2 ring-rose-500/40 shadow'
+                    : 'bg-slate-900 text-slate-500 border-slate-800'
+                }`}
+              >
+                <div className="text-sm">100 ft</div>
+                <div className="text-[10px] font-normal">Caution</div>
+              </div>
+
+              <div 
+                data-testid="countdown-pass"
+                className={`p-2.5 rounded-xl border transition ${
+                  activeHazardAlert.phase === 'pass'
+                    ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500 ring-2 ring-emerald-500/40 shadow'
+                    : 'bg-slate-900 text-slate-500 border-slate-800'
+                }`}
+              >
+                <div className="text-sm">Pass</div>
+                <div className="text-[10px] font-normal">Passing Hazard</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Passive On-Screen Status Notification */}
       {quietStatusMessage && (
@@ -374,15 +668,40 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
             }`} />
             <div>
               <span className="text-xs font-bold text-white uppercase tracking-wider block">
-                {isMonitoring ? 'Sensor Active (Monitoring 100Hz)' : 'Sensor Idle / Paused'}
+                {isMonitoring ? 'Sensor Active (Monitoring 100Hz & Proximity)' : 'Sensor Idle / Paused'}
               </span>
               <span className="text-[11px] text-slate-400">
-                Zero audio • Zero vibrations • Zero driver distraction
+                Automatic GPS proximity check • 3x shock confirmation
               </span>
             </div>
           </div>
 
           <div className="flex items-center space-x-2">
+            {/* Audio Mute Toggle Switch */}
+            <button
+              onClick={handleToggleMute}
+              className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition border ${
+                isMuted
+                  ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                  : 'bg-teal-950 text-teal-300 border-teal-700 hover:bg-teal-900'
+              }`}
+              title={isMuted ? 'Hazard audio is muted (visual warnings only)' : 'Hazard audio is enabled'}
+              aria-label="Mute Hazard Alerts"
+            >
+              {isMuted ? (
+                <>
+                  <VolumeX className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Alerts Muted</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Audio Alerts On</span>
+                </>
+              )}
+            </button>
+
+            {/* Monitoring Play/Pause Button */}
             <button
               onClick={toggleMonitoring}
               className={`px-5 py-2 rounded-xl font-bold text-xs flex items-center space-x-2 transition shadow-lg ${
@@ -451,7 +770,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-white flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-teal-400" />
-              <span>Capstone Demo: 3x Hit Threshold Simulator</span>
+              <span>Capstone Demo: Simulator Controls</span>
             </span>
             <span className="text-[11px] text-slate-400">
               Target: <strong className="text-teal-300">Collins Hill Rd @ GGC</strong>
@@ -459,6 +778,16 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 pt-1">
+            {/* Audio & Countdown Simulator Button */}
+            <button
+              onClick={handleSimulateHazardApproach}
+              className="px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow active:scale-95"
+            >
+              <Volume2 className="w-3.5 h-3.5 text-teal-200" />
+              <span>Simulate Hazard Approach (Audio & Countdown Demo)</span>
+            </button>
+
+            {/* 3x Strike Simulator */}
             <button
               onClick={handleSimulateDemoHit}
               className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow active:scale-95"

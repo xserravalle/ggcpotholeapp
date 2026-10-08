@@ -282,9 +282,10 @@ export function App() {
           />
         )}
 
-        {/* Tab 3: Dedicated Drive Sensor View with Silent 3x Auto-Logging */}
+        {/* Tab 3: Dedicated Drive Sensor View with Audio Hazard Warnings */}
         {activeTab === 'sensor' && (
           <DriveSensorView
+            potholes={potholes}
             onPromoteSpotToReport={handlePromoteSpotToReport}
             onNavigateToMyReports={() => setActiveTab('my-reports')}
           />
