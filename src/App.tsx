@@ -150,6 +150,8 @@ export function App() {
   };
 
   // Promote a spot that hit 3x into an official confirmed PotholeReport
+  // Create a reviewable report after repeated impacts at one location.
+  // Sensor hits suggest a hazard but do not count as citizen confirmations.
   const handlePromoteSpotToReport = (spot: TrackedHazardSpot) => {
     const uuid = crypto.randomUUID();
     const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
@@ -160,7 +162,7 @@ export function App() {
     const newReport: PotholeReport = {
       id: newId,
       trackingCode,
-      title: `Verified Hazard (3x Hits) on ${spot.roadName}`,
+      title: `Possible Road Hazard on ${spot.roadName}`,
       roadName: spot.roadName || 'Detected Road Hazard',
       address: `${spot.latitude.toFixed(5)}, ${spot.longitude.toFixed(5)}`,
       city: spot.city || 'Lawrenceville',
@@ -173,21 +175,28 @@ export function App() {
       severity: spot.severity,
       hazardType: 'POTHOLE',
       status: 'reported',
-      verificationsCount: spot.hitCount,
-      userConfirmed: true,
+      verificationsCount: 0, // Only a person confirming the road condition should increase this count
+      userConfirmed: false,
       reportedAt: new Date().toISOString(),
       lastVerifiedAt: new Date().toISOString(),
-      description: `Automated road hazard confirmed after detecting 3 impact shocks at this location (Peak: ${spot.maxGForce}G).`,
+      description: `Sensor recorded ${spot.hitCount} impacts near this location. Review the road condition before treating this as a confirmed pothole.`,
       estimatedDepthInches: spot.maxGForce >= 6.0 ? 3.5 : 2.5,
       estimatedWidthInches: spot.maxGForce >= 6.0 ? 20 : 14,
       surfaceType: 'Asphalt',
       damageRisk: spot.maxGForce >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
       detectedBy: 'Vehicle Accelerometer Telemetry',
       sensorDetected: true,
+      // Preserve the readings so users can see what triggered the report
+      sensorEvidence: {
+        hitCount: spot.hitCount,
+        maxGForce: spot.maxGForce,
+        firstDetectedAt: spot.createdAt,
+        lastDetectedAt: spot.lastHitAt
+      },
       bumpIntensity: spot.maxGForce,
       workOrderNumber: `DISP-${newId}`,
       distanceFromGgcMiles: dist,
-      source: 'user'
+      source: 'sensor' // Keep sensors reports distinguishable 
     };
 
     setPotholes(prev => [newReport, ...prev]);
