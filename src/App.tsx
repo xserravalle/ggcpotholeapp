@@ -19,7 +19,9 @@ import { PotholeMapView } from './components/potholes/PotholeMapView';
 import { DriveSensorView } from './components/sensor/DriveSensorView';
 import { MyReportsView } from './components/potholes/MyReportsView';
 import { AuthorityHubView } from './components/dispatcher/AuthorityHubView';
+import { LoginPage } from './components/auth/LoginPage';
 import { PotholeAnalyticsView } from './components/potholes/PotholeAnalyticsView';
+import { getSession, isSessionValid, logout, AuthSession } from './services/authService';
 
 // Modals & Drawers
 import { PotholeDetailDrawer } from './components/potholes/PotholeDetailDrawer';
@@ -36,6 +38,20 @@ export function App() {
   const [potholes, setPotholes] = useState<PotholeReport[]>(() => loadStoredPotholes(INITIAL_POTHOLES));
   const [roadSegments] = useState(HIGH_RISK_ROAD_SEGMENTS);
   const [parkingLots] = useState<ParkingLot[]>(PARKING_LOTS);
+
+  // Admin Authentication State & Periodic Expiration Check
+  const [authSession, setAuthSession] = useState<AuthSession | null>(() => getSession());
+
+  useEffect(() => {
+    const checkSession = () => {
+      if (!isSessionValid()) {
+        setAuthSession(null);
+      }
+    };
+    checkSession();
+    const interval = setInterval(checkSession, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Auto-save whenever potholes state changes
   useEffect(() => {
@@ -289,17 +305,29 @@ export function App() {
           />
         )}
 
-        {/* Secondary Tab: Municipal Dispatcher Hub (accessible via hamburger menu) */}
+        {/* Secondary Tab: Municipal Dispatcher Hub (accessible via hamburger menu, auth-protected) */}
         {activeTab === 'dispatcher' && (
-          <AuthorityHubView
-            potholes={potholes}
-            onUpdateStatus={handleUpdateStatus}
-            onOpenDispatcherModal={handleOpenDispatcher}
-            onSelectPotholeForMap={(p) => {
-              setSelectedPothole(p);
-              setActiveTab('potholes');
-            }}
-          />
+          authSession ? (
+            <AuthorityHubView
+              potholes={potholes}
+              onUpdateStatus={handleUpdateStatus}
+              onOpenDispatcherModal={handleOpenDispatcher}
+              onSelectPotholeForMap={(p) => {
+                setSelectedPothole(p);
+                setActiveTab('potholes');
+              }}
+              currentUser={authSession}
+              onLogout={() => {
+                logout();
+                setAuthSession(null);
+              }}
+            />
+          ) : (
+            <LoginPage
+              onLoginSuccess={(newSession) => setAuthSession(newSession)}
+              onCancel={() => setActiveTab('potholes')}
+            />
+          )
         )}
 
         {/* Secondary Tab: Pavement Corridor Analytics (accessible via hamburger menu) */}
