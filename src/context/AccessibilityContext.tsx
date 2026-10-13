@@ -192,10 +192,22 @@ export const AccessibilityProvider: React.FC<{ children: ReactNode }> = ({ child
   );
 };
 
-export const useAccessibility = () => {
+const DEFAULT_A11Y_STATE: AccessibilityContextType = {
+  fontSize: 'normal',
+  fontFamily: 'comic-sans',
+  theme: 'colorblind',
+  isSpeaking: false,
+  setFontSize: () => {},
+  setFontFamily: () => {},
+  setTheme: () => {},
+  cycleTheme: () => {},
+  speakText: () => {},
+  stopSpeaking: () => {},
+  speakSummary: () => {},
+  speakPothole: () => {}
+};
+
+export const useAccessibility = (): AccessibilityContextType => {
   const context = useContext(AccessibilityContext);
-  if (!context) {
-    throw new Error('useAccessibility must be used within an AccessibilityProvider');
-  }
-  return context;
+  return context || DEFAULT_A11Y_STATE;
 };
