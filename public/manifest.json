@@ -1,6 +1,6 @@
 {
-  "name": "Georgia Pothole Patrol - GGC & Gwinnett Dispatch",
-  "short_name": "PotholePatrol",
+  "name": "GGC SansPotholes - GGC & Gwinnett Dispatch",
+  "short_name": "SansPotholes",
   "description": "Unified roadway hazard detection, in-vehicle sensor telemetry, and dispatch router for Georgia Gwinnett College & Gwinnett County DOT",
   "start_url": "/",
   "display": "standalone",

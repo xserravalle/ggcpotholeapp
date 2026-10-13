@@ -44,7 +44,7 @@ export const AccessibilityProvider: React.FC<{ children: ReactNode }> = ({ child
   });
 
   const [fontFamily, setFontFamilyState] = useState<FontFamilyKey>(() => {
-    return (localStorage.getItem('ggc-a11y-font-family') as FontFamilyKey) || 'sans';
+    return (localStorage.getItem('ggc-a11y-font-family') as FontFamilyKey) || 'comic-sans';
   });
 
   const [theme, setThemeState] = useState<ThemeKey>(() => {
@@ -141,7 +141,7 @@ export const AccessibilityProvider: React.FC<{ children: ReactNode }> = ({ child
     const severeCount = nearCampus.filter(p => p.severity === 'critical' || p.severity === 'severe').length;
     const modCount = nearCampus.filter(p => p.severity === 'moderate').length;
 
-    let speech = `Well howdy y'all! GGC Pothole Patrol checkin' in. We're monitorin' road conditions within campus and Gwinnett corridors. `;
+    let speech = `Well howdy y'all! GGC SansPotholes checkin' in. We're monitorin' road conditions within campus and Gwinnett corridors. `;
     speech += `There are currently ${nearCampus.length} hazards on record near campus: `;
     speech += `${severeCount} high severity axle risks, and ${modCount} moderate bumps. `;
 

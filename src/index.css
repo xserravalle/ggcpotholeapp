@@ -16,7 +16,17 @@
   --sev-low-border: #009e73;
 }
 
-/* Comic Sans MS Dyslexia-Friendly Typography */
+/* Default Typography: Comic Sans MS */
+:root,
+body,
+button,
+input,
+textarea,
+select,
+.leaflet-container {
+  font-family: "Comic Sans MS", "Comic Sans", "Chalkboard SE", "Comic Neue", cursive, sans-serif;
+}
+
 [data-font="comic-sans"],
 [data-font="comic-sans"] body,
 [data-font="comic-sans"] button,
@@ -25,6 +35,16 @@
 [data-font="comic-sans"] select,
 [data-font="comic-sans"] .leaflet-container {
   font-family: "Comic Sans MS", "Comic Sans", "Chalkboard SE", "Comic Neue", cursive, sans-serif !important;
+}
+
+[data-font="sans"],
+[data-font="sans"] body,
+[data-font="sans"] button,
+[data-font="sans"] input,
+[data-font="sans"] textarea,
+[data-font="sans"] select,
+[data-font="sans"] .leaflet-container {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
 }
 
 /* Colorblind-Safe Theme (Okabe-Ito Palette) */
@@ -65,7 +85,7 @@
     background-color: #020617;
     color: #f8fafc;
     min-height: 100vh;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: inherit;
   }
 }
 

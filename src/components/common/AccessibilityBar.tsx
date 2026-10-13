@@ -87,7 +87,7 @@ export const AccessibilityBar: React.FC<AccessibilityBarProps> = ({ potholes }) 
             title="Toggle Comic Sans MS for dyslexia and reading ease"
           >
             <Type className="w-3.5 h-3.5" />
-            <span>{fontFamily === 'comic-sans' ? 'Comic Sans (Active)' : 'Comic Sans MS'}</span>
+            <span>{fontFamily === 'comic-sans' ? 'Comic Sans (Default)' : 'Standard Sans'}</span>
           </button>
 
           {/* Colorblind & High-Contrast Theme Button */}

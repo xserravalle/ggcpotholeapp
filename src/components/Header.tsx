@@ -70,19 +70,19 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={() => setActiveTab('potholes')}
             >
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-teal-500/20 text-slate-950 font-black shrink-0 border border-teal-300/40">
-                <span className="text-base font-black tracking-tight">P³</span>
+                <span className="text-base font-black tracking-tight">SP</span>
               </div>
               <div>
                 <div className="flex items-center space-x-2">
                   <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
-                    Gwinnett <span className="text-teal-400 font-black">P3</span>
+                    GGC <span className="text-teal-400 font-black">SansPotholes</span>
                   </h1>
                   <span className="hidden sm:inline-block text-[11px] font-semibold bg-slate-800 text-teal-300 border border-teal-500/30 px-2.5 py-0.5 rounded-full">
-                    Parking &bull; Potholes &bull; People
+                    Comic Sans Edition
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 hidden sm:block">
-                  Report road hazards. Find parking. Gwinnett County — powered by you.
+                  Report road hazards in Comic Sans. Find parking. Gwinnett County — powered by you.
                 </p>
               </div>
             </div>
@@ -232,9 +232,9 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2.5">
                 <div className="w-8 h-8 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center font-bold font-mono">
-                  P³
+                  SP
                 </div>
-                <h3 className="text-lg font-bold text-white">About Gwinnett P3</h3>
+                <h3 className="text-lg font-bold text-white">About GGC SansPotholes</h3>
               </div>
               <button
                 onClick={() => setIsAboutOpen(false)}
@@ -246,7 +246,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             <div className="text-xs sm:text-sm text-slate-300 space-y-3 leading-relaxed">
               <p>
-                <strong>Gwinnett P3 (Parking, Potholes & People)</strong> is a civic utility prototype designed for Georgia Gwinnett College (GGC) students and Gwinnett County commuters.
+                <strong>GGC SansPotholes (Parking, Potholes & Comic Sans)</strong> is an accessible civic utility prototype designed for Georgia Gwinnett College (GGC) students and Gwinnett County commuters.
               </p>
               <div className="bg-slate-800/60 rounded-2xl p-3.5 border border-slate-700 space-y-2">
                 <div className="font-semibold text-white">Key Capabilities:</div>

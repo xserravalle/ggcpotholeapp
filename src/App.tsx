@@ -220,7 +220,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-teal-500 selection:text-slate-950 pb-16 md:pb-0">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-teal-500 selection:text-slate-950 pb-16 md:pb-0">
       
       {/* Universal Streamlined Header */}
       <Header
@@ -388,7 +388,7 @@ export function App() {
       <footer className="hidden md:block bg-slate-900 border-t border-slate-800 py-3.5 px-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="text-slate-400 font-medium">
-            &copy; 2026 Gwinnett P3 &bull; Georgia Gwinnett College (GGC) & Gwinnett County Commuter Pilot
+            &copy; 2026 GGC SansPotholes &bull; Georgia Gwinnett College (GGC) & Gwinnett County Commuter Pilot
           </span>
           <div className="flex items-center space-x-4 text-slate-500">
             <button
