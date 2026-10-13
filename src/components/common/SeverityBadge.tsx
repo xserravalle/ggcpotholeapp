@@ -23,15 +23,11 @@ export const SeverityBadge: React.FC<SeverityBadgeProps> = ({
   const isHigh = severity === 'critical' || severity === 'severe';
   const isMod = severity === 'moderate';
 
+  const badgeClass = isHigh ? 'severity-badge-high' : isMod ? 'severity-badge-med' : 'severity-badge-low';
+
   return (
     <span 
-      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold font-mono tracking-wider border uppercase transition-colors ${
-        isHigh
-          ? 'bg-[var(--sev-high-bg,#450a0a)] text-[var(--sev-high-text,#fca5a5)] border-[var(--sev-high-border,#b91c1c)]'
-          : isMod
-          ? 'bg-[var(--sev-med-bg,#451a03)] text-[var(--sev-med-text,#fde047)] border-[var(--sev-med-border,#d97706)]'
-          : 'bg-[var(--sev-low-bg,#064e3b)] text-[var(--sev-low-text,#6ee7b7)] border-[var(--sev-low-border,#059669)]'
-      } ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-xs font-bold font-mono tracking-wider border uppercase transition-colors ${badgeClass} ${className}`}
     >
       {showSymbol && <span className="text-[11px]" aria-hidden="true">{info.symbol}</span>}
       <span>{info.label}</span>

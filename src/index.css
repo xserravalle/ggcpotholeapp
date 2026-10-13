@@ -3,17 +3,22 @@
 :root {
   --app-font-size: 16px;
   /* Default Colorblind Palette (Okabe-Ito / CUD) */
-  --sev-high-bg: #450a0a;
-  --sev-high-text: #fca5a5;
+  --sev-high-bg: #4a1508;
+  --sev-high-text: #fed7aa;
   --sev-high-border: #d55e00;
 
-  --sev-med-bg: #172554;
-  --sev-med-text: #93c5fd;
+  --sev-med-bg: #072a4a;
+  --sev-med-text: #bae6fd;
   --sev-med-border: #0072b2;
 
-  --sev-low-bg: #064e3b;
-  --sev-low-text: #6ee7b7;
+  --sev-low-bg: #043828;
+  --sev-low-text: #a7f3d0;
   --sev-low-border: #009e73;
+}
+
+/* Dynamic Root Font Sizing for Tailwind rem scaling */
+html {
+  font-size: var(--app-font-size, 16px) !important;
 }
 
 /* Default Typography: Comic Sans MS */
@@ -47,37 +52,196 @@ select,
   font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
 }
 
-/* Colorblind-Safe Theme (Okabe-Ito Palette) */
+/* Dual-Coded Severity Badges */
+.severity-badge-high {
+  background-color: var(--sev-high-bg) !important;
+  color: var(--sev-high-text) !important;
+  border-color: var(--sev-high-border) !important;
+}
+
+.severity-badge-med {
+  background-color: var(--sev-med-bg) !important;
+  color: var(--sev-med-text) !important;
+  border-color: var(--sev-med-border) !important;
+}
+
+.severity-badge-low {
+  background-color: var(--sev-low-bg) !important;
+  color: var(--sev-low-text) !important;
+  border-color: var(--sev-low-border) !important;
+}
+
+/* ==========================================================================
+   THEME DEFINITIONS (Colorblind-Safe, High Contrast, Standard GGC, Dark)
+   ========================================================================== */
+
+/* 1. Colorblind-Safe Theme (Okabe-Ito / CUD Palette) */
 [data-theme="colorblind"] {
+  --sev-high-bg: #4a1508;
+  --sev-high-text: #fed7aa;
   --sev-high-border: #d55e00;
+
+  --sev-med-bg: #072a4a;
+  --sev-med-text: #bae6fd;
   --sev-med-border: #0072b2;
+
+  --sev-low-bg: #043828;
+  --sev-low-text: #a7f3d0;
   --sev-low-border: #009e73;
 }
 
-/* High-Contrast Stark Theme */
+[data-theme="colorblind"] body,
+[data-theme="colorblind"] .min-h-screen {
+  background-color: #06101e !important;
+}
+
+[data-theme="colorblind"] header {
+  background-color: #0b1e36 !important;
+  border-bottom-color: #0072b2 !important;
+}
+
+[data-theme="colorblind"] .bg-slate-900,
+[data-theme="colorblind"] .bg-slate-950 {
+  background-color: #091729 !important;
+  border-color: #1e3a5f !important;
+}
+
+[data-theme="colorblind"] .bg-slate-800,
+[data-theme="colorblind"] .bg-slate-800\/60,
+[data-theme="colorblind"] .bg-slate-800\/50,
+[data-theme="colorblind"] .bg-slate-800\/40 {
+  background-color: #0d223c !important;
+  border-color: #254b77 !important;
+}
+
+/* 2. High-Contrast Stark Theme */
 [data-theme="high-contrast"] {
-  --sev-high-bg: #7f1d1d;
+  --sev-high-bg: #ff0000;
   --sev-high-text: #ffffff;
   --sev-high-border: #ffffff;
 
-  --sev-med-bg: #713f12;
-  --sev-med-text: #fef08a;
-  --sev-med-border: #ffff00;
+  --sev-med-bg: #ffff00;
+  --sev-med-text: #000000;
+  --sev-med-border: #ffffff;
 
-  --sev-low-bg: #064e3b;
-  --sev-low-text: #a7f3d0;
-  --sev-low-border: #00ffff;
+  --sev-low-bg: #00ffff;
+  --sev-low-text: #000000;
+  --sev-low-border: #ffffff;
+}
+
+[data-theme="high-contrast"] body,
+[data-theme="high-contrast"] .min-h-screen {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+[data-theme="high-contrast"] header,
+[data-theme="high-contrast"] footer {
+  background-color: #000000 !important;
+  border-color: #ffffff !important;
+}
+
+[data-theme="high-contrast"] .bg-slate-900,
+[data-theme="high-contrast"] .bg-slate-950 {
+  background-color: #0d0d0d !important;
+  border-color: #ffffff !important;
+  border-width: 2px !important;
+}
+
+[data-theme="high-contrast"] .bg-slate-800,
+[data-theme="high-contrast"] .bg-slate-800\/60,
+[data-theme="high-contrast"] .bg-slate-800\/50,
+[data-theme="high-contrast"] .bg-slate-800\/40 {
+  background-color: #1a1a1a !important;
+  border-color: #ffffff !important;
+  border-width: 2px !important;
+}
+
+[data-theme="high-contrast"] .text-slate-400,
+[data-theme="high-contrast"] .text-slate-500,
+[data-theme="high-contrast"] .text-slate-300 {
+  color: #f8fafc !important;
+}
+
+[data-theme="high-contrast"] .severity-badge-high {
+  background-color: #ff0000 !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+}
+
+[data-theme="high-contrast"] .severity-badge-med {
+  background-color: #ffff00 !important;
+  color: #000000 !important;
+  border: 2px solid #ffffff !important;
+}
+
+[data-theme="high-contrast"] .severity-badge-low {
+  background-color: #00ffff !important;
+  color: #000000 !important;
+  border: 2px solid #ffffff !important;
 }
 
 [data-theme="high-contrast"] .leaflet-tile-pane {
-  filter: invert(100%) hue-rotate(180%) contrast(140%) brightness(90%);
+  filter: invert(100%) hue-rotate(180%) contrast(150%) brightness(95%) !important;
 }
 
-/* Standard GGC Theme */
+/* 3. Standard GGC Campus Theme (Grizzly Green & Gold) */
 [data-theme="standard"] {
+  --sev-high-bg: #450a0a;
+  --sev-high-text: #fca5a5;
   --sev-high-border: #dc2626;
+
+  --sev-med-bg: #3b2a05;
+  --sev-med-text: #fef08a;
   --sev-med-border: #c4a35a;
-  --sev-low-border: #16a34a;
+
+  --sev-low-bg: #032e1f;
+  --sev-low-text: #6ee7b7;
+  --sev-low-border: #006747;
+}
+
+[data-theme="standard"] body,
+[data-theme="standard"] .min-h-screen {
+  background-color: #03140e !important;
+}
+
+[data-theme="standard"] header {
+  background-color: #004d35 !important;
+  border-bottom-color: #c4a35a !important;
+}
+
+[data-theme="standard"] footer {
+  background-color: #003323 !important;
+  border-top-color: #c4a35a !important;
+}
+
+[data-theme="standard"] .bg-slate-900,
+[data-theme="standard"] .bg-slate-950 {
+  background-color: #072218 !important;
+  border-color: #134e38 !important;
+}
+
+[data-theme="standard"] .bg-slate-800,
+[data-theme="standard"] .bg-slate-800\/60,
+[data-theme="standard"] .bg-slate-800\/50,
+[data-theme="standard"] .bg-slate-800\/40 {
+  background-color: #0a2d20 !important;
+  border-color: #1a6348 !important;
+}
+
+/* 4. Dark Modern Theme */
+[data-theme="dark"] {
+  --sev-high-bg: #450a0a;
+  --sev-high-text: #fca5a5;
+  --sev-high-border: #ef4444;
+
+  --sev-med-bg: #451a03;
+  --sev-med-text: #fde047;
+  --sev-med-border: #f59e0b;
+
+  --sev-low-bg: #064e3b;
+  --sev-low-text: #6ee7b7;
+  --sev-low-border: #10b981;
 }
 
 @layer base {

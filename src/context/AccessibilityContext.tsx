@@ -24,10 +24,10 @@ interface AccessibilityContextType {
 const AccessibilityContext = createContext<AccessibilityContextType | undefined>(undefined);
 
 const FONT_SIZES: Record<FontSizeKey, string> = {
-  small: '15px',
-  normal: '18px',
-  large: '22px',
-  huge: '26px'
+  small: '14px',
+  normal: '16px',
+  large: '20px',
+  huge: '24px'
 };
 
 const THEMES: { id: ThemeKey; label: string }[] = [
@@ -57,6 +57,7 @@ export const AccessibilityProvider: React.FC<{ children: ReactNode }> = ({ child
   const setFontSize = (size: FontSizeKey) => {
     setFontSizeState(size);
     localStorage.setItem('ggc-a11y-font-size', size);
+    document.documentElement.style.fontSize = FONT_SIZES[size];
     document.documentElement.style.setProperty('--app-font-size', FONT_SIZES[size]);
   };
 
@@ -65,6 +66,7 @@ export const AccessibilityProvider: React.FC<{ children: ReactNode }> = ({ child
     setFontFamilyState(font);
     localStorage.setItem('ggc-a11y-font-family', font);
     document.documentElement.setAttribute('data-font', font);
+    document.body.setAttribute('data-font', font);
   };
 
   // Apply theme
@@ -72,6 +74,7 @@ export const AccessibilityProvider: React.FC<{ children: ReactNode }> = ({ child
     setThemeState(newTheme);
     localStorage.setItem('ggc-a11y-theme', newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
+    document.body.setAttribute('data-theme', newTheme);
   };
 
   const cycleTheme = () => {
@@ -82,9 +85,12 @@ export const AccessibilityProvider: React.FC<{ children: ReactNode }> = ({ child
 
   // Initialize attributes on mount
   useEffect(() => {
+    document.documentElement.style.fontSize = FONT_SIZES[fontSize];
     document.documentElement.style.setProperty('--app-font-size', FONT_SIZES[fontSize]);
     document.documentElement.setAttribute('data-font', fontFamily);
+    document.body.setAttribute('data-font', fontFamily);
     document.documentElement.setAttribute('data-theme', theme);
+    document.body.setAttribute('data-theme', theme);
   }, []);
 
   // Text to speech helpers

@@ -6,7 +6,7 @@ import { CAMPUS_CENTER } from '../../data/jurisdictionsData';
 import { MunicipalQuickJump } from '../map/MunicipalQuickJump';
 import { reverseGeocode } from '../../services/reverseGeocoding';
 import { distanceFromCampusMiles, formatCoords } from '../../services/distanceCalculator';
-import { useAccessibility } from '../../context/AccessibilityContext';
+import { useAccessibility, ThemeKey } from '../../context/AccessibilityContext';
 import { 
   Filter, 
   ThumbsUp, 
@@ -46,63 +46,139 @@ const MapClickHandler: React.FC<{ onMapClick: (lat: number, lng: number) => void
   return null;
 };
 
-// Clean Traffic Light Icon Generator (Red / Yellow / Green)
-const createTrafficLightIcon = (severity: SeverityLevel, status: PotholeStatus, verifications: number) => {
+// Dynamic Marker Icon Generator with Theme Awareness (Colorblind, High Contrast, Standard GGC, Dark)
+const createTrafficLightIcon = (
+  severity: SeverityLevel,
+  status: PotholeStatus,
+  verifications: number,
+  theme: ThemeKey = 'colorblind'
+) => {
   const isRepaired = status === 'repaired';
-  let color = '#eab308'; // Yellow = Moderate / Watch
-  let borderColor = '#ca8a04';
-  let pulseHtml = '';
+  let color = '#0072b2';
+  let borderColor = '#ffffff';
+  let textColor = '#ffffff';
+  let pulseColor = '#0072b2';
+  let symbol = '◆';
 
-  if (isRepaired || severity === 'minor') {
-    color = '#10b981'; // Green = Clear / Resolved / Low
-    borderColor = '#059669';
+  if (isRepaired) {
+    symbol = '✓';
+    if (theme === 'high-contrast') {
+      color = '#00ffff';
+      textColor = '#000000';
+      borderColor = '#ffffff';
+    } else if (theme === 'colorblind') {
+      color = '#009e73';
+      borderColor = '#ffffff';
+    } else if (theme === 'standard') {
+      color = '#006747';
+      borderColor = '#c4a35a';
+    } else {
+      color = '#10b981';
+      borderColor = '#059669';
+    }
   } else if (severity === 'severe' || severity === 'critical') {
-    color = '#ef4444'; // Red = Critical / Action Needed
-    borderColor = '#b91c1c';
-    pulseHtml = `
-      <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background-color: #ef4444; opacity: 0.35; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
-    `;
+    symbol = '▲';
+    if (theme === 'high-contrast') {
+      color = '#ff0000';
+      textColor = '#ffffff';
+      borderColor = '#ffffff';
+      pulseColor = '#ff0000';
+    } else if (theme === 'colorblind') {
+      color = '#d55e00'; // Okabe-Ito Vermilion
+      borderColor = '#ffffff';
+      pulseColor = '#d55e00';
+    } else if (theme === 'standard') {
+      color = '#dc2626';
+      borderColor = '#ffffff';
+      pulseColor = '#dc2626';
+    } else {
+      color = '#ef4444';
+      borderColor = '#b91c1c';
+      pulseColor = '#ef4444';
+    }
+  } else if (severity === 'moderate') {
+    symbol = '◆';
+    if (theme === 'high-contrast') {
+      color = '#ffff00';
+      textColor = '#000000';
+      borderColor = '#ffffff';
+    } else if (theme === 'colorblind') {
+      color = '#0072b2'; // Okabe-Ito Sky Blue
+      borderColor = '#ffffff';
+    } else if (theme === 'standard') {
+      color = '#c4a35a'; // GGC Gold
+      textColor = '#1a1f1c';
+      borderColor = '#ffffff';
+    } else {
+      color = '#f59e0b';
+      borderColor = '#d97706';
+    }
+  } else {
+    // Minor
+    symbol = '●';
+    if (theme === 'high-contrast') {
+      color = '#00ffff';
+      textColor = '#000000';
+      borderColor = '#ffffff';
+    } else if (theme === 'colorblind') {
+      color = '#009e73'; // Okabe-Ito Bluish Green
+      borderColor = '#ffffff';
+    } else if (theme === 'standard') {
+      color = '#006747'; // GGC Green
+      borderColor = '#ffffff';
+    } else {
+      color = '#10b981';
+      borderColor = '#059669';
+    }
   }
 
+  const isSevere = severity === 'severe' || severity === 'critical';
+  const pulseHtml = isSevere && !isRepaired ? `
+    <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background-color: ${pulseColor}; opacity: 0.35; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+  ` : '';
+
+  const borderWidth = theme === 'high-contrast' ? '3px' : '2.5px';
+
   const svgHtml = `
-    <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+    <div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
       ${pulseHtml}
       <div style="
-        width: 26px; 
-        height: 26px; 
+        width: 28px; 
+        height: 28px; 
         background: ${color}; 
-        border: 2px solid ${borderColor}; 
+        border: ${borderWidth} solid ${borderColor}; 
         border-radius: 50%; 
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.4); 
+        box-shadow: 0 4px 8px -1px rgba(0,0,0,0.5); 
         display: flex; 
         align-items: center; 
         justify-content: center;
-        color: white;
-        font-weight: 800;
-        font-size: 11px;
+        color: ${textColor};
+        font-weight: 900;
+        font-size: 13px;
         position: relative;
         z-index: 2;
+        user-select: none;
       ">
-        ${isRepaired ? '✓' : severity === 'severe' || severity === 'critical' ? '▲' : severity === 'moderate' ? '◆' : '●'}
+        ${symbol}
       </div>
       <div style="
         position: absolute; 
         bottom: -3px; 
         width: 0; 
         height: 0; 
-        border-left: 4px solid transparent; 
-        border-right: 4px solid transparent; 
-        border-top: 5px solid ${borderColor};
+        border-left: 5px solid transparent; 
+        border-right: 5px solid transparent; 
+        border-top: 6px solid ${borderColor};
       "></div>
     </div>
   `;
 
   return L.divIcon({
     html: svgHtml,
-    className: 'traffic-light-marker',
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-    popupAnchor: [0, -30]
+    className: 'custom-traffic-pin',
+    iconSize: [34, 37],
+    iconAnchor: [17, 37],
+    popupAnchor: [0, -37]
   });
 };
 
@@ -156,7 +232,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   onVerifyPothole,
   onMapDropPin
 }) => {
-  const { speakPothole } = useAccessibility();
+  const { speakPothole, theme } = useAccessibility();
   // Map View Scopes
   const [viewScope, setViewScope] = useState<'campus' | 'gwinnett'>('campus');
   const [mapTarget, setMapTarget] = useState<{ center: [number, number]; zoom: number }>({
@@ -370,9 +446,9 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
 
             return (
               <Marker
-                key={pothole.id}
+                key={`${pothole.id}-${theme}`}
                 position={[pothole.latitude, pothole.longitude]}
-                icon={createTrafficLightIcon(pothole.severity, pothole.status, pothole.verificationsCount)}
+                icon={createTrafficLightIcon(pothole.severity, pothole.status, pothole.verificationsCount, theme)}
                 eventHandlers={{
                   click: () => onSelectPothole(pothole)
                 }}
@@ -459,10 +535,18 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
 
         {/* Legend pill on bottom left with Dual Coding Symbols */}
         <div className="absolute bottom-4 left-4 z-20 bg-slate-900/90 backdrop-blur border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-300 shadow-xl hidden sm:flex items-center gap-3">
-          <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Dual-Coded Legend:</span>
-          <span className="flex items-center gap-1 text-red-400 font-semibold"><span className="text-xs">▲</span> Critical</span>
-          <span className="flex items-center gap-1 text-amber-400 font-semibold"><span className="text-xs">◆</span> Moderate</span>
-          <span className="flex items-center gap-1 text-emerald-400 font-semibold"><span className="text-xs">●</span> Low / Resolved</span>
+          <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">
+            {theme === 'colorblind' ? 'Colorblind (Okabe-Ito)' : theme === 'high-contrast' ? 'High Contrast' : theme === 'standard' ? 'GGC Grizzly' : 'Dark'}:
+          </span>
+          <span className="flex items-center gap-1 font-semibold" style={{ color: theme === 'high-contrast' ? '#ff4d4d' : theme === 'colorblind' ? '#ff7b25' : '#ef4444' }}>
+            <span className="text-xs">▲</span> Critical
+          </span>
+          <span className="flex items-center gap-1 font-semibold" style={{ color: theme === 'high-contrast' ? '#ffff00' : theme === 'colorblind' ? '#38bdf8' : theme === 'standard' ? '#c4a35a' : '#f59e0b' }}>
+            <span className="text-xs">◆</span> Moderate
+          </span>
+          <span className="flex items-center gap-1 font-semibold" style={{ color: theme === 'high-contrast' ? '#00ffff' : theme === 'colorblind' ? '#34d399' : theme === 'standard' ? '#00a877' : '#10b981' }}>
+            <span className="text-xs">●</span> Low / Resolved
+          </span>
         </div>
 
       </div>

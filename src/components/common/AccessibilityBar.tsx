@@ -93,19 +93,19 @@ export const AccessibilityBar: React.FC<AccessibilityBarProps> = ({ potholes }) 
           {/* Colorblind & High-Contrast Theme Button */}
           <button
             onClick={cycleTheme}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 ${
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition flex items-center gap-1.5 shadow-sm active:scale-95 ${
               theme === 'colorblind'
-                ? 'bg-sky-500/20 text-sky-300 border-sky-500/50'
+                ? 'bg-sky-500/30 text-sky-200 border-sky-400'
                 : theme === 'high-contrast'
-                ? 'bg-yellow-400 text-black border-yellow-300'
+                ? 'bg-yellow-400 text-black border-yellow-200 font-extrabold'
                 : theme === 'standard'
-                ? 'bg-emerald-950 text-emerald-300 border-emerald-800'
-                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                ? 'bg-emerald-800 text-emerald-100 border-emerald-400'
+                : 'bg-slate-800 text-slate-200 border-slate-600 hover:text-white'
             }`}
-            title="Cycle between Colorblind-Safe, High Contrast, Standard GGC, and Dark modes"
+            title="Cycle between Colorblind-Safe (Okabe-Ito), High Contrast, Standard GGC, and Dark modes"
           >
             <Palette className="w-3.5 h-3.5" />
-            <span>{themeLabels[theme]}</span>
+            <span>Theme: {themeLabels[theme]}</span>
           </button>
         </div>
 
