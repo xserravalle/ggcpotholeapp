@@ -1,5 +1,65 @@
 @import "tailwindcss";
 
+:root {
+  --app-font-size: 16px;
+  /* Default Colorblind Palette (Okabe-Ito / CUD) */
+  --sev-high-bg: #450a0a;
+  --sev-high-text: #fca5a5;
+  --sev-high-border: #d55e00;
+
+  --sev-med-bg: #172554;
+  --sev-med-text: #93c5fd;
+  --sev-med-border: #0072b2;
+
+  --sev-low-bg: #064e3b;
+  --sev-low-text: #6ee7b7;
+  --sev-low-border: #009e73;
+}
+
+/* Comic Sans MS Dyslexia-Friendly Typography */
+[data-font="comic-sans"],
+[data-font="comic-sans"] body,
+[data-font="comic-sans"] button,
+[data-font="comic-sans"] input,
+[data-font="comic-sans"] textarea,
+[data-font="comic-sans"] select,
+[data-font="comic-sans"] .leaflet-container {
+  font-family: "Comic Sans MS", "Comic Sans", "Chalkboard SE", "Comic Neue", cursive, sans-serif !important;
+}
+
+/* Colorblind-Safe Theme (Okabe-Ito Palette) */
+[data-theme="colorblind"] {
+  --sev-high-border: #d55e00;
+  --sev-med-border: #0072b2;
+  --sev-low-border: #009e73;
+}
+
+/* High-Contrast Stark Theme */
+[data-theme="high-contrast"] {
+  --sev-high-bg: #7f1d1d;
+  --sev-high-text: #ffffff;
+  --sev-high-border: #ffffff;
+
+  --sev-med-bg: #713f12;
+  --sev-med-text: #fef08a;
+  --sev-med-border: #ffff00;
+
+  --sev-low-bg: #064e3b;
+  --sev-low-text: #a7f3d0;
+  --sev-low-border: #00ffff;
+}
+
+[data-theme="high-contrast"] .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180%) contrast(140%) brightness(90%);
+}
+
+/* Standard GGC Theme */
+[data-theme="standard"] {
+  --sev-high-border: #dc2626;
+  --sev-med-border: #c4a35a;
+  --sev-low-border: #16a34a;
+}
+
 @layer base {
   body {
     background-color: #020617;
@@ -31,8 +91,6 @@
   height: 100%;
   background-color: #0f172a !important;
   font-family: inherit;
-  /* Leaflet gives its layers z-index 400-1000. Without a stacking context of its
-     own, the map drew over dialogs (z-50) opened on top of it. */
   isolation: isolate;
 }
 

@@ -7,6 +7,8 @@ import { SimulationControls } from '../parking/SimulationControls';
 import { ParkingDashboard } from '../parking/ParkingDashboard';
 import { ParkingPredictorView } from '../parking/ParkingPredictorView';
 import { ActiveTab } from '../Header';
+import { useAccessibility } from '../../context/AccessibilityContext';
+import { SeverityBadge } from '../common/SeverityBadge';
 import { 
   AlertTriangle, 
   Car, 
@@ -24,7 +26,8 @@ import {
   Building2,
   Calendar,
   Layers,
-  BarChart3
+  BarChart3,
+  Volume2
 } from 'lucide-react';
 
 interface UnifiedDashboardProps {
@@ -50,6 +53,7 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
   onOpenReportModal,
   onVerifyPothole
 }) => {
+  const { speakPothole } = useAccessibility();
   // Accordion state for simulation controls (default collapsed to eliminate visual noise)
   const [isForecastExpanded, setIsForecastExpanded] = useState(false);
   const [forecastViewMode, setForecastViewMode] = useState<'cards' | 'curves'>('cards');
@@ -344,51 +348,63 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold uppercase tracking-wider ${
-                      isCrit
-                        ? 'bg-red-950 text-red-300 border border-red-800/60'
-                        : isMod
-                        ? 'bg-amber-950 text-amber-300 border border-amber-800/60'
-                        : 'bg-emerald-950 text-emerald-300 border border-emerald-800/60'
-                    }`}>
-                      {pothole.severity}
-                    </span>
+                    <SeverityBadge severity={pothole.severity} />
 
                     <span className="text-[11px] text-slate-400">
-                      {pothole.distanceFromGgcMiles ? `${pothole.distanceFromGgcMiles} mi from GGC` : pothole.city}
+                      {pothole.distanceFromGgcMiles ? `${pothole.distanceFromGgcMiles.toFixed(1)} mi from GGC` : pothole.city}
                     </span>
                   </div>
 
+                  {/* Prominent Road & Landmark Name */}
                   <h4 className="text-sm font-bold text-white group-hover:text-teal-300 transition line-clamp-1">
-                    {pothole.title}
+                    {pothole.roadName || pothole.title}
                   </h4>
+                  {pothole.landmark && (
+                    <span className="text-[10px] text-emerald-400/90 font-medium block truncate">
+                      🏫 {pothole.landmark}
+                    </span>
+                  )}
                   <p className="text-xs text-slate-400 flex items-center gap-1 mt-1 truncate">
                     <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span>{pothole.roadName} • {pothole.city}</span>
+                    <span>{pothole.address || `${pothole.roadName} • ${pothole.city}`}</span>
                   </p>
                 </div>
 
-                {/* Bottom confirmation count and upvote */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-700/40 text-xs">
-                  <span className="text-teal-400 font-bold flex items-center gap-1">
+                {/* Bottom confirmation count, TTS audio button, and upvote */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-700/40 text-xs gap-2">
+                  <span className="text-teal-400 font-bold flex items-center gap-1 truncate">
                     <span>👆</span>
-                    <span>{pothole.verificationsCount} drivers confirmed</span>
+                    <span>{pothole.verificationsCount} confirms</span>
                   </span>
 
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onVerifyPothole(pothole.id);
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
-                      pothole.userConfirmed
-                        ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
-                        : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
-                    }`}
-                  >
-                    <ThumbsUp className="w-3 h-3" />
-                    <span>{pothole.userConfirmed ? 'Confirmed' : 'Confirm'}</span>
-                  </button>
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        speakPothole(pothole);
+                      }}
+                      className="px-2 py-1 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-teal-300 transition flex items-center gap-1"
+                      title="Listen to this report read aloud in Southern voice"
+                    >
+                      <Volume2 className="w-3 h-3 text-teal-400" />
+                      <span>Listen</span>
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onVerifyPothole(pothole.id);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
+                        pothole.userConfirmed
+                          ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
+                          : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                      }`}
+                    >
+                      <ThumbsUp className="w-3 h-3" />
+                      <span>{pothole.userConfirmed ? 'Confirmed' : 'Confirm'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             );

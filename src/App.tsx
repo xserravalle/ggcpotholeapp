@@ -12,6 +12,7 @@ import { classifyJurisdiction } from './services/jurisdictionClassifier';
 // Common Components
 import { Header, ActiveTab } from './components/Header';
 import { MobileNavBar } from './components/common/MobileNavBar';
+import { AccessibilityBar } from './components/common/AccessibilityBar';
 
 // Views
 import { UnifiedDashboard } from './components/dashboard/UnifiedDashboard';
@@ -231,6 +232,9 @@ export function App() {
         }}
         potholeCount={potholes.length}
       />
+
+      {/* Accessible Sizing, Theme & Voice Controls Bar */}
+      <AccessibilityBar potholes={potholes} />
 
       {/* Main Tab Content */}
       <main className="flex-1">

@@ -1,5 +1,7 @@
 import React from 'react';
 import { PotholeReport } from '../../types/pothole';
+import { useAccessibility } from '../../context/AccessibilityContext';
+import { SeverityBadge } from '../common/SeverityBadge';
 import { 
   AlertTriangle, 
   MapPin, 
@@ -12,7 +14,9 @@ import {
   HardHat, 
   Building2, 
   X,
-  Share2
+  Share2,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
 interface PotholeDetailDrawerProps {
@@ -28,9 +32,10 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
   onVerify,
   onOpenDispatcher
 }) => {
+  const { speakPothole, stopSpeaking, isSpeaking } = useAccessibility();
+
   if (!pothole) return null;
 
-  const isSevere = pothole.severity === 'severe';
   const isRepaired = pothole.status === 'repaired';
 
   return (
@@ -39,34 +44,58 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
       {/* Header */}
       <div className="p-4 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-slate-900/95 backdrop-blur z-10">
         <div className="flex items-center space-x-2">
-          <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider ${
-            isRepaired ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-700' :
-            isSevere ? 'bg-rose-900/60 text-rose-300 border border-rose-700' :
-            pothole.severity === 'moderate' ? 'bg-amber-900/60 text-amber-300 border border-amber-700' :
-            'bg-yellow-900/60 text-yellow-300 border border-yellow-700'
-          }`}>
-            {isRepaired ? 'Repaired' : `${pothole.severity} Hazard`}
-          </span>
+          {isRepaired ? (
+            <span className="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-emerald-900/60 text-emerald-300 border border-emerald-700">
+              ✓ Repaired
+            </span>
+          ) : (
+            <SeverityBadge severity={pothole.severity} />
+          )}
           <span className="text-xs text-slate-400 font-mono">#{pothole.id}</span>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => isSpeaking ? stopSpeaking() : speakPothole(pothole)}
+            className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
+              isSpeaking
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+                : 'bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700'
+            }`}
+            title="Narrate hazard in Southern cadence"
+          >
+            {isSpeaking ? <VolumeX className="w-3.5 h-3.5 text-amber-400" /> : <Volume2 className="w-3.5 h-3.5 text-teal-400" />}
+            <span>{isSpeaking ? 'Stop' : 'Listen'}</span>
+          </button>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {/* Body Content */}
       <div className="p-5 space-y-5 flex-1">
-        {/* Title & Location */}
+        {/* Title & Location (Human Landmark Priority) */}
         <div>
+          <div className="mb-1.5">
+            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-900/40 text-teal-300 border border-teal-700/50 inline-flex items-center gap-1">
+              📍 {pothole.landmark || pothole.roadName || 'GGC Campus Corridor'}
+            </span>
+          </div>
           <h2 className="text-lg font-bold text-white leading-snug">{pothole.title}</h2>
           <div className="flex items-start space-x-2 mt-2 text-xs text-slate-300">
             <MapPin className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
             <div>
-              <p className="font-medium text-slate-200">{pothole.address}</p>
-              <p className="text-slate-400">{pothole.roadName} • {pothole.city}, Gwinnett County</p>
+              <p className="font-semibold text-slate-200">
+                {pothole.roadName} {pothole.landmark ? `(near ${pothole.landmark})` : ''}
+              </p>
+              <p className="text-slate-400">{pothole.address} • {pothole.city}, Gwinnett County</p>
+              <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                GPS: {pothole.latitude.toFixed(5)}, {pothole.longitude.toFixed(5)}
+                {pothole.distanceFromGgcMiles !== undefined ? ` (${pothole.distanceFromGgcMiles.toFixed(2)} mi from campus)` : ''}
+              </p>
             </div>
           </div>
         </div>

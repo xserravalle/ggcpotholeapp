@@ -6,6 +6,7 @@ import { CAMPUS_CENTER } from '../../data/jurisdictionsData';
 import { MunicipalQuickJump } from '../map/MunicipalQuickJump';
 import { reverseGeocode } from '../../services/reverseGeocoding';
 import { distanceFromCampusMiles, formatCoords } from '../../services/distanceCalculator';
+import { useAccessibility } from '../../context/AccessibilityContext';
 import { 
   Filter, 
   ThumbsUp, 
@@ -13,7 +14,8 @@ import {
   GraduationCap, 
   Map as MapIcon,
   Building2,
-  Clock
+  Clock,
+  Volume2
 } from 'lucide-react';
 
 interface PotholeMapViewProps {
@@ -81,7 +83,7 @@ const createTrafficLightIcon = (severity: SeverityLevel, status: PotholeStatus, 
         position: relative;
         z-index: 2;
       ">
-        ${isRepaired ? '✓' : verifications > 0 ? verifications : '!'}
+        ${isRepaired ? '✓' : severity === 'severe' || severity === 'critical' ? '▲' : severity === 'moderate' ? '◆' : '●'}
       </div>
       <div style="
         position: absolute; 
@@ -154,6 +156,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   onVerifyPothole,
   onMapDropPin
 }) => {
+  const { speakPothole } = useAccessibility();
   // Map View Scopes
   const [viewScope, setViewScope] = useState<'campus' | 'gwinnett'>('campus');
   const [mapTarget, setMapTarget] = useState<{ center: [number, number]; zoom: number }>({
@@ -375,21 +378,28 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
                 }}
               >
                 <Popup>
-                  <div className="text-slate-900 text-xs min-w-[240px] space-y-2 p-0.5">
+                  <div className="text-slate-900 text-xs min-w-[250px] space-y-2 p-1">
                     
-                    {/* Header */}
-                    <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                      <span className="font-bold text-slate-900 text-xs leading-tight">
-                        {pothole.title}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                    {/* Landmark / Road Name Priority */}
+                    <div className="flex items-start justify-between border-b border-slate-200 pb-1.5 gap-2">
+                      <div>
+                        <span className="font-bold text-slate-900 text-sm leading-tight block">
+                          {pothole.roadName || pothole.title}
+                        </span>
+                        {pothole.landmark && pothole.landmark !== pothole.roadName && (
+                          <span className="text-[10px] text-emerald-800 font-medium block mt-0.5">
+                            🏫 Landmark: {pothole.landmark}
+                          </span>
+                        )}
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 border ${
                         isCritical 
-                          ? 'bg-rose-100 text-rose-700' 
+                          ? 'bg-rose-100 text-rose-800 border-rose-300' 
                           : pothole.status === 'repaired'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-amber-100 text-amber-700'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : 'bg-amber-100 text-amber-800 border-amber-300'
                       }`}>
-                        {pothole.status === 'repaired' ? 'Resolved' : isCritical ? 'Critical' : 'Moderate'}
+                        {isCritical ? '▲ Critical' : pothole.status === 'repaired' ? '✓ Resolved' : '◆ Moderate'}
                       </span>
                     </div>
 
@@ -405,11 +415,14 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
                       </span>
                     </div>
 
-                    {/* Location & Proximity */}
-                    <div className="text-slate-600 space-y-0.5">
+                    {/* Proximity & Secondary GPS metadata */}
+                    <div className="text-slate-600 space-y-0.5 text-xs">
                       <div className="font-medium text-slate-800">{pothole.address}</div>
-                      <div className="text-[11px] text-emerald-700 font-semibold">
+                      <div className="text-[11px] text-emerald-800 font-semibold">
                         {dist.toFixed(2)} mi from GGC Student Center
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-mono">
+                        GPS: {formatCoords(pothole.latitude, pothole.longitude)}
                       </div>
                       <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
                         <Building2 className="w-3 h-3 text-slate-400" />
@@ -417,14 +430,25 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Upvote Button */}
-                    <button
-                      onClick={() => onVerifyPothole(pothole.id)}
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 transition active:scale-98 shadow-sm"
-                    >
-                      <ThumbsUp className="w-3.5 h-3.5" />
-                      <span>Confirm Hazard (+1)</span>
-                    </button>
+                    {/* Actions: Listen & Upvote */}
+                    <div className="pt-1 flex items-center gap-2">
+                      <button
+                        onClick={() => speakPothole(pothole)}
+                        className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold py-1.5 px-2.5 rounded-lg text-xs flex items-center justify-center gap-1 transition shadow-sm active:scale-98"
+                        title="Listen to this report read aloud in Southern voice"
+                      >
+                        <Volume2 className="w-3.5 h-3.5 text-teal-400" />
+                        <span>Listen</span>
+                      </button>
+
+                      <button
+                        onClick={() => onVerifyPothole(pothole.id)}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 px-2.5 rounded-lg text-xs flex items-center justify-center gap-1 transition active:scale-98 shadow-sm"
+                      >
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                        <span>Confirm (+1)</span>
+                      </button>
+                    </div>
 
                   </div>
                 </Popup>
@@ -433,12 +457,12 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
           })}
         </MapContainer>
 
-        {/* Legend pill on bottom left */}
+        {/* Legend pill on bottom left with Dual Coding Symbols */}
         <div className="absolute bottom-4 left-4 z-20 bg-slate-900/90 backdrop-blur border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-300 shadow-xl hidden sm:flex items-center gap-3">
-          <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Traffic Light:</span>
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /> Critical</span>
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-yellow-500" /> Moderate</span>
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Resolved</span>
+          <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Dual-Coded Legend:</span>
+          <span className="flex items-center gap-1 text-red-400 font-semibold"><span className="text-xs">▲</span> Critical</span>
+          <span className="flex items-center gap-1 text-amber-400 font-semibold"><span className="text-xs">◆</span> Moderate</span>
+          <span className="flex items-center gap-1 text-emerald-400 font-semibold"><span className="text-xs">●</span> Low / Resolved</span>
         </div>
 
       </div>
