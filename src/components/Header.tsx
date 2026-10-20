@@ -72,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
                   GGC <span className="text-teal-400 font-black">SansPotholes</span>
                 </h1>
                 <span className="hidden sm:inline-block text-[11px] font-semibold bg-slate-800 text-teal-300 border border-teal-500/30 px-2.5 py-0.5 rounded-full">
-                  Comic Sans Edition
+                  Parking & Hazards
                 </span>
               </div>
               <p className="text-xs text-slate-400 hidden sm:block">
@@ -138,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <div className="flex items-center space-x-2.5">
                       <LayoutDashboard className="w-4 h-4 text-teal-400 shrink-0" />
                       <div>
-                        <div className="font-semibold text-white">Dashboard & Parking</div>
+                        <div className="font-semibold text-white">Parking & Hazards</div>
                         <div className="text-[10px] text-slate-400">Commuter telemetry & lot occupancy</div>
                       </div>
                     </div>
@@ -234,7 +234,7 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </button>
 
-          {/* Dashboard Tab */}
+          {/* Parking & Hazards Tab */}
           <button
             onClick={() => setActiveTab('dashboard')}
             className={`px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap transition-all ${
@@ -244,7 +244,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <LayoutDashboard className="w-4 h-4" />
-            <span>Dashboard & Parking</span>
+            <span>Parking & Hazards</span>
           </button>
 
           {/* Drive Sensor Tab */}

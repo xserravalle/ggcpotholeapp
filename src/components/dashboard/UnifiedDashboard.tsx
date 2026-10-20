@@ -21,7 +21,6 @@ import {
   PlusCircle, 
   ThumbsUp, 
   Clock, 
-  Sparkles,
   ShieldCheck,
   Building2,
   Calendar,
@@ -101,20 +100,20 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
       <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-teal-950 border border-slate-800 rounded-3xl p-5 sm:p-7 shadow-xl relative overflow-hidden">
         <div className="relative z-10 space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-teal-400 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-teal-400" />
-              Georgia Gwinnett College & Gwinnett County
+            <span className="text-[11px] font-mono text-amber-300 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/30 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+              Simulated Demo Feed (Academic Prototype)
             </span>
             <span className="text-[11px] font-mono text-slate-400 bg-slate-800/80 px-2.5 py-1 rounded-full border border-slate-700/60">
-              Community Live Feed
+              Synthetic Telemetry
             </span>
           </div>
 
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Gwinnett P3 Dashboard
+            Parking Conditions & Road Hazards
           </h2>
           <p className="text-slate-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
-            Real-time road hazards and parking congestion, powered by student and driver reports. Check campus decks before you commute, or flag road damage to protect drivers.
+            Currently populated with simulated campus parking occupancies and synthetic roadway hazard reports for prototype demonstration. Once GGC SansPotholes is launched live, this dashboard will visualize real-time student reports, active commuter validations, and live deck sensor telemetry.
           </p>
 
           {/* Quick Metrics Bar - Traffic Light Unified */}

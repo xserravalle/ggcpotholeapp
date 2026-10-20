@@ -156,7 +156,7 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({ onNavigateTab }) =
                     <LayoutDashboard className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Dashboard & Parking</h3>
+                    <h3 className="text-base font-bold text-white">Parking & Hazards</h3>
                     <span className="text-[10px] font-semibold text-teal-400 uppercase tracking-wider">
                       Commuter Telematics & Forecasts
                     </span>
@@ -183,7 +183,7 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({ onNavigateTab }) =
               onClick={() => onNavigateTab('dashboard')}
               className="mt-3 w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-teal-600 hover:text-white text-teal-400 text-xs font-bold flex items-center justify-center gap-1.5 transition"
             >
-              <span>View Dashboard & Parking</span>
+              <span>View Parking & Hazards</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

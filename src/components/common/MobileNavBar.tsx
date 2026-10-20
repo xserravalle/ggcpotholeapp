@@ -35,7 +35,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
         }`}
       >
         <LayoutDashboard className="w-5 h-5" />
-        <span className="text-[10px] mt-0.5">Dashboard</span>
+        <span className="text-[10px] mt-0.5">Parking & Hazards</span>
       </button>
 
       {/* Center Report Action Button (Elevated FAB) */}
