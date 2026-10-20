@@ -2,11 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { canRecordImpact } from '../../services/impactCooldown';
 import { 
   Activity, 
-  Zap, 
   Play, 
   Pause, 
   MapPin, 
-  Sparkles,
   RotateCcw,
   Target
 } from 'lucide-react';
@@ -30,7 +28,6 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
   const [liveG, setLiveG] = useState(1.02);
   const [peakG, setPeakG] = useState(1.02);
   const [recentSpike, setRecentSpike] = useState<number | null>(null);
-  const [simulatedSpike, setSimulatedSpike] = useState(1.0);
 
   // Tracked spots with 3x hit threshold
   const [trackedSpots, setTrackedSpots] = useState<TrackedHazardSpot[]>(() => loadTrackedSpots());
@@ -224,20 +221,6 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     }
   };
 
-  // Simulation handlers for class demo of 3x threshold
-  const fixedDemoLocation = {
-    lat: 33.9821,
-    lng: -84.0048,
-    road: 'Collins Hill Rd @ GGC Campus Entrance'
-  };
-
-  const handleSimulateDemoHit = () => {
-    const spike = parseFloat((6.8 + Math.random() * 1.8).toFixed(2));
-    setSimulatedSpike(spike);
-    setLiveG(spike);
-    silentlyRecordImpact(spike, fixedDemoLocation.lat, fixedDemoLocation.lng, fixedDemoLocation.road);
-  };
-
   const handleClearTrackedSpots = () => {
     setTrackedSpots([]);
     saveTrackedSpots([]);
@@ -259,12 +242,9 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
 
       let newPoint = 1.0;
       if (isMonitoring) {
-        newPoint = 1.0 + Math.sin(time * 3) * 0.08 + Math.cos(time * 7) * 0.04;
-      }
-
-      if (simulatedSpike > 1.2) {
-        newPoint = simulatedSpike;
-        setSimulatedSpike(prev => Math.max(1.0, prev * 0.82));
+        newPoint = recentSpike
+          ? recentSpike
+          : 1.0 + Math.sin(time * 3) * 0.08 + Math.cos(time * 7) * 0.04;
       }
 
       points.shift();
@@ -318,7 +298,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
 
     render();
     return () => cancelAnimationFrame(animId);
-  }, [isMonitoring, simulatedSpike]);
+  }, [isMonitoring, recentSpike]);
 
   useEffect(() => {
     return () => {
@@ -447,38 +427,6 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
         </div>
 
         {/* Demo Simulation Controls for Capstone Presentation */}
-        <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-white flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-teal-400" />
-              <span>Capstone Demo: 3x Hit Threshold Simulator</span>
-            </span>
-            <span className="text-[11px] text-slate-400">
-              Target: <strong className="text-teal-300">Collins Hill Rd @ GGC</strong>
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2 pt-1">
-            <button
-              onClick={handleSimulateDemoHit}
-              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow active:scale-95"
-            >
-              <Zap className="w-3.5 h-3.5 text-amber-200" />
-              <span>Simulate Hit on Same Spot (Click 3x to Verify)</span>
-            </button>
-
-            {trackedSpots.length > 0 && (
-              <button
-                onClick={handleClearTrackedSpots}
-                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-semibold transition flex items-center gap-1"
-              >
-                <RotateCcw className="w-3 h-3" />
-                <span>Reset Demo Hits</span>
-              </button>
-            )}
-          </div>
-        </div>
-
       </div>
 
       {/* Currently Tracked Spots (3x Threshold Progress) */}
@@ -490,15 +438,27 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
               Tracked Road Spots & Hit Count
             </h3>
           </div>
-          <span className="text-xs font-mono bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full border border-slate-700">
-            {trackedSpots.length} Locations Monitored
-          </span>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs font-mono bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full border border-slate-700">
+              {trackedSpots.length} Locations Monitored
+            </span>
+            {trackedSpots.length > 0 && (
+              <button
+                onClick={handleClearTrackedSpots}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 text-xs font-semibold transition flex items-center gap-1 border border-slate-700 active:scale-95"
+                title="Clear all tracked road locations"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Clear All</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {trackedSpots.length === 0 ? (
           <div className="bg-slate-950/60 rounded-2xl p-6 text-center border border-slate-800/80 text-xs text-slate-400 space-y-1">
             <p className="font-semibold text-slate-300">No road impacts registered yet</p>
-            <p>When you strike road shocks while driving (or click the test button above), spots will cluster here until reaching 3 strikes.</p>
+            <p>When you encounter road shocks while driving, spots will automatically cluster here until reaching 3 strikes.</p>
           </div>
         ) : (
           <div className="space-y-3">
