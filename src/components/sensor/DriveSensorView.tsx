@@ -47,6 +47,98 @@ interface DriveSensorViewProps {
 
 const CLUSTER_DISTANCE_MILES = 0.022;
 
+/**
+ * Dedicated Live Waveform Canvas component.
+ * Self-contained so it always initializes and starts animating immediately
+ * whenever mounted into the DOM, eliminating tab-switch null ref issues.
+ */
+const LiveWaveformCanvas: React.FC<{
+  liveGRef: React.RefObject<number>;
+  simulatedSpikeRef: React.RefObject<number>;
+  isStreaming?: boolean;
+}> = ({ liveGRef, simulatedSpikeRef, isStreaming = true }) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId: number;
+    const points: number[] = new Array(80).fill(1.0);
+
+    const render = () => {
+      let currentG = liveGRef.current ?? 1.0;
+
+      // Handle simulated demonstration spike decaying smoothly
+      if (simulatedSpikeRef.current && simulatedSpikeRef.current > 1.05) {
+        currentG = simulatedSpikeRef.current;
+        simulatedSpikeRef.current = Math.max(1.0, simulatedSpikeRef.current * 0.90);
+      }
+
+      points.shift();
+      points.push(currentG);
+
+      ctx.fillStyle = '#020617';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Grid line: 3.0G Impact Threshold
+      const thresholdY = canvas.height - (3.0 / 4.5) * canvas.height;
+      ctx.strokeStyle = '#ef444466';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, thresholdY);
+      ctx.lineTo(canvas.width, thresholdY);
+      ctx.stroke();
+
+      // Grid line: 1.0G Nominal Baseline (Earth Gravity)
+      const baseY = canvas.height - (1.0 / 4.5) * canvas.height;
+      ctx.strokeStyle = '#334155';
+      ctx.beginPath();
+      ctx.moveTo(0, baseY);
+      ctx.lineTo(canvas.width, baseY);
+      ctx.stroke();
+
+      // Waveform trace line
+      ctx.beginPath();
+      ctx.strokeStyle = currentG >= 3.0 ? '#ef4444' : '#10b981';
+      ctx.lineWidth = 2.5;
+
+      points.forEach((val, idx) => {
+        const x = (idx / (points.length - 1)) * canvas.width;
+        const y = canvas.height - (Math.min(val, 4.5) / 4.5) * canvas.height;
+        if (idx === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // Text labels
+      ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = '#ef4444';
+      ctx.fillText('3.0G Impact Threshold', 10, thresholdY - 4);
+
+      ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = '#64748b';
+      ctx.fillText('1.0G Gravity Baseline', 10, baseY - 4);
+
+      animId = requestAnimationFrame(render);
+    };
+
+    render();
+    return () => cancelAnimationFrame(animId);
+  }, [liveGRef, simulatedSpikeRef]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={400}
+      height={96}
+      className="w-full h-full block"
+    />
+  );
+};
+
 export const DriveSensorView: React.FC<DriveSensorViewProps> = ({ 
   onPromoteSpotToReport,
   onPromoteDriveIncidents,
@@ -73,7 +165,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
   const [rawAcc, setRawAcc] = useState({ x: 0, y: 0, z: 9.81 });
   const [sensorSource, setSensorSource] = useState<string>('Detecting...');
 
-  // Tracked spots with 3x hit threshold (for stationary benchmark)
+  // Tracked spots with 3x hit threshold (for stationary bench test)
   const [trackedSpots, setTrackedSpots] = useState<TrackedHazardSpot[]>(() => loadTrackedSpots());
   const [quietStatusMessage, setQuietStatusMessage] = useState<string | null>(null);
 
@@ -85,7 +177,6 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
   const watchIdRef = useRef<number | null>(null);
   const timerIntervalRef = useRef<number | null>(null);
   const lastAcceptedImpactAt = useRef<number | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const simulatedSpikeRef = useRef<number>(1.0);
 
   // Synchronize refs
@@ -177,9 +268,86 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     }, 2500);
   };
 
+  // Record an impact silently on the Hardware Bench (check clustering for 3x hits)
+  const silentlyRecordBenchImpact = (gVal: number, lat: number, lng: number, road: string) => {
+    const roundedG = parseFloat(gVal.toFixed(2));
+    setRecentSpike(roundedG);
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    let spotToPromote: TrackedHazardSpot | null = null;
+    let statusMsg: string | null = null;
+
+    setTrackedSpots(prevSpots => {
+      const existingIndex = prevSpots.findIndex(s => 
+        milesBetween({ lat: s.latitude, lng: s.longitude }, { lat, lng }) <= CLUSTER_DISTANCE_MILES
+      );
+
+      let updatedList = [...prevSpots];
+
+      if (existingIndex >= 0) {
+        const spot = updatedList[existingIndex];
+        const newHitCount = spot.hitCount + 1;
+        const newMaxG = Math.max(spot.maxGForce, roundedG);
+
+        const updatedSpot: TrackedHazardSpot = {
+          ...spot,
+          hitCount: newHitCount,
+          maxGForce: newMaxG,
+          severity: newMaxG >= 6.0 ? 'critical' : 'moderate',
+          lastHitAt: timeStr,
+          hits: [
+            ...spot.hits,
+            { id: `HIT-${crypto.randomUUID()}`, timestamp: timeStr, gForce: roundedG }
+          ]
+        };
+
+        if (newHitCount >= 3 && !updatedSpot.promotedToReportId) {
+          updatedSpot.promotedToReportId = `GW-POT-${crypto.randomUUID()}`;
+          spotToPromote = updatedSpot;
+          statusMsg = `🎯 Spot hit 3x: Auto-promoted to My Reports! (${updatedSpot.roadName})`;
+        } else {
+          statusMsg = `📍 Road spot registered ${newHitCount}/3 hits (${updatedSpot.roadName})`;
+        }
+
+        updatedList[existingIndex] = updatedSpot;
+      } else {
+        const newSpot: TrackedHazardSpot = {
+          id: `SPOT-${crypto.randomUUID()}`,
+          latitude: lat,
+          longitude: lng,
+          roadName: road,
+          city: 'Lawrenceville',
+          hitCount: 1,
+          maxGForce: roundedG,
+          severity: roundedG >= 6.0 ? 'critical' : 'moderate',
+          createdAt: timeStr,
+          lastHitAt: timeStr,
+          hits: [
+            { id: `HIT-${crypto.randomUUID()}`, timestamp: timeStr, gForce: roundedG }
+          ]
+        };
+        updatedList = [newSpot, ...updatedList];
+        statusMsg = `📍 New road spot detected (1/3 hits). Needs 3 strikes to generate report.`;
+      }
+
+      return updatedList;
+    });
+
+    if (spotToPromote && onPromoteSpotToReport) {
+      onPromoteSpotToReport(spotToPromote);
+    }
+    if (statusMsg) {
+      setQuietStatusMessage(statusMsg);
+      setTimeout(() => setQuietStatusMessage(null), 5000);
+    }
+
+    setTimeout(() => {
+      setRecentSpike(null);
+    }, 2500);
+  };
+
   // Start Active Drive-Time Patrol
   const handleStartDrive = async () => {
-    // Request motion permission if iOS
     const deviceMotion = window.DeviceMotionEvent as unknown as {
       requestPermission?: () => Promise<'granted' | 'denied'>;
     };
@@ -225,7 +393,6 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           setDriveSession(prev => prev ? { ...prev, path: [firstPoint] } : null);
         },
         () => {
-          // Fallback initial GGC campus coordinate
           const defaultFirst: DriveBreadcrumb = {
             lat: 33.9798,
             lng: -84.0017,
@@ -313,11 +480,10 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     driveSessionRef.current = null;
     setCurrentSpeedMph(0);
 
-    // Open the comprehensive Readout Modal
     setActiveReadoutSession(completedSession);
   };
 
-  // Hardware Motion Listener (Active during drive or stationary test)
+  // Hardware Motion Listener (Always listens to hardware accelerometer)
   useEffect(() => {
     let isListenerActive = true;
 
@@ -393,7 +559,6 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     const baseLat = currentPath.length > 0 ? currentPath[currentPath.length - 1].lat : 33.9798;
     const baseLng = currentPath.length > 0 ? currentPath[currentPath.length - 1].lng : -84.0017;
 
-    // Simulate forward movement (~0.12 miles down Collins Hill Rd)
     const nextLat = baseLat + 0.0018 + (Math.random() - 0.5) * 0.0004;
     const nextLng = baseLng + 0.0012 + (Math.random() - 0.5) * 0.0004;
     const speed = 35 + Math.round((Math.random() - 0.5) * 8);
@@ -434,65 +599,20 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     }
   };
 
-  // Live Canvas Waveform driven by real sensor readings
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  // Demonstration shock spike for the Hardware Bench test
+  const handleSimulateBenchShock = () => {
+    const spike = parseFloat((6.8 + Math.random() * 1.8).toFixed(2));
+    liveGRef.current = spike;
+    setLiveG(spike);
+    setPeakG(spike);
+    simulatedSpikeRef.current = spike;
+    silentlyRecordBenchImpact(spike, 33.9821, -84.0048, 'Collins Hill Rd @ GGC Campus Entrance');
+  };
 
-    let animId: number;
-    const points: number[] = new Array(60).fill(1.0);
-
-    const render = () => {
-      let currentG = liveGRef.current;
-      if (simulatedSpikeRef.current > 1.2) {
-        currentG = simulatedSpikeRef.current;
-        simulatedSpikeRef.current = Math.max(1.0, simulatedSpikeRef.current * 0.88);
-      }
-
-      points.shift();
-      points.push(currentG);
-
-      ctx.fillStyle = '#020617';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Grid line 3.0G threshold
-      const thresholdY = canvas.height - (3.0 / 4.5) * canvas.height;
-      ctx.strokeStyle = '#ef444466';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(0, thresholdY);
-      ctx.lineTo(canvas.width, thresholdY);
-      ctx.stroke();
-
-      // 1.0G Nominal Baseline
-      const baseY = canvas.height - (1.0 / 4.5) * canvas.height;
-      ctx.strokeStyle = '#334155';
-      ctx.beginPath();
-      ctx.moveTo(0, baseY);
-      ctx.lineTo(canvas.width, baseY);
-      ctx.stroke();
-
-      // Live Waveform line
-      ctx.beginPath();
-      ctx.strokeStyle = currentG >= 3.0 ? '#ef4444' : '#10b981';
-      ctx.lineWidth = 2.5;
-
-      points.forEach((val, idx) => {
-        const x = (idx / (points.length - 1)) * canvas.width;
-        const y = canvas.height - (Math.min(val, 4.5) / 4.5) * canvas.height;
-        if (idx === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      });
-      ctx.stroke();
-
-      animId = requestAnimationFrame(render);
-    };
-
-    render();
-    return () => cancelAnimationFrame(animId);
-  }, []);
+  const handleClearTrackedSpots = () => {
+    setTrackedSpots([]);
+    saveTrackedSpots([]);
+  };
 
   const displayG = recentSpike || Math.max(liveG, peakG);
   const isSpike = displayG >= 3.0;
@@ -759,78 +879,208 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
         </div>
       )}
 
-      {/* MODE 2: HARDWARE BENCH TEST (PHYSICAL ACCELEROMETER DIAGNOSTICS) */}
+      {/* MODE 2: HARDWARE BENCH TEST (PHYSICAL ACCELEROMETER DIAGNOSTICS & WAVEFORM) */}
       {activeMode === 'stationary' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-6 animate-in fade-in duration-300">
+        <div className="space-y-5 animate-in fade-in duration-300">
           
-          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-            <div>
-              <h3 className="text-base font-bold text-white">Samsung Galaxy Hardware Sensor Monitor</h3>
-              <p className="text-[11px] text-slate-400">Direct proof of physical mobile device motion streaming</p>
-            </div>
-            <span className="font-mono text-xs text-teal-300 font-bold bg-teal-950 px-2.5 py-1 rounded-full border border-teal-800">
-              {eventCount} Motion Events
-            </span>
-          </div>
-
-          {/* G-Force Readout & Waveform */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800/80 flex flex-col justify-center items-center text-center">
-              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                Total G-Force Load
-              </span>
-              <div className={`text-4xl font-black font-mono mt-1 ${
-                isSpike ? 'text-rose-400' : 'text-emerald-400'
-              }`}>
-                {displayG.toFixed(2)} <span className="text-sm font-sans font-bold text-slate-400">G</span>
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-bold text-white">Samsung Galaxy Hardware Sensor Monitor</h3>
+                <p className="text-[11px] text-slate-400">Direct proof of physical mobile device motion streaming</p>
               </div>
-              <span className="text-[10px] text-slate-500 mt-1 font-mono">
-                Baseline: ~1.00G Gravity
+              <span className="font-mono text-xs text-teal-300 font-bold bg-teal-950 px-2.5 py-1 rounded-full border border-teal-800">
+                {eventCount} Motion Events
               </span>
             </div>
 
-            <div className="sm:col-span-2 bg-slate-950 rounded-2xl p-3 border border-slate-800/80 flex flex-col justify-between overflow-hidden">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] uppercase font-mono text-slate-400">
-                  Live Physical Waveform
+            {/* G-Force Readout & Live Physical Waveform */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800/80 flex flex-col justify-center items-center text-center">
+                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                  Total G-Force Load
                 </span>
-                <span className="text-[10px] font-mono text-emerald-400 font-bold">
-                  STREAMING
+                <div className={`text-4xl font-black font-mono mt-1 ${
+                  isSpike ? 'text-rose-400' : 'text-emerald-400'
+                }`}>
+                  {displayG.toFixed(2)} <span className="text-sm font-sans font-bold text-slate-400">G</span>
+                </div>
+                <span className="text-[10px] text-slate-500 mt-1 font-mono">
+                  Baseline: ~1.00G Gravity
                 </span>
               </div>
-              <div className="w-full h-24 rounded-lg overflow-hidden bg-slate-950">
-                <canvas
-                  ref={canvasRef}
-                  width={400}
-                  height={96}
-                  className="w-full h-full block"
-                />
+
+              {/* The Live Physical Waveform Canvas */}
+              <div className="sm:col-span-2 bg-slate-950 rounded-2xl p-3 border border-slate-800/80 flex flex-col justify-between overflow-hidden">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] uppercase font-mono text-slate-400">
+                    Live Physical Waveform
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-400 font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>STREAMING</span>
+                  </span>
+                </div>
+                <div className="w-full h-24 rounded-lg overflow-hidden bg-slate-950">
+                  <LiveWaveformCanvas 
+                    liveGRef={liveGRef} 
+                    simulatedSpikeRef={simulatedSpikeRef} 
+                    isStreaming={true}
+                  />
+                </div>
               </div>
             </div>
+
+            {/* Raw XYZ Axes */}
+            <div className="grid grid-cols-3 gap-2 font-mono text-[11px]">
+              <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-center">
+                <span className="text-[9px] text-slate-500 uppercase block font-sans">X-Axis</span>
+                <span className="text-white font-bold">{rawAcc.x} m/s²</span>
+              </div>
+              <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-center">
+                <span className="text-[9px] text-slate-500 uppercase block font-sans">Y-Axis</span>
+                <span className="text-white font-bold">{rawAcc.y} m/s²</span>
+              </div>
+              <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-center">
+                <span className="text-[9px] text-slate-500 uppercase block font-sans">Z-Axis</span>
+                <span className="text-white font-bold">{rawAcc.z} m/s²</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+              <span>Sensor Stream: <strong className="text-slate-200">{sensorSource}</strong></span>
+              <span className="text-emerald-400 flex items-center gap-1 font-semibold">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Hardware Active
+              </span>
+            </div>
+
+            {/* Demonstration Shock Controls for Capstone Bench */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Capstone Demonstration Controls</span>
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  Target: <strong className="text-teal-300">Collins Hill Rd @ GGC</strong>
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleSimulateBenchShock}
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition flex items-center gap-1.5 shadow active:scale-95"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-200" />
+                  <span>Simulate Demo Shock Spike (7.5G)</span>
+                </button>
+
+                {trackedSpots.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearTrackedSpots}
+                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-semibold transition flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Reset Demo Hits</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
           </div>
 
-          {/* Raw XYZ Axes */}
-          <div className="grid grid-cols-3 gap-2 font-mono text-[11px]">
-            <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-center">
-              <span className="text-[9px] text-slate-500 uppercase block font-sans">X-Axis</span>
-              <span className="text-white font-bold">{rawAcc.x} m/s²</span>
+          {/* Currently Tracked Spots (3x Threshold Progress) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Target className="w-5 h-5 text-teal-400" />
+                <h3 className="text-base font-bold text-white">
+                  Tracked Road Spots & Hit Count (3 Strikes Verification)
+                </h3>
+              </div>
+              <span className="text-xs font-mono bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full border border-slate-700">
+                {trackedSpots.length} Locations Monitored
+              </span>
             </div>
-            <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-center">
-              <span className="text-[9px] text-slate-500 uppercase block font-sans">Y-Axis</span>
-              <span className="text-white font-bold">{rawAcc.y} m/s²</span>
-            </div>
-            <div className="bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-center">
-              <span className="text-[9px] text-slate-500 uppercase block font-sans">Z-Axis</span>
-              <span className="text-white font-bold">{rawAcc.z} m/s²</span>
-            </div>
+
+            {trackedSpots.length === 0 ? (
+              <div className="bg-slate-950/60 rounded-2xl p-6 text-center border border-slate-800/80 text-xs text-slate-400 space-y-1">
+                <p className="font-semibold text-slate-300">No stationary road impacts registered yet</p>
+                <p>When you shake the device or click the test button above, impacts will cluster here until reaching 3 strikes.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {trackedSpots.map((spot) => {
+                  const isPromoted = spot.hitCount >= 3;
+
+                  return (
+                    <div 
+                      key={spot.id}
+                      className={`bg-slate-950 border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs transition ${
+                        isPromoted 
+                          ? 'border-emerald-700/80 bg-emerald-950/10' 
+                          : 'border-slate-800'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                            isPromoted 
+                              ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' 
+                              : 'bg-amber-950 text-amber-300 border border-amber-800'
+                          }`}>
+                            {isPromoted ? '✓ 3x Confirmed Report' : `Strikes: ${spot.hitCount} of 3`}
+                          </span>
+                          <span className="text-[11px] font-mono text-slate-400">
+                            Peak: {spot.maxGForce}G
+                          </span>
+                        </div>
+
+                        <h4 className="text-sm font-bold text-white">
+                          {spot.roadName}
+                        </h4>
+
+                        <p className="text-slate-400 text-[11px] flex items-center gap-1">
+                          <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
+                          <span>{spot.latitude.toFixed(5)}, {spot.longitude.toFixed(5)} ({spot.city})</span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="flex space-x-1">
+                          {[1, 2, 3].map((step) => (
+                            <div 
+                              key={step} 
+                              className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs ${
+                                spot.hitCount >= step 
+                                  ? 'bg-teal-500 text-slate-950' 
+                                  : 'bg-slate-800 text-slate-500 border border-slate-700'
+                              }`}
+                            >
+                              {spot.hitCount >= step ? '✓' : step}
+                            </div>
+                          ))}
+                        </div>
+
+                        {isPromoted && onNavigateToMyReports && (
+                          <button
+                            onClick={onNavigateToMyReports}
+                            className="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl text-xs transition"
+                          >
+                            View Report
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-            <span>Sensor Stream: <strong className="text-slate-200">{sensorSource}</strong></span>
-            <span className="text-emerald-400 flex items-center gap-1 font-semibold">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Hardware Active
-            </span>
-          </div>
         </div>
       )}
 
