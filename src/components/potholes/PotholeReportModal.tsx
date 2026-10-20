@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { PotholeReport, SeverityLevel, HazardType } from '../../types/pothole';
 import { classifyJurisdiction } from '../../services/jurisdictionClassifier';
 import { reverseGeocode } from '../../services/reverseGeocoding';
+import { generateMapSnapshot } from '../../services/mapSnapshotService';
 import { 
   X, 
   MapPin, 
@@ -12,7 +13,7 @@ import {
   Mail,
   AlertTriangle,
   RefreshCw,
-  ExternalLink
+  Camera
 } from 'lucide-react';
 
 interface PotholeReportModalProps {
@@ -106,6 +107,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   const [reporterName, setReporterName] = useState('');
   const [reporterEmail, setReporterEmail] = useState('');
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Testing Destination Email
   const TARGET_EMAIL = 'peyton.holland@gmail.com';
@@ -199,8 +201,22 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
     setIsResolvingAddress(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    let snapshotUrl = '';
+    try {
+      snapshotUrl = await generateMapSnapshot(latitude, longitude, {
+        severity,
+        roadName: roadName || address.split(',')[0],
+        landmark
+      });
+    } catch (err) {
+      console.warn('Failed to capture map snapshot:', err);
+    }
+
     const finalTitle = title.trim() || `Road Hazard on ${roadName || address.split(',')[0] || 'Corridor'}`;
 
     onSubmitReport({
@@ -228,10 +244,11 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
       landmark,
       reporterName: reporterName || 'Anonymous Reporter',
       reporterEmail,
-      imageUrl: 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=600&q=80',
+      imageUrl: snapshotUrl || undefined,
       source: initialTelemetry?.sensorDetected ? 'sensor' : 'user'
     });
 
+    setIsSubmitting(false);
     onClose();
   };
 
@@ -249,45 +266,45 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
               <div className="flex items-center gap-2">
                 <h2 className="text-sm sm:text-base font-bold text-white">Report Road Hazard</h2>
                 {initialTelemetry?.sensorDetected && (
-                  <span className="bg-rose-950 text-rose-300 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-rose-800 flex items-center gap-1">
-                    <Activity className="w-2.5 h-2.5" /> {initialTelemetry.bumpIntensity}G Shock
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800 flex items-center gap-1 animate-pulse">
+                    <Activity className="w-2.5 h-2.5" />
+                    <span>{initialTelemetry.bumpIntensity}G Shock</span>
                   </span>
                 )}
               </div>
               <p className="text-[11px] text-slate-400">
-                Submit road docket with automatic nearest street address resolution
+                Official Incident Intake • Dispatched directly to testing inbox
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Email Destination Notice */}
-        <div className="bg-teal-950/30 border border-teal-800/50 rounded-xl px-3 py-2 flex items-center justify-between text-xs mb-3 shrink-0">
-          <div className="flex items-center space-x-2">
-            <Mail className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-            <div>
-              <span className="text-[9px] text-teal-400 font-bold uppercase tracking-wider block">
-                Report Dispatch Target (Testing Mode)
-              </span>
-              <span className="font-mono text-white text-[11px] font-semibold">
-                {TARGET_EMAIL}
-              </span>
-            </div>
-          </div>
-          <span className="text-[9px] bg-teal-900/60 text-teal-300 px-2 py-0.5 rounded-full border border-teal-700/60 font-mono">
-            Active
-          </span>
-        </div>
-
-        {/* Form Body - Scrollable if needed on small phones */}
-        <form onSubmit={handleSubmit} className="space-y-3 text-xs overflow-y-auto pr-1 flex-1">
+        {/* Scrollable Form Content */}
+        <form onSubmit={handleSubmit} className="space-y-3 overflow-y-auto pr-1">
           
+          {/* Dispatch Notice Card */}
+          <div className="bg-slate-950/80 border border-teal-900/60 rounded-xl p-2.5 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-6 h-6 rounded-lg bg-teal-950 border border-teal-700/80 flex items-center justify-center text-teal-400 shrink-0">
+                <Mail className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <span className="text-[10px] text-slate-400 block">Report Dispatched To:</span>
+                <span className="font-mono font-bold text-teal-300 text-xs">{TARGET_EMAIL}</span>
+              </div>
+            </div>
+            <span className="text-[10px] bg-teal-950 text-teal-400 border border-teal-800/80 px-2 py-0.5 rounded-full font-semibold">
+              Testing Mode
+            </span>
+          </div>
+
           {/* Map Location Centralized around Detected Shock / GPS */}
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[11px] text-slate-300 font-semibold mb-1">
@@ -328,6 +345,12 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block mr-1 animate-pulse"></span>
                 <span>{latitude.toFixed(5)}, {longitude.toFixed(5)}</span>
               </div>
+
+              {/* Snapshot Included Badge */}
+              <div className="absolute bottom-2 right-2 z-[1000] bg-slate-900/90 backdrop-blur px-2 py-0.5 rounded border border-slate-700/80 text-[10px] font-mono text-teal-300 shadow flex items-center gap-1">
+                <Camera className="w-3 h-3 text-teal-400" />
+                <span>Screenshot Auto-Captured</span>
+              </div>
             </div>
           </div>
 
@@ -352,51 +375,38 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
               required
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="Resolving nearest street address..."
+              placeholder="e.g. 1000 University Center Ln, Lawrenceville, GA 30043"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:ring-1 focus:ring-teal-500 outline-none text-xs font-medium"
+            />
+          </div>
+
+          {/* Hazard Title */}
+          <div>
+            <label className="block text-slate-300 font-semibold mb-1 text-[11px]">
+              Hazard Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={`Road Hazard on ${roadName || address.split(',')[0] || 'Corridor'}`}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:ring-1 focus:ring-teal-500 outline-none text-xs"
             />
           </div>
 
-          {/* Severity Rating */}
-          <div>
-            <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Severity Rating</label>
-            <div className="grid grid-cols-4 gap-1.5">
-              {(['minor', 'moderate', 'severe', 'critical'] as SeverityLevel[]).map((lvl) => (
-                <button
-                  key={lvl}
-                  type="button"
-                  onClick={() => setSeverity(lvl)}
-                  className={`py-1.5 rounded-lg font-bold text-[11px] capitalize transition border ${
-                    severity === lvl
-                      ? lvl === 'critical'
-                        ? 'bg-rose-700 text-white border-rose-500 shadow'
-                        : lvl === 'severe'
-                        ? 'bg-red-600 text-white border-red-500 shadow'
-                        : lvl === 'moderate'
-                        ? 'bg-amber-600 text-white border-amber-500 shadow'
-                        : 'bg-emerald-600 text-white border-emerald-500 shadow'
-                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-                  }`}
-                >
-                  {lvl}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Hazard Category & Damage Risk */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          {/* Severity & Damage Risk */}
+          <div className="grid grid-cols-2 gap-2.5">
             <div>
-              <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Hazard Category</label>
+              <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Severity</label>
               <select
-                value={hazardType}
-                onChange={(e) => setHazardType(e.target.value as HazardType)}
+                value={severity}
+                onChange={(e) => setSeverity(e.target.value as SeverityLevel)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-medium focus:ring-1 focus:ring-teal-500 outline-none"
               >
-                <option value="POTHOLE">Pothole / Pavement Crater</option>
-                <option value="ROAD_CRACK">Alligator Fatigue Cracking</option>
-                <option value="MANHOLE_COLLAPSE">Sunken Drain / Manhole</option>
-                <option value="SINKHOLE_RISK">Sinkhole Warning Void</option>
+                <option value="low">Low - Minor Surface Dip</option>
+                <option value="moderate">Moderate - Noticeable Bump</option>
+                <option value="severe">Severe - Heavy Jar / Rim Impact</option>
+                <option value="critical">Critical - Immediate Hazard</option>
               </select>
             </div>
 
@@ -472,16 +482,27 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              disabled={isSubmitting}
+              className="px-3.5 py-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold shadow-md shadow-emerald-600/25 transition active:scale-95 flex items-center gap-1.5"
+              disabled={isSubmitting}
+              className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold shadow-md shadow-emerald-600/25 transition active:scale-95 flex items-center gap-1.5 disabled:opacity-60"
             >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Submit Road Report</span>
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Capturing Location Image...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Submit Road Report</span>
+                </>
+              )}
             </button>
           </div>
 

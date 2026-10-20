@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { PotholeReport } from '../../types/pothole';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import { SeverityBadge } from '../common/SeverityBadge';
+import { generatePotholePdf } from '../../services/pdfGenerator';
 import { 
   MapPin, 
   ThumbsUp, 
@@ -14,7 +15,10 @@ import {
   Volume2,
   VolumeX,
   Layers,
-  ExternalLink
+  ExternalLink,
+  FileDown,
+  RefreshCw,
+  Camera
 } from 'lucide-react';
 
 interface PotholeDetailDrawerProps {
@@ -65,6 +69,7 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
   onVerify
 }) => {
   const { speakPothole, stopSpeaking, isSpeaking } = useAccessibility();
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   if (!pothole) return null;
 
@@ -83,6 +88,17 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
       : pothole.severity === 'moderate'
       ? 3.80
       : 1.80;
+
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      await generatePotholePdf(pothole);
+    } catch (e) {
+      console.error('Error generating PDF:', e);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   return (
     <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] bg-slate-900 border-l border-slate-800 shadow-2xl z-50 overflow-y-auto flex flex-col animate-in slide-in-from-right duration-300">
@@ -189,6 +205,23 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
             <ExternalLink className="w-3 h-3 text-teal-400" />
           </a>
         </div>
+
+        {/* Captured Snapshot Preview if available */}
+        {pothole.imageUrl && pothole.imageUrl.startsWith('data:image') && (
+          <div className="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 shadow-md">
+            <div className="relative">
+              <img
+                src={pothole.imageUrl}
+                alt="Captured Incident Map Snapshot"
+                className="w-full h-36 object-cover"
+              />
+              <span className="absolute top-2 left-2 px-2 py-0.5 rounded bg-slate-900/90 border border-slate-700 text-[10px] font-mono font-semibold text-emerald-400 flex items-center gap-1 shadow">
+                <Camera className="w-3 h-3 text-emerald-400" />
+                <span>Captured Incident Location Image</span>
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Description */}
         <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3.5 text-xs text-slate-300">
@@ -343,6 +376,21 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
           <ThumbsUp className="w-4 h-4" />
           <span>Confirm Hazard (+1 Upvote)</span>
         </button>
+
+        <button
+          onClick={handleDownloadPdf}
+          disabled={isDownloadingPdf}
+          className="px-3 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold transition flex items-center gap-1.5 disabled:opacity-60"
+          title="Download Incident PDF Docket"
+        >
+          {isDownloadingPdf ? (
+            <RefreshCw className="w-4 h-4 animate-spin" />
+          ) : (
+            <FileDown className="w-4 h-4" />
+          )}
+          <span className="hidden sm:inline">PDF</span>
+        </button>
+
         <button
           onClick={onClose}
           className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
