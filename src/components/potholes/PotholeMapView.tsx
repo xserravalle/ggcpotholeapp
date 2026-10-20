@@ -244,6 +244,16 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [droppedPin, setDroppedPin] = useState<{ lat: number; lng: number; address: string } | null>(null);
 
+  // Automatically center map around selected pothole shock location
+  useEffect(() => {
+    if (selectedPothole) {
+      setMapTarget({
+        center: [selectedPothole.latitude, selectedPothole.longitude],
+        zoom: 16
+      });
+    }
+  }, [selectedPothole]);
+
   // Toggle View Scope
   const handleScopeChange = (scope: 'campus' | 'gwinnett') => {
     setViewScope(scope);

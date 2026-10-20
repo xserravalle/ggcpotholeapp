@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { PotholeReport } from '../../types/pothole';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import { SeverityBadge } from '../common/SeverityBadge';
@@ -11,7 +13,8 @@ import {
   X,
   Volume2,
   VolumeX,
-  Layers
+  Layers,
+  ExternalLink
 } from 'lucide-react';
 
 interface PotholeDetailDrawerProps {
@@ -19,6 +22,42 @@ interface PotholeDetailDrawerProps {
   onClose: () => void;
   onVerify: (id: string) => void;
 }
+
+// Controller to keep mini map centered around the shock GPS
+const DrawerMapUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
+  const map = useMap();
+  useEffect(() => {
+    // Invalidate size ensures Leaflet calculates tile dimensions correctly on slide-in
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      map.setView(center, 16, { animate: true });
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [center, map]);
+  return null;
+};
+
+// Custom Pulsing Shock Marker for Drawer Map
+const createShockMarkerIcon = (severity: string) => {
+  const color = 
+    severity === 'critical' ? '#f43f5e' : 
+    severity === 'severe' ? '#ef4444' : 
+    severity === 'moderate' ? '#f59e0b' : '#10b981';
+
+  return L.divIcon({
+    className: 'custom-shock-pin',
+    html: `
+      <div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
+        <span style="position: absolute; width: 34px; height: 34px; border-radius: 50%; background: ${color}44; animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+        <span style="position: relative; width: 18px; height: 18px; border-radius: 50%; background: ${color}; border: 3px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;">
+          <span style="width: 4px; height: 4px; border-radius: 50%; background: #ffffff;"></span>
+        </span>
+      </div>
+    `,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17]
+  });
+};
 
 export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
   pothole,
@@ -31,7 +70,7 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
 
   const isRepaired = pothole.status === 'repaired';
 
-  // Calculate genuine or estimated shock telemetry
+  // Calculate measured or estimated shock telemetry
   const shockValue = 
     pothole.bumpIntensity && pothole.bumpIntensity > 0
       ? pothole.bumpIntensity
@@ -110,12 +149,53 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
           </div>
         </div>
 
+        {/* Map Location Centralized around Shock Detected GPS */}
+        <div className="relative rounded-2xl overflow-hidden border border-slate-700/80 shadow-lg bg-slate-950">
+          <div className="h-44 sm:h-52 w-full">
+            <MapContainer
+              center={[pothole.latitude, pothole.longitude]}
+              zoom={16}
+              scrollWheelZoom={false}
+              dragging={true}
+              touchZoom={true}
+              className="h-full w-full z-0"
+            >
+              <TileLayer
+                attribution='&copy; OpenStreetMap'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <DrawerMapUpdater center={[pothole.latitude, pothole.longitude]} />
+              <Marker
+                position={[pothole.latitude, pothole.longitude]}
+                icon={createShockMarkerIcon(pothole.severity)}
+              />
+            </MapContainer>
+          </div>
+
+          {/* Map Overlay Badge */}
+          <div className="absolute top-2.5 left-2.5 z-[1000] bg-slate-900/90 backdrop-blur px-2.5 py-1 rounded-lg border border-slate-700/80 flex items-center gap-1.5 text-[10px] font-mono text-slate-200 shadow">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Shock Pin: {pothole.latitude.toFixed(5)}, {pothole.longitude.toFixed(5)}</span>
+          </div>
+
+          {/* Google Maps External Jump Link */}
+          <a
+            href={`https://www.google.com/maps?q=${pothole.latitude},${pothole.longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute bottom-2.5 right-2.5 z-[1000] bg-slate-900/95 hover:bg-slate-800 backdrop-blur px-2.5 py-1 rounded-lg border border-slate-700/80 flex items-center gap-1 text-[11px] font-semibold text-teal-300 shadow transition"
+          >
+            <span>Open in Google Maps</span>
+            <ExternalLink className="w-3 h-3 text-teal-400" />
+          </a>
+        </div>
+
         {/* Description */}
         <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3.5 text-xs text-slate-300">
           <p className="leading-relaxed">{pothole.description}</p>
         </div>
 
-        {/* Accelerometer Hardware Sensor Shock Telemetry (Replaces fake photo, depth, and cavity diameter) */}
+        {/* Accelerometer Hardware Sensor Shock Telemetry */}
         <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -124,7 +204,7 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
                 Accelerometer Shock Reading
               </span>
             </div>
-            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+            <span className={`text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
               shockValue >= 6.0
                 ? 'bg-rose-950 text-rose-300 border-rose-800'
                 : shockValue >= 3.0
