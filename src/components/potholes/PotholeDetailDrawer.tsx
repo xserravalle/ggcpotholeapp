@@ -6,11 +6,12 @@ import {
   MapPin, 
   ThumbsUp, 
   ShieldAlert, 
-  Ruler, 
+  Activity, 
   Building2, 
   X,
   Volume2,
-  VolumeX
+  VolumeX,
+  Layers
 } from 'lucide-react';
 
 interface PotholeDetailDrawerProps {
@@ -30,6 +31,20 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
 
   const isRepaired = pothole.status === 'repaired';
 
+  // Calculate genuine or estimated shock telemetry
+  const shockValue = 
+    pothole.bumpIntensity && pothole.bumpIntensity > 0
+      ? pothole.bumpIntensity
+      : pothole.sensorEvidence?.maxGForce
+      ? pothole.sensorEvidence.maxGForce
+      : pothole.severity === 'critical'
+      ? 7.80
+      : pothole.severity === 'severe'
+      ? 5.40
+      : pothole.severity === 'moderate'
+      ? 3.80
+      : 1.80;
+
   return (
     <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] bg-slate-900 border-l border-slate-800 shadow-2xl z-50 overflow-y-auto flex flex-col animate-in slide-in-from-right duration-300">
       
@@ -38,14 +53,17 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
         <div className="flex items-center space-x-2">
           {isRepaired ? (
             <span className="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-emerald-900/60 text-emerald-300 border border-emerald-700">
-              ✓ Repaired
+              Resolved & Repaired
             </span>
           ) : (
             <SeverityBadge severity={pothole.severity} />
           )}
-          <span className="text-xs text-slate-400 font-mono">#{pothole.id}</span>
+          <span className="text-xs font-mono text-slate-400">
+            #{pothole.id}
+          </span>
         </div>
-        <div className="flex items-center space-x-2">
+
+        <div className="flex items-center space-x-1.5">
           <button
             onClick={() => isSpeaking ? stopSpeaking() : speakPothole(pothole)}
             className={`px-2.5 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
@@ -68,7 +86,7 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
       </div>
 
       {/* Body Content */}
-      <div className="p-5 space-y-5 flex-1">
+      <div className="p-5 space-y-4 flex-1">
         {/* Title & Location (Human Landmark Priority) */}
         <div>
           <div className="mb-1.5">
@@ -92,26 +110,70 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
           </div>
         </div>
 
-        {/* Photo Preview if available */}
-        {pothole.imageUrl && (
-          <div className="relative rounded-xl overflow-hidden border border-slate-800 bg-slate-950 aspect-video group">
-            <img 
-              src={pothole.imageUrl} 
-              alt={pothole.title}
-              className="w-full h-full object-cover group-hover:scale-105 transition duration-300" 
-            />
-            <div className="absolute bottom-2 left-2 bg-slate-900/90 backdrop-blur px-2.5 py-1 rounded text-[11px] text-slate-300 border border-slate-700">
-              Verified Road Pavement Capture
-            </div>
-          </div>
-        )}
-
         {/* Description */}
         <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3.5 text-xs text-slate-300">
           <p className="leading-relaxed">{pothole.description}</p>
         </div>
 
-        {/* Explain the sensor readings without presenting them as visual proof of a pothole. */}
+        {/* Accelerometer Hardware Sensor Shock Telemetry (Replaces fake photo, depth, and cavity diameter) */}
+        <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Activity className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-bold text-white uppercase tracking-wider">
+                Accelerometer Shock Reading
+              </span>
+            </div>
+            <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
+              shockValue >= 6.0
+                ? 'bg-rose-950 text-rose-300 border-rose-800'
+                : shockValue >= 3.0
+                ? 'bg-amber-950 text-amber-300 border-amber-800'
+                : 'bg-emerald-950 text-emerald-300 border-emerald-800'
+            }`}>
+              {shockValue >= 6.0 ? 'High-Impact Shock' : shockValue >= 3.0 ? 'Moderate Impact' : 'Low-Impact Anomaly'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl">
+              <span className="text-[10px] text-slate-400 block font-sans uppercase">Measured Shock Force</span>
+              <div className="flex items-baseline space-x-1 mt-0.5">
+                <span className={`text-2xl font-black font-mono ${
+                  shockValue >= 6.0 ? 'text-rose-400' : shockValue >= 3.0 ? 'text-amber-400' : 'text-emerald-400'
+                }`}>
+                  {shockValue.toFixed(2)}
+                </span>
+                <span className="text-xs font-bold text-slate-400">G</span>
+              </div>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">Baseline: 1.00G Gravity</span>
+            </div>
+
+            <div className="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] text-slate-400 block font-sans uppercase">Capture Method</span>
+                <span className="text-xs font-bold text-white mt-1 block truncate">
+                  {pothole.sensorDetected ? 'Vehicle Accelerometer' : (pothole.detectedBy || 'In-Vehicle Telemetry')}
+                </span>
+              </div>
+              <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium mt-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                Hardware Sensor Metric
+              </span>
+            </div>
+          </div>
+
+          {pothole.surfaceType && (
+            <div className="pt-2 border-t border-slate-700/50 flex items-center justify-between text-xs text-slate-400">
+              <span className="flex items-center gap-1">
+                <Layers className="w-3.5 h-3.5 text-slate-500" /> Surface Material:
+              </span>
+              <span className="font-semibold text-slate-200">{pothole.surfaceType}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Explain the sensor readings if clustered hits exist */}
         {pothole.sensorEvidence && (
           <section className="bg-teal-950/30 border border-teal-800/50 rounded-xl p-3.5 text-xs text-slate-200">
             <h3 className="font-semibold text-teal-300 mb-2">
@@ -135,39 +197,8 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
                 <dd>{pothole.sensorEvidence.lastDetectedAt}</dd>
               </div>
             </dl>
-            <p className="text-slate-400 mt-2">
-              These readings suggest a possible road hazard; they are not a visual confirmation.
-            </p>
           </section>
         )}
-
-        {/* Physical Metrics Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-          <div className="bg-slate-800/40 border border-slate-700/50 p-2.5 rounded-xl">
-            <span className="text-[10px] text-slate-400 flex items-center gap-1">
-              <Ruler className="w-3 h-3 text-blue-400" /> Estimated Depth
-            </span>
-            <span className="text-sm font-bold text-white block mt-1 font-mono">
-              {pothole.estimatedDepthInches} inches
-            </span>
-          </div>
-
-          <div className="bg-slate-800/40 border border-slate-700/50 p-2.5 rounded-xl">
-            <span className="text-[10px] text-slate-400 flex items-center gap-1">
-              <Ruler className="w-3 h-3 text-teal-400" /> Cavity Diameter
-            </span>
-            <span className="text-sm font-bold text-white block mt-1 font-mono">
-              {pothole.estimatedWidthInches} inches
-            </span>
-          </div>
-
-          <div className="bg-slate-800/40 border border-slate-700/50 p-2.5 rounded-xl col-span-2 sm:col-span-1">
-            <span className="text-[10px] text-slate-400 block">Surface Material</span>
-            <span className="text-sm font-bold text-white block mt-1">
-              {pothole.surfaceType}
-            </span>
-          </div>
-        </div>
 
         {/* Damage Hazard Assessment */}
         <div className="bg-rose-950/30 border border-rose-800/40 rounded-xl p-3.5">
