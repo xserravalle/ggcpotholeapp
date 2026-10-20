@@ -23,7 +23,7 @@ interface AccessibilityContextType {
 
 const AccessibilityContext = createContext<AccessibilityContextType | undefined>(undefined);
 
-const FONT_SIZES: Record<FontSizeKey, string> = {
+export const FONT_SIZES: Record<FontSizeKey, string> = {
   small: '14px',
   normal: '16px',
   large: '20px',

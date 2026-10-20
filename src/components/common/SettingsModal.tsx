@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Settings, 
@@ -11,7 +11,7 @@ import {
   ChevronRight,
   Sparkles
 } from 'lucide-react';
-import { useAccessibility, FontSizeKey, FontFamilyKey, ThemeKey } from '../../context/AccessibilityContext';
+import { useAccessibility, FontSizeKey, FontFamilyKey, ThemeKey, FONT_SIZES } from '../../context/AccessibilityContext';
 import { PotholeReport } from '../../types/pothole';
 
 interface SettingsModalProps {
@@ -39,6 +39,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     stopSpeaking
   } = useAccessibility();
 
+  // Draft local state for previewing adjustments before committing
+  const [draftFontSize, setDraftFontSize] = useState<FontSizeKey>(fontSize);
+  const [draftFontFamily, setDraftFontFamily] = useState<FontFamilyKey>(fontFamily);
+  const [draftTheme, setDraftTheme] = useState<ThemeKey>(theme);
+
+  // Synchronize draft state with actual context when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setDraftFontSize(fontSize);
+      setDraftFontFamily(fontFamily);
+      setDraftTheme(theme);
+    }
+  }, [isOpen, fontSize, fontFamily, theme]);
+
   if (!isOpen) return null;
 
   const fontSizes: { key: FontSizeKey; label: string; desc: string }[] = [
@@ -54,6 +68,55 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     { key: 'standard', title: 'Standard GGC', subtitle: 'Georgia Gwinnett College green & slate motif', badge: 'GGC Classic' },
     { key: 'dark', title: 'Dark Modern', subtitle: 'Deep neutral midnight theme for night driving', badge: 'Dark Mode' }
   ];
+
+  // Live visual preview handlers without persisting to localStorage
+  const handlePreviewFontSize = (size: FontSizeKey) => {
+    setDraftFontSize(size);
+    document.documentElement.style.fontSize = FONT_SIZES[size];
+    document.documentElement.style.setProperty('--app-font-size', FONT_SIZES[size]);
+  };
+
+  const handlePreviewFontFamily = (font: FontFamilyKey) => {
+    setDraftFontFamily(font);
+    document.documentElement.setAttribute('data-font', font);
+    document.body.setAttribute('data-font', font);
+  };
+
+  const handlePreviewTheme = (newTheme: ThemeKey) => {
+    setDraftTheme(newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+    document.body.setAttribute('data-theme', newTheme);
+  };
+
+  // Roll back previewed styles to saved context values
+  const handleCancel = () => {
+    document.documentElement.style.fontSize = FONT_SIZES[fontSize];
+    document.documentElement.style.setProperty('--app-font-size', FONT_SIZES[fontSize]);
+    document.documentElement.setAttribute('data-font', fontFamily);
+    document.body.setAttribute('data-font', fontFamily);
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.setAttribute('data-theme', theme);
+    onClose();
+  };
+
+  // Commit draft styles to context and localStorage
+  const handleDone = () => {
+    if (draftFontSize !== fontSize) {
+      setFontSize(draftFontSize);
+    }
+    if (draftFontFamily !== fontFamily) {
+      setFontFamily(draftFontFamily);
+    }
+    if (draftTheme !== theme) {
+      setTheme(draftTheme);
+    }
+    onClose();
+  };
+
+  const hasUnsavedChanges = 
+    draftFontSize !== fontSize || 
+    draftFontFamily !== fontFamily || 
+    draftTheme !== theme;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
@@ -79,7 +142,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleCancel}
             className="p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition"
             aria-label="Close settings"
           >
@@ -97,11 +160,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* Font Size Buttons */}
           <div className="grid grid-cols-4 gap-2">
             {fontSizes.map(({ key, label, desc }) => {
-              const isActive = fontSize === key;
+              const isActive = draftFontSize === key;
               return (
                 <button
                   key={key}
-                  onClick={() => setFontSize(key)}
+                  onClick={() => handlePreviewFontSize(key)}
                   className={`py-2 px-1 rounded-xl text-center border transition flex flex-col items-center justify-center gap-0.5 ${
                     isActive 
                       ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30 font-black' 
@@ -128,14 +191,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </p>
             </div>
             <button
-              onClick={() => setFontFamily(fontFamily === 'comic-sans' ? 'sans' : 'comic-sans')}
+              onClick={() => handlePreviewFontFamily(draftFontFamily === 'comic-sans' ? 'sans' : 'comic-sans')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 border ${
-                fontFamily === 'comic-sans'
+                draftFontFamily === 'comic-sans'
                   ? 'bg-amber-500/20 text-amber-300 border-amber-500/60'
                   : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
               }`}
             >
-              {fontFamily === 'comic-sans' ? 'Active (Default)' : 'Standard Sans'}
+              {draftFontFamily === 'comic-sans' ? 'Active (Default)' : 'Standard Sans'}
             </button>
           </div>
         </div>
@@ -149,11 +212,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {themes.map(({ key, title, subtitle, badge }) => {
-              const isActive = theme === key;
+              const isActive = draftTheme === key;
               return (
                 <button
                   key={key}
-                  onClick={() => setTheme(key)}
+                  onClick={() => handlePreviewTheme(key)}
                   className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
                     isActive
                       ? 'bg-slate-800 border-emerald-500 shadow-md ring-1 ring-emerald-500/50'
@@ -238,14 +301,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </div>
         </div>
 
-        {/* Modal Footer */}
-        <div className="pt-2 flex justify-end border-t border-slate-800">
-          <button
-            onClick={onClose}
-            className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs border border-slate-700 transition"
-          >
-            Done
-          </button>
+        {/* Modal Footer with Cancel and Done */}
+        <div className="pt-3 flex items-center justify-between border-t border-slate-800">
+          <div className="text-[11px]">
+            {hasUnsavedChanges ? (
+              <span className="text-amber-400 font-medium flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                Visualizing preview (not applied)
+              </span>
+            ) : (
+              <span className="text-slate-400">Settings up to date</span>
+            )}
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleCancel}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold rounded-xl text-xs border border-slate-700 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleDone}
+              className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/20 transition active:scale-95"
+            >
+              Done
+            </button>
+          </div>
         </div>
       </div>
     </div>
