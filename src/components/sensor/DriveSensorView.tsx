@@ -8,7 +8,10 @@ import {
   MapPin, 
   Sparkles,
   RotateCcw,
-  Target
+  Target,
+  Cpu,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { TrackedHazardSpot } from '../../types/sensorQueue';
 import { milesBetween } from '../../services/distanceCalculator';
@@ -27,10 +30,15 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
   onNavigateToMyReports
 }) => {
   const [isMonitoring, setIsMonitoring] = useState(false);
-  const [liveG, setLiveG] = useState(1.02);
-  const [peakG, setPeakG] = useState(1.02);
+  const [liveG, setLiveG] = useState(1.00);
+  const [peakG, setPeakG] = useState(1.00);
   const [recentSpike, setRecentSpike] = useState<number | null>(null);
   const [simulatedSpike, setSimulatedSpike] = useState(1.0);
+
+  // Hardware Diagnostics State (for Samsung Galaxy & Mobile Browsers)
+  const [eventCount, setEventCount] = useState(0);
+  const [rawAcc, setRawAcc] = useState({ x: 0, y: 0, z: 9.81 });
+  const [sensorSource, setSensorSource] = useState<string>('Detecting...');
 
   // Tracked spots with 3x hit threshold
   const [trackedSpots, setTrackedSpots] = useState<TrackedHazardSpot[]>(() => loadTrackedSpots());
@@ -40,7 +48,9 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
   const peakResetTimer = useRef<number | null>(null);
   const statusTimer = useRef<number | null>(null);
 
-  // Reserve one GPS lookup at a time; accept at most one real hit per cooldown.
+  // Refs to eliminate React closure staleness
+  const liveGRef = useRef(1.00);
+  const peakGRef = useRef(1.00);
   const gpsRequestPending = useRef(false);
   const lastAcceptedImpactAt = useRef<number | null>(null);
 
@@ -54,7 +64,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     const roundedG = parseFloat(gVal.toFixed(2));
     setRecentSpike(roundedG);
 
-    // Real impacts require real GPS coordinates. The demo supplies its own location.
+    // Real impacts require real GPS coordinates.
     if (latOverride == null || lngOverride == null) return;
 
     const lat = latOverride;
@@ -125,7 +135,6 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
       return updatedList;
     });
 
-    // Execute side-effects safely outside the React state updater
     if (spotToPromote && onPromoteSpotToReport) {
       onPromoteSpotToReport(spotToPromote);
     }
@@ -140,66 +149,135 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     }, 2500);
   };
 
-  // Motion sensor listener
-  const handleDeviceMotion = (e: DeviceMotionEvent) => {
-    if (!isMonitoring) return;
-    const acc = e.accelerationIncludingGravity || e.acceleration;
-    if (!acc) return;
-
-    const x = acc.x || 0;
-    const y = acc.y || 0;
-    const z = acc.z || 0;
-    const magnitude = Math.sqrt(x * x + y * y + z * z) / 9.80665;
-
-    setLiveG(magnitude);
-    if (magnitude > peakG) {
-      setPeakG(magnitude);
-      if (peakResetTimer.current) clearTimeout(peakResetTimer.current);
-      peakResetTimer.current = window.setTimeout(() => setPeakG(1.0), 2500);
+  // Robust Hardware Motion Listener with zero stale closures
+  useEffect(() => {
+    if (!isMonitoring) {
+      return;
     }
 
-    // A single bump produces many motion events. Request one location at a time
-    // and count only one GPS-located impact within each cooldown period.
-    if (
-      magnitude >= 3.5 &&
-      !gpsRequestPending.current &&
-      canRecordImpact(lastAcceptedImpactAt.current, Date.now()) &&
-      'geolocation' in navigator
-    ) {
-      gpsRequestPending.current = true;
+    let isListenerActive = true;
 
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          gpsRequestPending.current = false;
+    const onDeviceMotion = (e: DeviceMotionEvent) => {
+      if (!isListenerActive) return;
 
-          // Recheck when GPS returns: another callback may have accepted a hit.
-          const now = Date.now();
-          if (!canRecordImpact(lastAcceptedImpactAt.current, now)) return;
+      // Check both accelerationIncludingGravity (standard G-force) and acceleration (linear)
+      const acc = (e.accelerationIncludingGravity && e.accelerationIncludingGravity.x !== null)
+        ? e.accelerationIncludingGravity
+        : e.acceleration;
 
-          lastAcceptedImpactAt.current = now;
-          silentlyRecordImpact(
-            magnitude,
-            pos.coords.latitude,
-            pos.coords.longitude
-          );
-        },
-        () => {
-          // Missing GPS must never create a report or consume the cooldown.
-          gpsRequestPending.current = false;
-        },
-        { enableHighAccuracy: true, timeout: 3000 }
-      );
+      if (!acc || acc.x === null) return;
+
+      setEventCount(prev => prev + 1);
+      setSensorSource('Hardware Accelerometer (Active)');
+
+      const x = acc.x || 0;
+      const y = acc.y || 0;
+      const z = acc.z || 0;
+
+      setRawAcc({
+        x: parseFloat(x.toFixed(2)),
+        y: parseFloat(y.toFixed(2)),
+        z: parseFloat(z.toFixed(2))
+      });
+
+      // Calculate total G-Force magnitude (1.00G = Earth gravity baseline)
+      const rawMag = Math.sqrt(x * x + y * y + z * z) / 9.80665;
+      const magnitude = parseFloat(rawMag.toFixed(2));
+
+      liveGRef.current = magnitude;
+      setLiveG(magnitude);
+
+      if (magnitude > peakGRef.current) {
+        peakGRef.current = magnitude;
+        setPeakG(magnitude);
+        if (peakResetTimer.current) clearTimeout(peakResetTimer.current);
+        peakResetTimer.current = window.setTimeout(() => {
+          peakGRef.current = 1.0;
+          setPeakG(1.0);
+        }, 2500);
+      }
+
+      // Check impact threshold (>= 3.0 G shock)
+      if (
+        magnitude >= 3.0 &&
+        !gpsRequestPending.current &&
+        canRecordImpact(lastAcceptedImpactAt.current, Date.now()) &&
+        'geolocation' in navigator
+      ) {
+        gpsRequestPending.current = true;
+
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            gpsRequestPending.current = false;
+            const now = Date.now();
+            if (!canRecordImpact(lastAcceptedImpactAt.current, now)) return;
+
+            lastAcceptedImpactAt.current = now;
+            silentlyRecordImpact(
+              magnitude,
+              pos.coords.latitude,
+              pos.coords.longitude
+            );
+          },
+          () => {
+            gpsRequestPending.current = false;
+          },
+          { enableHighAccuracy: true, timeout: 3000 }
+        );
+      }
+    };
+
+    // Attach to window directly
+    window.addEventListener('devicemotion', onDeviceMotion, true);
+
+    // Also support Generic Sensor API as modern Android fallback if available
+    let genericSensor: any = null;
+    if (typeof (window as any).Accelerometer === 'function') {
+      try {
+        genericSensor = new (window as any).Accelerometer({ frequency: 60 });
+        genericSensor.addEventListener('reading', () => {
+          if (!isListenerActive) return;
+          const x = genericSensor.x || 0;
+          const y = genericSensor.y || 0;
+          const z = genericSensor.z || 0;
+          setEventCount(prev => prev + 1);
+          setSensorSource('Generic Sensor API (Active)');
+          setRawAcc({
+            x: parseFloat(x.toFixed(2)),
+            y: parseFloat(y.toFixed(2)),
+            z: parseFloat(z.toFixed(2))
+          });
+          const mag = Math.sqrt(x * x + y * y + z * z) / 9.80665;
+          liveGRef.current = mag;
+          setLiveG(mag);
+        });
+        genericSensor.start();
+      } catch (err) {
+        // Fall back entirely to devicemotion
+      }
     }
-  };
 
-  // Toggle monitoring silently: ZERO popups on start or stop
+    return () => {
+      isListenerActive = false;
+      window.removeEventListener('devicemotion', onDeviceMotion, true);
+      if (genericSensor) {
+        try { genericSensor.stop(); } catch (e) { /* ignore */ }
+      }
+    };
+  }, [isMonitoring]);
+
+  // Toggle monitoring on/off
   const toggleMonitoring = async () => {
     if (isMonitoring) {
-      window.removeEventListener('devicemotion', handleDeviceMotion);
       setIsMonitoring(false);
       return;
     }
 
+    // Reset event counter on starting
+    setEventCount(0);
+    setSensorSource('Initializing sensor stream...');
+
+    // Request iOS permission if on iOS (safe no-op on Android Galaxy)
     const deviceMotion = window.DeviceMotionEvent as unknown as {
       requestPermission?: () => Promise<'granted' | 'denied'>;
     };
@@ -208,23 +286,20 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
       try {
         const res = await deviceMotion.requestPermission();
         if (res === 'granted') {
-          window.addEventListener('devicemotion', handleDeviceMotion);
           setIsMonitoring(true);
         } else {
-          alert('Motion sensor permission was denied. You can still test sensor mode using the simulation buttons below.');
+          alert('Motion sensor permission was denied in your browser settings.');
         }
       } catch (err) {
-        console.error(err);
+        setIsMonitoring(true);
       }
-    } else if ('ondevicemotion' in window) {
-      window.addEventListener('devicemotion', handleDeviceMotion);
-      setIsMonitoring(true);
     } else {
+      // Direct activation on Android / Samsung Galaxy
       setIsMonitoring(true);
     }
   };
 
-  // Simulation handlers for class demo of 3x threshold
+  // Fixed coordinates for Capstone Presentation simulator
   const fixedDemoLocation = {
     lat: 33.9821,
     lng: -84.0048,
@@ -234,6 +309,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
   const handleSimulateDemoHit = () => {
     const spike = parseFloat((6.8 + Math.random() * 1.8).toFixed(2));
     setSimulatedSpike(spike);
+    liveGRef.current = spike;
     setLiveG(spike);
     silentlyRecordImpact(spike, fixedDemoLocation.lat, fixedDemoLocation.lng, fixedDemoLocation.road);
   };
@@ -243,7 +319,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     saveTrackedSpots([]);
   };
 
-  // Live Canvas Waveform Render
+  // Live Canvas Waveform driven by REAL liveG sensor readings
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -251,24 +327,23 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     if (!ctx) return;
 
     let animId: number;
-    let time = 0;
     const points: number[] = new Array(80).fill(1.0);
 
     const render = () => {
-      time += 0.08;
+      let currentG = 1.0;
 
-      let newPoint = 1.0;
       if (isMonitoring) {
-        newPoint = 1.0 + Math.sin(time * 3) * 0.08 + Math.cos(time * 7) * 0.04;
+        // Feed the real sensor reading directly into the waveform!
+        currentG = liveGRef.current;
       }
 
       if (simulatedSpike > 1.2) {
-        newPoint = simulatedSpike;
-        setSimulatedSpike(prev => Math.max(1.0, prev * 0.82));
+        currentG = simulatedSpike;
+        setSimulatedSpike(prev => Math.max(1.0, prev * 0.85));
       }
 
       points.shift();
-      points.push(newPoint);
+      points.push(currentG);
 
       ctx.fillStyle = '#020617';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -295,12 +370,12 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
 
       // Live Waveform line
       ctx.beginPath();
-      ctx.strokeStyle = isMonitoring ? '#10b981' : '#64748b';
+      ctx.strokeStyle = isMonitoring ? (liveGRef.current >= 3.0 ? '#ef4444' : '#10b981') : '#64748b';
       ctx.lineWidth = 2.5;
 
       points.forEach((val, idx) => {
         const x = (idx / (points.length - 1)) * canvas.width;
-        const y = canvas.height - (val / 4.5) * canvas.height;
+        const y = canvas.height - (Math.min(val, 4.5) / 4.5) * canvas.height;
         if (idx === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       });
@@ -318,11 +393,10 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
 
     render();
     return () => cancelAnimationFrame(animId);
-  }, [isMonitoring, simulatedSpike]);
+  }, [isMonitoring]);
 
   useEffect(() => {
     return () => {
-      window.removeEventListener('devicemotion', handleDeviceMotion);
       if (peakResetTimer.current) clearTimeout(peakResetTimer.current);
       if (statusTimer.current) clearTimeout(statusTimer.current);
     };
@@ -341,7 +415,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           <span>Silent In-Vehicle Drive Sensor</span>
         </h2>
         <p className="text-xs text-slate-400 max-w-lg mx-auto">
-          Runs 100% silently with zero popups, noises, or vibrations. Spots hit 3 times are automatically verified and added to your My Reports page.
+          Leverages your phone's built-in accelerometer to register roadway shocks. Spots hit 3 times are automatically clustered and verified.
         </p>
       </div>
 
@@ -374,10 +448,10 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
             }`} />
             <div>
               <span className="text-xs font-bold text-white uppercase tracking-wider block">
-                {isMonitoring ? 'Sensor Active (Monitoring 100Hz)' : 'Sensor Idle / Paused'}
+                {isMonitoring ? 'Sensor Active & Streaming' : 'Sensor Idle / Paused'}
               </span>
               <span className="text-[11px] text-slate-400">
-                Zero audio • Zero vibrations • Zero driver distraction
+                Zero audio • Zero vibrations • Automatic shock logging
               </span>
             </div>
           </div>
@@ -385,7 +459,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={toggleMonitoring}
-              className={`px-5 py-2 rounded-xl font-bold text-xs flex items-center space-x-2 transition shadow-lg ${
+              className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center space-x-2 transition shadow-lg active:scale-95 ${
                 isMonitoring
                   ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20'
                   : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
@@ -412,7 +486,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           {/* Gauge Readout */}
           <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800/80 flex flex-col justify-center items-center text-center">
             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-              Current Z-Axis Shock
+              Total G-Force Load
             </span>
             <div className={`text-4xl font-black font-mono mt-1 ${
               isSpike ? 'text-rose-400' : isMonitoring ? 'text-emerald-400' : 'text-slate-500'
@@ -420,7 +494,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
               {displayG.toFixed(2)} <span className="text-sm font-sans font-bold text-slate-400">G</span>
             </div>
             <span className="text-[10px] text-slate-500 mt-1 font-mono">
-              Baseline: 1.00G Earth Gravity
+              Baseline: ~1.00G Gravity
             </span>
           </div>
 
@@ -428,10 +502,10 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           <div className="sm:col-span-2 bg-slate-950 rounded-2xl p-3 border border-slate-800/80 flex flex-col justify-between overflow-hidden">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px] uppercase font-mono text-slate-400">
-                100Hz Shock Waveform
+                Live Physical Shock Waveform
               </span>
               <span className="text-[10px] font-mono text-emerald-400 font-bold">
-                {isMonitoring ? 'LIVE' : 'STANDBY'}
+                {isMonitoring ? `${eventCount} Ticks` : 'STANDBY'}
               </span>
             </div>
             <div className="w-full h-24 rounded-lg overflow-hidden bg-slate-950">
@@ -444,6 +518,58 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
             </div>
           </div>
 
+        </div>
+
+        {/* LIVE HARDWARE TELEMETRY READOUT (Direct proof of Samsung Hardware Sensors) */}
+        <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center space-x-2">
+              <Cpu className="w-4 h-4 text-teal-400" />
+              <span className="text-xs font-bold text-white">
+                Samsung Galaxy Hardware Sensor Monitor
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className={`w-2 h-2 rounded-full ${
+                isMonitoring && eventCount > 0 ? 'bg-emerald-400 animate-pulse' : isMonitoring ? 'bg-amber-400' : 'bg-slate-600'
+              }`} />
+              <span className="text-[11px] font-mono font-bold text-teal-300">
+                {isMonitoring ? `${eventCount} Events Streamed` : 'Awaiting Start'}
+              </span>
+            </div>
+          </div>
+
+          {isMonitoring && (
+            <div className="space-y-2 pt-1 animate-in fade-in duration-200">
+              <div className="grid grid-cols-3 gap-2 font-mono text-[11px]">
+                <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl text-center">
+                  <span className="text-[9px] text-slate-500 uppercase block font-sans">X-Axis</span>
+                  <span className="text-white font-bold">{rawAcc.x} m/s²</span>
+                </div>
+                <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl text-center">
+                  <span className="text-[9px] text-slate-500 uppercase block font-sans">Y-Axis</span>
+                  <span className="text-white font-bold">{rawAcc.y} m/s²</span>
+                </div>
+                <div className="bg-slate-900 border border-slate-800 p-2 rounded-xl text-center">
+                  <span className="text-[9px] text-slate-500 uppercase block font-sans">Z-Axis</span>
+                  <span className="text-white font-bold">{rawAcc.z} m/s²</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 pt-1">
+                <span>Driver: <strong className="text-slate-300">{sensorSource}</strong></span>
+                {eventCount > 0 ? (
+                  <span className="text-emerald-400 flex items-center gap-1 font-semibold">
+                    <CheckCircle2 className="w-3 h-3" /> Hardware Verified
+                  </span>
+                ) : (
+                  <span className="text-amber-400 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" /> Listening for physical jolt...
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Demo Simulation Controls for Capstone Presentation */}
