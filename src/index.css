@@ -202,31 +202,31 @@ select,
 
 [data-theme="standard"] body,
 [data-theme="standard"] .min-h-screen {
-  background-color: #03140e !important;
+  background-color: #020617 !important;
 }
 
 [data-theme="standard"] header {
-  background-color: #004d35 !important;
-  border-bottom-color: #c4a35a !important;
+  background-color: #0f172a !important;
+  border-bottom-color: #059669 !important;
 }
 
 [data-theme="standard"] footer {
-  background-color: #003323 !important;
-  border-top-color: #c4a35a !important;
+  background-color: #0b1120 !important;
+  border-top-color: #059669 !important;
 }
 
 [data-theme="standard"] .bg-slate-900,
 [data-theme="standard"] .bg-slate-950 {
-  background-color: #072218 !important;
-  border-color: #134e38 !important;
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
 }
 
 [data-theme="standard"] .bg-slate-800,
 [data-theme="standard"] .bg-slate-800\/60,
 [data-theme="standard"] .bg-slate-800\/50,
 [data-theme="standard"] .bg-slate-800\/40 {
-  background-color: #0a2d20 !important;
-  border-color: #1a6348 !important;
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
 }
 
 /* 4. Dark Modern Theme */
