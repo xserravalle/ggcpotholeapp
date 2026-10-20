@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 import { PotholeReport, SeverityLevel, HazardType } from '../../types/pothole';
 import { classifyJurisdiction } from '../../services/jurisdictionClassifier';
 import { reverseGeocode } from '../../services/reverseGeocoding';
@@ -9,7 +11,8 @@ import {
   CheckCircle2, 
   Mail,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 
 interface PotholeReportModalProps {
@@ -27,6 +30,51 @@ interface PotholeReportModalProps {
     address?: string;
   };
 }
+
+// Controller to keep mini map centered when GPS coordinates change
+const ReportMapUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      map.setView(center, 16, { animate: true });
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [center, map]);
+  return null;
+};
+
+// Allow clicking on map to fine-tune the exact shock / hazard pin
+const MapClickToReposition: React.FC<{ onPositionChange: (lat: number, lng: number) => void }> = ({ onPositionChange }) => {
+  useMapEvents({
+    click(e) {
+      onPositionChange(e.latlng.lat, e.latlng.lng);
+    }
+  });
+  return null;
+};
+
+// Pulsing Shock Pin Marker for Report Modal
+const createReportMarkerIcon = (severity: SeverityLevel) => {
+  const color = 
+    severity === 'critical' ? '#f43f5e' : 
+    severity === 'severe' ? '#ef4444' : 
+    severity === 'moderate' ? '#f59e0b' : '#10b981';
+
+  return L.divIcon({
+    className: 'custom-report-pin',
+    html: `
+      <div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
+        <span style="position: absolute; width: 34px; height: 34px; border-radius: 50%; background: ${color}44; animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+        <span style="position: relative; width: 18px; height: 18px; border-radius: 50%; background: ${color}; border: 3px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;">
+          <span style="width: 4px; height: 4px; border-radius: 50%; background: #ffffff;"></span>
+        </span>
+      </div>
+    `,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17]
+  });
+};
 
 export const PotholeReportModal: React.FC<PotholeReportModalProps> = (props) =>
   props.isOpen ? <PotholeReportDialogBody {...props} /> : null;
@@ -93,7 +141,6 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
           setIsResolvingAddress(false);
         },
         async () => {
-          // If GPS timed out or permission delayed, try reverse-geocoding default/last coordinates
           const geo = await reverseGeocode(latitude, longitude);
           setAddress(geo.address);
           setRoadName(geo.road);
@@ -138,6 +185,20 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
     }
   };
 
+  // Re-position when user clicks on the mini map
+  const handleMapPinMove = async (newLat: number, newLng: number) => {
+    setLatitude(newLat);
+    setLongitude(newLng);
+    setIsResolvingAddress(true);
+    const geo = await reverseGeocode(newLat, newLng);
+    if (geo && geo.address) {
+      setAddress(geo.address);
+      setRoadName(geo.road);
+      setCity(geo.city);
+    }
+    setIsResolvingAddress(false);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const finalTitle = title.trim() || `Road Hazard on ${roadName || address.split(',')[0] || 'Corridor'}`;
@@ -176,7 +237,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 pt-14 sm:pt-6 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 text-xs max-h-[88vh] flex flex-col">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 text-xs max-h-[90vh] flex flex-col">
         
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3 shrink-0">
@@ -227,6 +288,75 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
         {/* Form Body - Scrollable if needed on small phones */}
         <form onSubmit={handleSubmit} className="space-y-3 text-xs overflow-y-auto pr-1 flex-1">
           
+          {/* Map Location Centralized around Detected Shock / GPS */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[11px] text-slate-300 font-semibold mb-1">
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-teal-400" />
+                <span>Shock Location Center</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-normal">
+                Tap map to adjust pin
+              </span>
+            </div>
+
+            <div className="relative rounded-xl overflow-hidden border border-slate-700/80 shadow-md bg-slate-950">
+              <div className="h-36 sm:h-40 w-full">
+                <MapContainer
+                  center={[latitude, longitude]}
+                  zoom={16}
+                  scrollWheelZoom={false}
+                  dragging={true}
+                  touchZoom={true}
+                  className="h-full w-full z-0"
+                >
+                  <TileLayer
+                    attribution='&copy; OpenStreetMap'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <ReportMapUpdater center={[latitude, longitude]} />
+                  <MapClickToReposition onPositionChange={handleMapPinMove} />
+                  <Marker
+                    position={[latitude, longitude]}
+                    icon={createReportMarkerIcon(severity)}
+                  />
+                </MapContainer>
+              </div>
+
+              {/* Coordinates Pill */}
+              <div className="absolute top-2 left-2 z-[1000] bg-slate-900/90 backdrop-blur px-2 py-0.5 rounded border border-slate-700 text-[10px] font-mono text-slate-200 shadow">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block mr-1 animate-pulse"></span>
+                <span>{latitude.toFixed(5)}, {longitude.toFixed(5)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Street Address (Auto-Populated with Closest Specific Address) */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-slate-300 font-semibold text-[11px] flex items-center gap-1">
+                <span>Nearest Street Address</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleRefreshLocation}
+                disabled={isResolvingAddress}
+                className="text-[10px] text-teal-400 hover:text-teal-300 flex items-center gap-1 font-bold transition disabled:opacity-50"
+              >
+                <RefreshCw className={`w-2.5 h-2.5 ${isResolvingAddress ? 'animate-spin' : ''}`} />
+                <span>{isResolvingAddress ? 'Resolving GPS...' : 'Refresh Address'}</span>
+              </button>
+            </div>
+            <input
+              type="text"
+              required
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Resolving nearest street address..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:ring-1 focus:ring-teal-500 outline-none text-xs"
+            />
+          </div>
+
           {/* Severity Rating */}
           <div>
             <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Severity Rating</label>
@@ -283,33 +413,6 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
                 <option value="Cosmetic">Cosmetic Damage</option>
               </select>
             </div>
-          </div>
-
-          {/* Street Address (Auto-Populated with Closest Specific Address) */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-slate-300 font-semibold text-[11px] flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-teal-400" />
-                <span>Nearest Street Address</span>
-              </label>
-              <button
-                type="button"
-                onClick={handleRefreshLocation}
-                disabled={isResolvingAddress}
-                className="text-[10px] text-teal-400 hover:text-teal-300 flex items-center gap-1 font-bold transition disabled:opacity-50"
-              >
-                <RefreshCw className={`w-2.5 h-2.5 ${isResolvingAddress ? 'animate-spin' : ''}`} />
-                <span>{isResolvingAddress ? 'Resolving GPS...' : 'Refresh Address'}</span>
-              </button>
-            </div>
-            <input
-              type="text"
-              required
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Resolving nearest street address..."
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:ring-1 focus:ring-teal-500 outline-none text-xs"
-            />
           </div>
 
           {/* Landmark / Specific Location */}
