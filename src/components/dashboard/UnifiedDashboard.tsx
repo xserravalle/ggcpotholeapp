@@ -25,7 +25,6 @@ import {
   Building2,
   Calendar,
   Layers,
-  BarChart3,
   Volume2
 } from 'lucide-react';
 

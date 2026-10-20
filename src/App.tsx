@@ -19,7 +19,6 @@ import { UnifiedDashboard } from './components/dashboard/UnifiedDashboard';
 import { PotholeMapView } from './components/potholes/PotholeMapView';
 import { DriveSensorView } from './components/sensor/DriveSensorView';
 import { MyReportsView } from './components/potholes/MyReportsView';
-import { PotholeAnalyticsView } from './components/potholes/PotholeAnalyticsView';
 import { AboutHelpView } from './components/about/AboutHelpView';
 
 // Modals & Drawers
@@ -281,14 +280,6 @@ export function App() {
           />
         )}
 
-        {/* Tab 5: Pavement Corridor Analytics */}
-        {activeTab === 'analytics' && (
-          <PotholeAnalyticsView
-            potholes={potholes}
-            roadSegments={roadSegments}
-          />
-        )}
-
         {/* Tab 6: About & Help Documentation */}
         {activeTab === 'about' && (
           <AboutHelpView
@@ -362,13 +353,7 @@ export function App() {
             >
               About & Help
             </button>
-            <span>&bull;</span>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className="hover:text-slate-300 transition"
-            >
-              Pavement Analytics
-            </button>
+
           </div>
         </div>
       </footer>

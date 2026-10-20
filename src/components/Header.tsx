@@ -18,7 +18,6 @@ export type ActiveTab =
   | 'potholes'
   | 'sensor'
   | 'my-reports'
-  | 'analytics'
   | 'about';
 
 interface HeaderProps {
@@ -176,22 +175,6 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   </button>
 
-                  {/* 5. Pavement Analytics */}
-                  <button
-                    onClick={() => handleSelectTab('analytics')}
-                    className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-800 transition ${
-                      activeTab === 'analytics' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <BarChart3 className="w-4 h-4 text-amber-400 shrink-0" />
-                      <div>
-                        <div className="font-semibold text-white">Pavement Analytics</div>
-                        <div className="text-[10px] text-slate-400">Commuter corridor PCI risk curves</div>
-                      </div>
-                    </div>
-                  </button>
-
                   <div className="my-1 border-t border-slate-800"></div>
 
                   {/* 6. About & Help */}
@@ -271,19 +254,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <CheckCircle2 className="w-4 h-4" />
             <span>My Reports</span>
-          </button>
-
-          {/* Pavement Analytics Tab */}
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap transition-all ${
-              activeTab === 'analytics'
-                ? 'bg-amber-600 text-white shadow-md shadow-amber-600/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
-            }`}
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>Pavement Analytics</span>
           </button>
 
           {/* About / Help Tab */}
