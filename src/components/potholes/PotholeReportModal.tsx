@@ -5,7 +5,6 @@ import { reverseGeocode } from '../../services/reverseGeocoding';
 import { 
   X, 
   MapPin, 
-  Crosshair, 
   Activity, 
   CheckCircle2, 
   Mail,
@@ -39,7 +38,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   initialCoords
 }) => {
   const [title, setTitle] = useState('');
-  const [address, setAddress] = useState(initialCoords?.address || 'Locating closest address...');
+  const [address, setAddress] = useState(initialCoords?.address || 'Locating nearest street address...');
   const [roadName, setRoadName] = useState('');
   const [landmark, setLandmark] = useState('');
   const [city, setCity] = useState('Lawrenceville');
@@ -86,21 +85,29 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
           setLatitude(lat);
           setLongitude(lng);
           const geo = await reverseGeocode(lat, lng);
+          if (geo && geo.address) {
+            setAddress(geo.address);
+            setRoadName(geo.road);
+            setCity(geo.city);
+          }
+          setIsResolvingAddress(false);
+        },
+        async () => {
+          // If GPS timed out or permission delayed, try reverse-geocoding default/last coordinates
+          const geo = await reverseGeocode(latitude, longitude);
           setAddress(geo.address);
           setRoadName(geo.road);
           setCity(geo.city);
           setIsResolvingAddress(false);
         },
-        () => {
-          setIsResolvingAddress(false);
-          setAddress('1000 University Center Ln, Lawrenceville, GA 30043');
-          setRoadName('University Center Ln');
-        },
-        { enableHighAccuracy: true, timeout: 4000 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
       );
     } else {
-      setAddress('1000 University Center Ln, Lawrenceville, GA 30043');
-      setRoadName('University Center Ln');
+      reverseGeocode(latitude, longitude).then(geo => {
+        setAddress(geo.address);
+        setRoadName(geo.road);
+        setCity(geo.city);
+      });
     }
   }, []);
 
@@ -115,16 +122,18 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
           setLatitude(lat);
           setLongitude(lng);
           const geo = await reverseGeocode(lat, lng);
-          setAddress(geo.address);
-          setRoadName(geo.road);
-          setCity(geo.city);
+          if (geo && geo.address) {
+            setAddress(geo.address);
+            setRoadName(geo.road);
+            setCity(geo.city);
+          }
           setIsResolvingAddress(false);
         },
         () => {
           setIsResolvingAddress(false);
-          alert('GPS location request timed out.');
+          alert('Could not update GPS location. Please check browser location permissions.');
         },
-        { enableHighAccuracy: true, timeout: 4000 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
       );
     }
   };
@@ -185,7 +194,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
                 )}
               </div>
               <p className="text-[11px] text-slate-400">
-                Submit road docket with automatic nearest address resolution
+                Submit road docket with automatic nearest street address resolution
               </p>
             </div>
           </div>
@@ -276,7 +285,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
             </div>
           </div>
 
-          {/* Street Address (Auto-Populated with Closest Address) */}
+          {/* Street Address (Auto-Populated with Closest Specific Address) */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-slate-300 font-semibold text-[11px] flex items-center gap-1">
@@ -298,7 +307,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
               required
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="Resolving nearest address..."
+              placeholder="Resolving nearest street address..."
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:ring-1 focus:ring-teal-500 outline-none text-xs"
             />
           </div>
