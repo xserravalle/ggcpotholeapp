@@ -885,14 +885,9 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl space-y-5">
             
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div>
-                <h3 className="text-base font-bold text-white">Samsung Galaxy Hardware Sensor Monitor</h3>
-                <p className="text-[11px] text-slate-400">Direct proof of physical mobile device motion streaming</p>
-              </div>
-              <span className="font-mono text-xs text-teal-300 font-bold bg-teal-950 px-2.5 py-1 rounded-full border border-teal-800">
-                {eventCount} Motion Events
-              </span>
+            <div className="pb-3 border-b border-slate-800">
+              <h3 className="text-base font-bold text-white">Hardware Sensor Monitor</h3>
+              <p className="text-[11px] text-slate-400">Physical mobile accelerometer streaming & live shock telemetry</p>
             </div>
 
             {/* G-Force Readout & Live Physical Waveform */}
