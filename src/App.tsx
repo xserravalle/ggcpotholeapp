@@ -284,6 +284,7 @@ export function App() {
         {activeTab === 'about' && (
           <AboutHelpView
             onNavigateTab={setActiveTab}
+            onOpenReportModal={() => setIsReportModalOpen(true)}
           />
         )}
       </main>

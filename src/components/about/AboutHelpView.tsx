@@ -5,25 +5,33 @@ import {
   LayoutDashboard, 
   Activity, 
   CheckCircle2, 
-  BarChart3, 
   Volume2, 
   Type, 
-  Palette, 
   ShieldAlert, 
   Database, 
   Car, 
   GraduationCap, 
   Users, 
   ExternalLink,
-  ArrowRight
+  ArrowRight,
+  Camera,
+  FileDown,
+  Mail,
+  Smartphone,
+  Navigation,
+  ShieldCheck
 } from 'lucide-react';
 import { ActiveTab } from '../Header';
 
 interface AboutHelpViewProps {
   onNavigateTab: (tab: ActiveTab) => void;
+  onOpenReportModal?: () => void;
 }
 
-export const AboutHelpView: React.FC<AboutHelpViewProps> = ({ onNavigateTab }) => {
+export const AboutHelpView: React.FC<AboutHelpViewProps> = ({ 
+  onNavigateTab,
+  onOpenReportModal 
+}) => {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
       
@@ -44,7 +52,7 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({ onNavigateTab }) =
           </p>
 
           <p className="text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
-            GGC SansPotholes is an accessible civic roadway hazard detection and commuter utility built by Georgia Gwinnett College students. The application blends dyslexia-friendly typography (Comic Sans MS), universal colorblind design (Okabe-Ito), Southern-cadence voice synthesis, and in-vehicle accelerometer telemetry to help students and commuters report road hazards without distracted driving.
+            GGC SansPotholes is an accessible civic roadway hazard detection and commuter utility built by Georgia Gwinnett College students. The application blends dyslexia-friendly typography (Comic Sans MS), universal colorblind design (Okabe-Ito), Southern-cadence voice synthesis, hardware-accelerated mobile accelerometer telemetry, and verified geographic map screenshot capture to help students and commuters report road hazards accurately without distracted driving.
           </p>
 
           {/* Project Team */}
@@ -63,31 +71,31 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({ onNavigateTab }) =
         </div>
       </div>
 
-      {/* Synthetic vs Real Data Transparency Disclosure */}
+      {/* Data Transparency & Real Evidence Policy Notice */}
       <div className="bg-amber-950/30 border border-amber-600/40 rounded-3xl p-6 space-y-3">
         <div className="flex items-center gap-2 text-amber-300 font-bold text-sm sm:text-base">
           <Database className="w-5 h-5 text-amber-400 shrink-0" />
-          <span>Academic Demonstration & Data Transparency Notice</span>
+          <span>Data Integrity & Real-Evidence Model</span>
         </div>
         <p className="text-xs sm:text-sm text-amber-200/90 leading-relaxed">
-          Because municipal public works departments (Gwinnett County DOT, City of Lawrenceville, and GDOT) do not expose public, writeable dispatch APIs or live automated camera feeds to academic student projects, this application operates on a <strong>hybrid model</strong>:
+          To maintain rigorous data integrity, all <strong>synthetic stock photos, artificial cavity diameters, and synthetic pavement depths have been retired</strong>. Instead, the application exclusively captures and displays <strong>real physical hardware sensor metrics</strong> and <strong>verified geospatial evidence</strong>:
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1 text-xs">
           <div className="bg-slate-900/80 border border-emerald-500/40 rounded-2xl p-3.5 space-y-1.5">
             <span className="inline-flex items-center gap-1 font-bold text-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-400"></span> Real Device & Client Data
+              <Activity className="w-4 h-4 text-emerald-400" /> Physical Hardware Telemetry
             </span>
             <p className="text-slate-300 leading-relaxed">
-              When using a phone or laptop with a built-in accelerometer, the <strong>Drive Sensor</strong> captures real live <code className="text-emerald-300">DeviceMotionEvent</code> hardware shock readings and actual GPS coordinates. Citizen submissions and upvotes made in the session are stored in your browser's persistent <code className="text-emerald-300">localStorage</code>.
+              Real G-force impact readings measured directly by your device's physical accelerometer (<code className="text-emerald-300">DeviceMotionEvent</code>). Baseline gravity is automatically filtered, registering actual vehicular shock spikes (e.g. <strong>7.80G</strong> or <strong>8.80G</strong>) against calibrated impact thresholds.
             </p>
           </div>
 
-          <div className="bg-slate-900/80 border border-amber-500/40 rounded-2xl p-3.5 space-y-1.5">
-            <span className="inline-flex items-center gap-1 font-bold text-amber-400">
-              <span className="w-2 h-2 rounded-full bg-amber-400"></span> Synthetic / Simulated Academic Data
+          <div className="bg-slate-900/80 border border-teal-500/40 rounded-2xl p-3.5 space-y-1.5">
+            <span className="inline-flex items-center gap-1 font-bold text-teal-400">
+              <Camera className="w-4 h-4 text-teal-400" /> Verified Map Screenshots
             </span>
             <p className="text-slate-300 leading-relaxed">
-              Seed pothole dockets and campus parking deck live occupancies are <strong>artificially generated and simulated</strong> based on real Lawrenceville road coordinates and typical traffic conditions for functional demonstration.
+              Rather than attaching placeholder stock imagery, the report system uses an HTML5 canvas tile-stitcher to generate a <strong>verified visual screenshot of the centralized map location</strong> centered around the shock coordinates, directly embedded into reports and PDF work order dockets.
             </p>
           </div>
         </div>
@@ -100,23 +108,166 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({ onNavigateTab }) =
             Functionality & Feature Guide
           </h2>
           <p className="text-xs sm:text-sm text-slate-400">
-            A comprehensive breakdown of how each tool works and how data is handled.
+            A comprehensive breakdown of how each tool works and how data is processed.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           
-          {/* 1. Map & Hazards */}
+          {/* 1. Drive Sensor (Hardware Accelerometer) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
+            <div className="space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">
+                    <Activity className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Drive Sensor</h3>
+                    <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">
+                      Hands-Free Auto-Logger
+                    </span>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+                  Real Hardware Sensor
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Hands-free roadway shock logger designed to eliminate distracted driving. Mount your phone in your vehicle and start monitoring: it silently tracks acceleration spikes, GPS coordinates, and jurisdiction. Includes axle bounce cooldown to prevent double counting.
+              </p>
+
+              <div className="bg-slate-800/50 rounded-xl p-2.5 text-[11px] text-slate-400 space-y-1.5 border border-slate-700/50">
+                <span className="font-semibold text-slate-200 flex items-center gap-1">
+                  <Smartphone className="w-3.5 h-3.5 text-teal-400" /> Mobile Hardware Compatibility:
+                </span>
+                <p>
+                  Optimized for modern mobile browsers including Android flagships (such as the <strong>Samsung Galaxy S25 Ultra</strong> on Firefox and Chrome) and iOS over secure HTTPS. Features a live real-time graph, sensitivity calibrator, and instant 1-tap test shock generator.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => onNavigateTab('sensor')}
+              className="mt-3 w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-purple-600 hover:text-white text-purple-400 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+            >
+              <span>Open Drive Sensor</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* 2. Road Hazard Reporting & Location Snapshot Engine */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
             <div className="space-y-2.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center space-x-2.5">
                   <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
+                    <Camera className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Hazard Reporting & Map Snapshot</h3>
+                    <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">
+                      Geocoded Intake & Evidence Capture
+                    </span>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-500/10 text-teal-300 border border-teal-500/30">
+                  Automated Evidence
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Streamlined intake modal designed for quick field triage on any screen:
+              </p>
+
+              <ul className="text-[11px] text-slate-300 space-y-1.5 pl-3 list-disc">
+                <li>
+                  <strong>Nearest Street Address</strong>: Auto-resolves specific street and building numbers (e.g. <em>1000 University Center Ln, Lawrenceville, GA</em>) via reverse geocoding, hiding raw GPS coordinates.
+                </li>
+                <li>
+                  <strong>Centralized Mini-Map</strong>: Live interactive map centered around the exact shock location with tap-to-reposition fine-tuning.
+                </li>
+                <li>
+                  <strong>Automated Map Snapshot</strong>: Stitches canvas tiles and exports a certified screenshot image with pulsing radar pin and GPS overlay.
+                </li>
+                <li>
+                  <strong>Direct Testing Dispatch</strong>: Dispatches reports directly to <code className="text-teal-300 font-mono">peyton.holland@gmail.com</code>.
+                </li>
+              </ul>
+            </div>
+
+            {onOpenReportModal ? (
+              <button
+                onClick={onOpenReportModal}
+                className="mt-3 w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-emerald-600 hover:text-white text-emerald-400 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+              >
+                <span>Report a Road Hazard</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                onClick={() => onNavigateTab('potholes')}
+                className="mt-3 w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-emerald-600 hover:text-white text-emerald-400 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+              >
+                <span>Explore Map & Report</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* 3. Certified Incident PDF Dockets */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
+            <div className="space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
+                    <FileDown className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Incident PDF Docket Generator</h3>
+                    <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">
+                      Municipal Public Works Export
+                    </span>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-300 border border-blue-500/30">
+                  Certified Export
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Generates a clean, single-page official municipal work order notice formatted for public works departments (Gwinnett County DOT, Lawrenceville Public Works, and GDOT).
+              </p>
+
+              <div className="bg-slate-800/50 rounded-xl p-2.5 text-[11px] text-slate-400 space-y-1 border border-slate-700/50">
+                <span className="font-semibold text-slate-200 block">Docket Components:</span>
+                <p>
+                  Includes unique incident tracking codes (<code className="text-slate-300 font-mono">GAP-2026-*</code>), assigned jurisdiction routing, digital Google Maps coordinates, measured shock telemetry, citizen notes, supervisor signoff blocks, and <strong>Section 4: Verified Geospatial Location Map Snapshot</strong> embedding the captured map image.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => onNavigateTab('my-reports')}
+              className="mt-3 w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-blue-600 hover:text-white text-blue-400 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+            >
+              <span>View Reports & Download Dockets</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* 4. Map & Hazards Viewer */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
+            <div className="space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center font-bold">
                     <MapPin className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-white">Map & Hazards</h3>
-                    <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">
+                    <span className="text-[10px] font-semibold text-teal-400 uppercase tracking-wider">
                       Interactive Geographic Viewer
                     </span>
                   </div>
@@ -131,33 +282,33 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({ onNavigateTab }) =
               </p>
 
               <div className="bg-slate-800/50 rounded-xl p-2.5 text-[11px] text-slate-400 space-y-1 border border-slate-700/50">
-                <span className="font-semibold text-slate-200 block">Data Disclosure:</span>
+                <span className="font-semibold text-slate-200 block">Hazard Inspector Drawer:</span>
                 <p>
-                  Road geometry is rendered via live OpenStreetMap tiles. Seed hazards (<code className="text-slate-300 font-mono">GW-POT-*</code>) are synthetic sample incidents placed along real GGC roadways. New reports submitted by you appear immediately on your live map.
+                  Clicking any hazard opens the inspection drawer containing a centralized Leaflet mini-map, Google Maps external jump link, hardware sensor shock telemetry readings, and instant PDF docket generation.
                 </p>
               </div>
             </div>
 
             <button
               onClick={() => onNavigateTab('potholes')}
-              className="mt-3 w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-emerald-600 hover:text-white text-emerald-400 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+              className="mt-3 w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-teal-600 hover:text-white text-teal-400 text-xs font-bold flex items-center justify-center gap-1.5 transition"
             >
               <span>Explore Hazard Map</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* 2. Dashboard & Parking */}
+          {/* 5. Dashboard & Parking Telematics */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
             <div className="space-y-2.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center space-x-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center font-bold">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">
                     <LayoutDashboard className="w-5 h-5" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-white">Parking & Hazards</h3>
-                    <span className="text-[10px] font-semibold text-teal-400 uppercase tracking-wider">
+                    <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">
                       Commuter Telematics & Forecasts
                     </span>
                   </div>
@@ -181,96 +332,14 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({ onNavigateTab }) =
 
             <button
               onClick={() => onNavigateTab('dashboard')}
-              className="mt-3 w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-teal-600 hover:text-white text-teal-400 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+              className="mt-3 w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-emerald-600 hover:text-white text-emerald-400 text-xs font-bold flex items-center justify-center gap-1.5 transition"
             >
               <span>View Parking & Hazards</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* 3. Drive Sensor */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
-            <div className="space-y-2.5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center space-x-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center font-bold">
-                    <Activity className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-white">Drive Sensor</h3>
-                    <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">
-                      Hands-Free Auto-Logger
-                    </span>
-                  </div>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
-                  Real Hardware Sensor
-                </span>
-              </div>
-
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Hands-free roadway shock logger designed to eliminate distracted driving. When running on a phone in your vehicle mount, it silently captures G-force impact spikes, GPS coordinates, and jurisdiction. Impact cooldown filters out duplicate axle bounces. When you arrive safely, the <strong>Park & Review Queue</strong> lets you verify hits, add photos, or discard bumps.
-              </p>
-
-              <div className="bg-slate-800/50 rounded-xl p-2.5 text-[11px] text-slate-400 space-y-1 border border-slate-700/50">
-                <span className="font-semibold text-slate-200 block">Data Disclosure:</span>
-                <p>
-                  Uses your mobile device's physical accelerometer via the HTML5 <code className="text-slate-300 font-mono">DeviceMotionEvent</code> API and live geolocation. On desktop laptops without motion sensors, test impacts can be manually triggered via the shock generator.
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => onNavigateTab('sensor')}
-              className="mt-3 w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-purple-600 hover:text-white text-purple-400 text-xs font-bold flex items-center justify-center gap-1.5 transition"
-            >
-              <span>Open Drive Sensor</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* 4. My Reports */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
-            <div className="space-y-2.5">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center space-x-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
-                    <CheckCircle2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-white">My Reports</h3>
-                    <span className="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">
-                      User Submission Manager
-                    </span>
-                  </div>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
-                  User Client Data
-                </span>
-              </div>
-
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Your personal submission docket. Review all hazards you have auto-logged or submitted manually. Edit hazard details, attach camera pavement captures, observe community confirmation counts (+1 upvotes), or delete resolved road reports.
-              </p>
-
-              <div className="bg-slate-800/50 rounded-xl p-2.5 text-[11px] text-slate-400 space-y-1 border border-slate-700/50">
-                <span className="font-semibold text-slate-200 block">Data Disclosure:</span>
-                <p>
-                  All reports created in your session are saved directly to your browser's local client storage (<code className="text-slate-300 font-mono">localStorage</code>), keeping your personal submissions private on your device.
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => onNavigateTab('my-reports')}
-              className="mt-3 w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-blue-600 hover:text-white text-blue-400 text-xs font-bold flex items-center justify-center gap-1.5 transition"
-            >
-              <span>Manage My Reports</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* 5. Accessibility & Southern Voice Suite */}
+          {/* 6. Accessibility & Southern Voice Suite */}
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
             <div className="space-y-2.5">
               <div className="flex items-start justify-between gap-2">
@@ -291,13 +360,13 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({ onNavigateTab }) =
               </div>
 
               <p className="text-xs text-slate-300 leading-relaxed">
-                Includes the Comic Sans MS typography toggle (enhancing readability for dyslexia), 4-step font size scaling (<code className="text-slate-300 font-mono">A−</code> to <code className="text-slate-300 font-mono">A++</code>), Okabe-Ito colorblind-safe palettes, High Contrast mode with auto-inverted map tiles, and browser Web Speech API voice synthesis in a relaxed Southern drawl.
+                Includes the Comic Sans MS typography toggle (enhancing readability for dyslexia), 4-step font size scaling (<code className="text-slate-300 font-mono">A−</code> to <code className="text-slate-300 font-mono">A++</code>), Okabe-Ito colorblind-safe palettes, High Contrast mode with auto-inverted map tiles, and browser Web Speech API voice synthesis in a relaxed Southern cadence.
               </p>
 
               <div className="bg-slate-800/50 rounded-xl p-2.5 text-[11px] text-slate-400 space-y-1 border border-slate-700/50">
-                <span className="font-semibold text-slate-200 block">Data Disclosure:</span>
+                <span className="font-semibold text-slate-200 block">Privacy Guarantee:</span>
                 <p>
-                  These features run entirely on your browser's native CSS variables and HTML5 SpeechSynthesis engine, without communicating with external AI servers.
+                  These accessibility features run entirely on your browser's native CSS variables and HTML5 SpeechSynthesis engine without transmitting user audio or preferences to external servers.
                 </p>
               </div>
             </div>
