@@ -238,17 +238,13 @@ export function App() {
 
       {/* Main Tab Content */}
       <main className="flex-1">
-        {/* Tab 1: Consolidated Dashboard */}
+        {/* Tab 1: Campus Parking Availability */}
         {activeTab === 'dashboard' && (
           <UnifiedDashboard
-            potholes={potholes}
             parkingLots={parkingLots}
             simulationParams={simulationParams}
             onChangeSimulationParams={setSimulationParams}
-            onNavigateTab={setActiveTab}
-            onSelectPothole={setSelectedPothole}
             onSelectLot={setSelectedLot}
-            onVerifyPothole={handleVerifyPothole}
           />
         )}
 

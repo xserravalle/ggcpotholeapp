@@ -7,53 +7,33 @@ import { SimulationControls } from '../parking/SimulationControls';
 import { ParkingDashboard } from '../parking/ParkingDashboard';
 import { ParkingPredictorView } from '../parking/ParkingPredictorView';
 import { ActiveTab } from '../Header';
-import { useAccessibility } from '../../context/AccessibilityContext';
-import { SeverityBadge } from '../common/SeverityBadge';
 import { 
-  AlertTriangle, 
   Car, 
   MapPin, 
-  CheckCircle2, 
-  ArrowRight, 
   Sliders, 
   ChevronDown, 
   ChevronUp, 
-  PlusCircle, 
-  ThumbsUp, 
-  Clock, 
-  Sparkles,
-  ShieldCheck,
-  Building2,
-  Calendar,
-  Layers,
-  BarChart3,
-  Volume2
+  Clock 
 } from 'lucide-react';
 
 interface UnifiedDashboardProps {
-  potholes: PotholeReport[];
+  potholes?: PotholeReport[];
   parkingLots: ParkingLot[];
   simulationParams: SimulationParams;
   onChangeSimulationParams: (params: SimulationParams) => void;
-  onNavigateTab: (tab: ActiveTab) => void;
-  onSelectPothole: (p: PotholeReport) => void;
+  onNavigateTab?: (tab: ActiveTab) => void;
+  onSelectPothole?: (p: PotholeReport) => void;
   onSelectLot: (l: ParkingLot) => void;
   onOpenReportModal?: () => void;
-  onVerifyPothole: (id: string) => void;
+  onVerifyPothole?: (id: string) => void;
 }
 
 export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
-  potholes,
   parkingLots,
   simulationParams,
   onChangeSimulationParams,
-  onNavigateTab,
-  onSelectPothole,
-  onSelectLot,
-  onOpenReportModal,
-  onVerifyPothole
+  onSelectLot
 }) => {
-  const { speakPothole } = useAccessibility();
   // Accordion state for simulation controls (default collapsed to eliminate visual noise)
   const [isForecastExpanded, setIsForecastExpanded] = useState(false);
   const [forecastViewMode, setForecastViewMode] = useState<'cards' | 'curves'>('cards');
@@ -71,89 +51,40 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
     return calculatedLots.slice(0, 5);
   }, [calculatedLots]);
 
-  // Priority road hazards sorted by critical severity and confirmations
-  const priorityHazards = useMemo(() => {
-    return [...potholes]
-      .filter(p => p.status !== 'repaired')
-      .sort((a, b) => {
-        const sevScore = { critical: 4, severe: 3, moderate: 2, minor: 1 };
-        const scoreA = (sevScore[a.severity] || 1) * 10 + Math.min(a.verificationsCount, 50);
-        const scoreB = (sevScore[b.severity] || 1) * 10 + Math.min(b.verificationsCount, 50);
-        return scoreB - scoreA;
-      })
-      .slice(0, 4);
-  }, [potholes]);
-
-  // Count of user submitted or confirmed reports
-  const userReportsCount = useMemo(() => {
-    return potholes.filter(p => p.source === 'user' || p.source === 'sensor' || p.userConfirmed).length;
-  }, [potholes]);
-
-  // Count aggregates
-  const criticalCount = potholes.filter(p => p.severity === 'critical' || p.severity === 'severe').length;
-  const totalConfirmations = potholes.reduce((acc, p) => acc + p.verificationsCount, 0);
+  // Aggregate stats
   const fullLotsCount = calculatedLots.filter(c => c.state.congestionStatus === 'full' || c.state.occupancyPercent >= 85).length;
+  const totalAvailableSpots = calculatedLots.reduce((acc, c) => acc + c.state.availableSpots, 0);
+  const totalCapacity = parkingLots.reduce((acc, l) => acc + l.totalCapacity, 0);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6">
       
-      {/* Community Hero & Overview Header */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-teal-950 border border-slate-800 rounded-3xl p-5 sm:p-7 shadow-xl relative overflow-hidden">
-        <div className="relative z-10 space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-teal-400 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-teal-400" />
-              Georgia Gwinnett College & Gwinnett County
-            </span>
-            <span className="text-[11px] font-mono text-slate-400 bg-slate-800/80 px-2.5 py-1 rounded-full border border-slate-700/60">
-              Community Live Feed
+      {/* Parking Overview Header */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center space-x-2">
+            <Car className="w-6 h-6 text-emerald-400" />
+            <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+              Campus Parking Availability
+            </h2>
+            <span className="text-xs font-mono bg-emerald-950 text-emerald-300 border border-emerald-800/80 px-2.5 py-0.5 rounded-full font-bold">
+              {totalAvailableSpots} Open Spots
             </span>
           </div>
-
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Gwinnett P3 Dashboard
-          </h2>
-          <p className="text-slate-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
-            Real-time road hazards and parking congestion, powered by student and driver reports. Check campus decks before you commute, or flag road damage to protect drivers.
+          <p className="text-xs sm:text-sm text-slate-300 mt-1">
+            Real-time occupancy for Georgia Gwinnett College student decks, faculty lots, and perimeter parking.
           </p>
+        </div>
 
-          {/* Quick Metrics Bar - Traffic Light Unified */}
-          <div className="grid grid-cols-3 gap-2.5 pt-2">
-            {/* Red: Critical Hazards */}
-            <div className="bg-slate-900/90 border border-red-500/30 rounded-2xl p-3 flex flex-col justify-between">
-              <div className="flex items-center space-x-1.5 text-red-400 text-xs font-semibold">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
-                <span>Critical Hazards</span>
-              </div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-white mt-1">
-                {criticalCount}
-              </div>
-              <span className="text-[10px] text-red-300/80 truncate">Tire/Axle risk</span>
-            </div>
-
-            {/* Yellow: Parking Hotspots */}
-            <div className="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-3 flex flex-col justify-between">
-              <div className="flex items-center space-x-1.5 text-amber-400 text-xs font-semibold">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                <span>Decks &gt;85% Full</span>
-              </div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-white mt-1">
-                {fullLotsCount}
-              </div>
-              <span className="text-[10px] text-amber-300/80 truncate">Of {parkingLots.length} facilities</span>
-            </div>
-
-            {/* Green: Community Confirmations */}
-            <div className="bg-slate-900/90 border border-emerald-500/30 rounded-2xl p-3 flex flex-col justify-between">
-              <div className="flex items-center space-x-1.5 text-emerald-400 text-xs font-semibold">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-                <span>Driver Confirms</span>
-              </div>
-              <div className="text-xl sm:text-2xl font-bold font-mono text-white mt-1">
-                {totalConfirmations}
-              </div>
-              <span className="text-[10px] text-emerald-300/80 truncate">Community upvotes</span>
-            </div>
+        {/* Quick Stat Badges */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl px-3.5 py-2 text-center">
+            <span className="text-[10px] text-slate-400 uppercase font-bold block">Congested</span>
+            <span className="text-base font-black font-mono text-amber-400">{fullLotsCount} of {parkingLots.length}</span>
+          </div>
+          <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl px-3.5 py-2 text-center">
+            <span className="text-[10px] text-slate-400 uppercase font-bold block">Total Capacity</span>
+            <span className="text-base font-black font-mono text-emerald-400">{totalCapacity}</span>
           </div>
         </div>
       </div>
@@ -308,138 +239,6 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
             )}
           </div>
         )}
-      </div>
-
-      {/* SECTION 2: Recent Community Road Hazards */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div>
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="w-5 h-5 text-amber-400" />
-              <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
-                High-Priority Road Hazards
-              </h3>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Crowdsourced potholes and road damage verified by student and county drivers
-            </p>
-          </div>
-
-          <button
-            onClick={() => onNavigateTab('potholes')}
-            className="text-xs font-semibold text-teal-400 hover:text-teal-300 flex items-center gap-1.5 transition"
-          >
-            <span>Open Interactive Map</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Hazard Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          {priorityHazards.map((pothole) => {
-            const isCrit = pothole.severity === 'critical' || pothole.severity === 'severe';
-            const isMod = pothole.severity === 'moderate';
-
-            return (
-              <div
-                key={pothole.id}
-                onClick={() => onSelectPothole(pothole)}
-                className="bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 hover:border-slate-600 rounded-2xl p-4 transition cursor-pointer flex flex-col justify-between space-y-3 group"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <SeverityBadge severity={pothole.severity} />
-
-                    <span className="text-[11px] text-slate-400">
-                      {pothole.distanceFromGgcMiles ? `${pothole.distanceFromGgcMiles.toFixed(1)} mi from GGC` : pothole.city}
-                    </span>
-                  </div>
-
-                  {/* Prominent Road & Landmark Name */}
-                  <h4 className="text-sm font-bold text-white group-hover:text-teal-300 transition line-clamp-1">
-                    {pothole.roadName || pothole.title}
-                  </h4>
-                  {pothole.landmark && (
-                    <span className="text-[10px] text-emerald-400/90 font-medium block truncate">
-                      🏫 {pothole.landmark}
-                    </span>
-                  )}
-                  <p className="text-xs text-slate-400 flex items-center gap-1 mt-1 truncate">
-                    <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                    <span>{pothole.address || `${pothole.roadName} • ${pothole.city}`}</span>
-                  </p>
-                </div>
-
-                {/* Bottom confirmation count, TTS audio button, and upvote */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-700/40 text-xs gap-2">
-                  <span className="text-teal-400 font-bold flex items-center gap-1 truncate">
-                    <span>👆</span>
-                    <span>{pothole.verificationsCount} confirms</span>
-                  </span>
-
-                  <div className="flex items-center space-x-1.5 shrink-0">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        speakPothole(pothole);
-                      }}
-                      className="px-2 py-1 rounded-lg text-xs font-semibold bg-slate-700 hover:bg-slate-600 text-teal-300 transition flex items-center gap-1"
-                      title="Listen to this report read aloud in Southern voice"
-                    >
-                      <Volume2 className="w-3 h-3 text-teal-400" />
-                      <span>Listen</span>
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onVerifyPothole(pothole.id);
-                      }}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
-                        pothole.userConfirmed
-                          ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
-                          : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
-                      }`}
-                    >
-                      <ThumbsUp className="w-3 h-3" />
-                      <span>{pothole.userConfirmed ? 'Confirmed' : 'Confirm'}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* SECTION 3: Centralized My Reports Navigation Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center space-x-3 text-center sm:text-left">
-          <div className="w-10 h-10 rounded-2xl bg-teal-500/10 text-teal-400 flex items-center justify-center border border-teal-500/20 shrink-0">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-2 justify-center sm:justify-start">
-              <h3 className="text-base font-bold text-white tracking-tight">
-                My Reports & Confirmations
-              </h3>
-              <span className="text-xs font-mono bg-teal-950 text-teal-300 border border-teal-800/80 px-2.5 py-0.5 rounded-full font-bold">
-                {userReportsCount} Active
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Submit new road hazards, review 3x sensor detections, and track status updates in the My Reports tab.
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => onNavigateTab('my-reports')}
-          className="px-4 py-2.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white flex items-center gap-1.5 shadow-md shadow-teal-600/20 transition active:scale-95 shrink-0"
-        >
-          <span>Open My Reports</span>
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
       </div>
 
     </div>
