@@ -302,6 +302,7 @@ export function App() {
             onMapDropPin={(lat, lng, address) => {
               setDroppedPinCoords({ lat, lng, address });
             }}
+            onNavigateToDrive={() => setActiveTab('sensor')}
           />
         )}
 

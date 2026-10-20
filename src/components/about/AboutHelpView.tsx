@@ -123,9 +123,9 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({
                     <Activity className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Drive Sensor</h3>
-                    <span className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">
-                      Hands-Free Auto-Logger
+                    <h3 className="text-base font-bold text-white">Drive-Time Mapping & Sensor</h3>
+                    <span className="text-[10px] font-semibold text-teal-400 uppercase tracking-wider">
+                      Turnkey Route Patrol & Incident Readout
                     </span>
                   </div>
                 </div>
@@ -135,24 +135,24 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({
               </div>
 
               <p className="text-xs text-slate-300 leading-relaxed">
-                Hands-free roadway shock logger designed to eliminate distracted driving. Mount your phone in your vehicle and start monitoring: it silently tracks acceleration spikes, GPS coordinates, and jurisdiction. Includes axle bounce cooldown to prevent double counting.
+                Full-featured drive session patrol combining physical mobile accelerometer telemetry with GPS path mapping. Safely start at the beginning of a commute and terminate upon arrival: automatically maps the driven route polyline, detects and logs significant pothole shocks with reverse-geocoded addresses, and generates a turnkey Drive Patrol Summary Report with certified PDF download.
               </p>
 
               <div className="bg-slate-800/50 rounded-xl p-2.5 text-[11px] text-slate-400 space-y-1.5 border border-slate-700/50">
                 <span className="font-semibold text-slate-200 flex items-center gap-1">
-                  <Smartphone className="w-3.5 h-3.5 text-teal-400" /> Mobile Hardware Compatibility:
+                  <Smartphone className="w-3.5 h-3.5 text-teal-400" /> Mobile Hardware Compatibility & Waveform:
                 </span>
                 <p>
-                  Optimized for modern mobile browsers including Android flagships (such as the <strong>Samsung Galaxy S25 Ultra</strong> on Firefox and Chrome) and iOS over secure HTTPS. Features a live real-time graph, sensitivity calibrator, and instant 1-tap test shock generator.
+                  Optimized for mobile browsers including Android flagships (such as the <strong>Samsung Galaxy S25 Ultra</strong> on Firefox and Chrome) and iOS over secure HTTPS. Features a live real-time oscilloscope waveform, sensitivity calibrator, axle bounce cooldown, and instant 1-tap test shock generator.
                 </p>
               </div>
             </div>
 
             <button
               onClick={() => onNavigateTab('sensor')}
-              className="mt-3 w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-purple-600 hover:text-white text-purple-400 text-xs font-bold flex items-center justify-center gap-1.5 transition"
+              className="mt-3 w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-sm"
             >
-              <span>Open Drive Sensor</span>
+              <span>Launch Drive-Time Mapping</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -278,7 +278,7 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({
               </div>
 
               <p className="text-xs text-slate-300 leading-relaxed">
-                Full-screen interactive OpenStreetMap view centered on Georgia Gwinnett College and surrounding Lawrenceville arteries. Features landmark-first hazard titles (*Collins Hill Rd*, *Campus Loop*), dual-coded severity markers (<span className="text-red-400 font-bold">▲ Critical</span>, <span className="text-amber-400 font-bold">◆ Moderate</span>, <span className="text-emerald-400 font-bold">● Minor</span>), one-click citizen confirmations, and drop-pin reporting.
+                Full-screen interactive OpenStreetMap view that automatically defaults to your physical GPS location on launch (with quick toggles for GGC Campus and All Gwinnett). Features a predominant 1-click launcher for <strong>Drive-Time Mapping</strong>, a pulsing live user GPS radar beacon, landmark-first hazard titles (*Collins Hill Rd*, *Campus Loop*), dual-coded severity markers (<span className="text-red-400 font-bold">▲ Critical</span>, <span className="text-amber-400 font-bold">◆ Moderate</span>, <span className="text-emerald-400 font-bold">● Minor</span>), one-click citizen confirmations, and drop-pin reporting.
               </p>
 
               <div className="bg-slate-800/50 rounded-xl p-2.5 text-[11px] text-slate-400 space-y-1 border border-slate-700/50">

@@ -10,7 +10,8 @@ import {
   Info, 
   LayoutDashboard, 
   ChevronRight,
-  HelpCircle
+  HelpCircle,
+  Route
 } from 'lucide-react';
 
 export type ActiveTab = 
@@ -127,7 +128,26 @@ export const Header: React.FC<HeaderProps> = ({
                     </span>
                   </button>
 
-                  {/* 2. Dashboard & Parking */}
+                  {/* 2. Drive-Time Mapping (Predominantly next to Map) */}
+                  <button
+                    onClick={() => handleSelectTab('sensor')}
+                    className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-800 transition ${
+                      activeTab === 'sensor' ? 'text-teal-400 font-bold bg-slate-800/60' : 'text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <Route className="w-4 h-4 text-teal-400 shrink-0" />
+                      <div>
+                        <div className="font-semibold text-white">Drive-Time Mapping</div>
+                        <div className="text-[10px] text-slate-400">Live route telemetry & shock incident readout</div>
+                      </div>
+                    </div>
+                    <span className="text-[9px] bg-teal-950 text-teal-300 font-bold px-1.5 py-0.5 rounded border border-teal-800 uppercase">
+                      Patrol
+                    </span>
+                  </button>
+
+                  {/* 3. Dashboard & Parking */}
                   <button
                     onClick={() => handleSelectTab('dashboard')}
                     className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-800 transition ${
@@ -139,22 +159,6 @@ export const Header: React.FC<HeaderProps> = ({
                       <div>
                         <div className="font-semibold text-white">Parking & Hazards</div>
                         <div className="text-[10px] text-slate-400">Commuter telemetry & lot occupancy</div>
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* 3. Drive Sensor */}
-                  <button
-                    onClick={() => handleSelectTab('sensor')}
-                    className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-800 transition ${
-                      activeTab === 'sensor' ? 'text-purple-400 font-bold bg-slate-800/60' : 'text-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <Activity className="w-4 h-4 text-purple-400 shrink-0" />
-                      <div>
-                        <div className="font-semibold text-white">Drive Sensor</div>
-                        <div className="text-[10px] text-slate-400">Hands-free shock auto-logger & queue</div>
                       </div>
                     </div>
                   </button>
@@ -177,7 +181,7 @@ export const Header: React.FC<HeaderProps> = ({
 
                   <div className="my-1 border-t border-slate-800"></div>
 
-                  {/* 6. About & Help */}
+                  {/* 5. About & Help */}
                   <button
                     onClick={() => handleSelectTab('about')}
                     className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-800 transition ${
@@ -217,6 +221,19 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </button>
 
+          {/* Drive-Time Mapping Tab (NOW PREDOMINANTLY NEXT TO MAP & HAZARDS!) */}
+          <button
+            onClick={() => setActiveTab('sensor')}
+            className={`px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap transition-all ${
+              activeTab === 'sensor'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-teal-600/30'
+                : 'text-teal-400 hover:text-white hover:bg-slate-800/80 border border-teal-500/30'
+            }`}
+          >
+            <Route className="w-4 h-4 text-teal-300" />
+            <span>Drive-Time Mapping</span>
+          </button>
+
           {/* Parking & Hazards Tab */}
           <button
             onClick={() => setActiveTab('dashboard')}
@@ -228,19 +245,6 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <LayoutDashboard className="w-4 h-4" />
             <span>Parking & Hazards</span>
-          </button>
-
-          {/* Drive Sensor Tab */}
-          <button
-            onClick={() => setActiveTab('sensor')}
-            className={`px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap transition-all ${
-              activeTab === 'sensor'
-                ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            <span>Drive Sensor</span>
           </button>
 
           {/* My Reports Tab */}
