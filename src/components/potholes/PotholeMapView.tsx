@@ -15,7 +15,8 @@ import {
   Map as MapIcon,
   Building2,
   Clock,
-  Volume2
+  Volume2,
+  FileText
 } from 'lucide-react';
 
 interface PotholeMapViewProps {
@@ -449,9 +450,6 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
                 key={`${pothole.id}-${theme}`}
                 position={[pothole.latitude, pothole.longitude]}
                 icon={createTrafficLightIcon(pothole.severity, pothole.status, pothole.verificationsCount, theme)}
-                eventHandlers={{
-                  click: () => onSelectPothole(pothole)
-                }}
               >
                 <Popup>
                   <div className="text-slate-900 text-xs min-w-[250px] space-y-2 p-1">
@@ -506,8 +504,17 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
                       </div>
                     </div>
 
+                    {/* More Details & Inspector Button */}
+                    <button
+                      onClick={() => onSelectPothole(pothole)}
+                      className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 transition shadow-sm active:scale-98 border border-slate-700"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-teal-400" />
+                      <span>More Details</span>
+                    </button>
+
                     {/* Actions: Listen & Upvote */}
-                    <div className="pt-1 flex items-center gap-2">
+                    <div className="pt-0.5 flex items-center gap-2">
                       <button
                         onClick={() => speakPothole(pothole)}
                         className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold py-1.5 px-2.5 rounded-lg text-xs flex items-center justify-center gap-1 transition shadow-sm active:scale-98"
