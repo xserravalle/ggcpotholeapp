@@ -43,6 +43,11 @@ export function App() {
     saveStoredPotholes(potholes);
   }, [potholes]);
 
+  // Always reset window scroll position to top on tab change
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [activeTab]);
+
   // Interactive Selection State
   const [selectedPothole, setSelectedPothole] = useState<PotholeReport | null>(null);
   const [selectedLot, setSelectedLot] = useState<ParkingLot | null>(null);
