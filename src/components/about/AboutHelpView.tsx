@@ -71,29 +71,40 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({
         </div>
       </div>
 
-      {/* Capstone PowerPoint Presentation Download Card */}
-      <div className="bg-gradient-to-r from-emerald-950/70 via-slate-900 to-slate-900 border border-emerald-500/40 rounded-3xl p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="space-y-1.5">
+      {/* Capstone PowerPoint Presentations Download Card */}
+      <div className="bg-gradient-to-r from-emerald-950/70 via-slate-900 to-slate-900 border border-emerald-500/40 rounded-3xl p-6 shadow-xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+        <div className="space-y-1.5 flex-1">
           <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 uppercase tracking-wide">
             <GraduationCap className="w-3.5 h-3.5" />
-            <span>Capstone Deliverable • 12 Slides (.pptx)</span>
+            <span>Capstone Deliverables • Comic Sans MS (.pptx)</span>
           </div>
           <h2 className="text-base sm:text-lg font-bold text-white">
-            GGC SansPotholes: Branch Evolution Presentation
+            GGC SansPotholes: Presentations & Press Releases
           </h2>
           <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-            Download the official 12-slide PowerPoint presentation formatted entirely in <strong>Comic Sans MS</strong> with GGC branding, comparing <code>pholland10132026</code> vs. <code>pholland10202026</code> with full presenter speaker notes.
+            Download our official presentations formatted in <strong>Comic Sans MS</strong> with GGC branding and speaker notes: the in-depth 12-slide architectural evaluation and the 3-slide civic tech press release featuring live active app screencaptures.
           </p>
         </div>
 
-        <a
-          href="/GGC_SansPotholes_Branch_Evolution_Presentation.pptx"
-          download="GGC_SansPotholes_Branch_Evolution_Presentation.pptx"
-          className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg transition active:scale-95 whitespace-nowrap shrink-0 border border-teal-400/40"
-        >
-          <FileDown className="w-4 h-4" />
-          <span>Download Presentation (.pptx)</span>
-        </a>
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 shrink-0">
+          <a
+            href="/GGC_SansPotholes_Press_Release.pptx"
+            download="GGC_SansPotholes_Press_Release.pptx"
+            className="px-4 py-2.5 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg transition active:scale-95 whitespace-nowrap border border-cyan-400/40"
+          >
+            <FileDown className="w-4 h-4" />
+            <span>Press Release (3 Slides)</span>
+          </a>
+
+          <a
+            href="/GGC_SansPotholes_Branch_Evolution_Presentation.pptx"
+            download="GGC_SansPotholes_Branch_Evolution_Presentation.pptx"
+            className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg transition active:scale-95 whitespace-nowrap border border-teal-400/40"
+          >
+            <FileDown className="w-4 h-4" />
+            <span>Full Evaluation (12 Slides)</span>
+          </a>
+        </div>
       </div>
 
       {/* Data Transparency & Real Evidence Policy Notice */}
