@@ -234,7 +234,11 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-teal-500 selection:text-slate-950 pb-16 md:pb-0">
+    <div className={`bg-slate-950 text-slate-100 flex flex-col selection:bg-teal-500 selection:text-slate-950 ${
+      activeTab === 'my-reports' 
+        ? 'h-screen max-h-screen overflow-hidden pb-16 md:pb-0' 
+        : 'min-h-screen pb-16 md:pb-0'
+    }`}>
       
       {/* Universal Streamlined Header */}
       <Header
@@ -246,7 +250,7 @@ export function App() {
       />
 
       {/* Main Tab Content */}
-      <main className="flex-1">
+      <main className={`flex-1 ${activeTab === 'my-reports' ? 'min-h-0 overflow-hidden flex flex-col' : ''}`}>
         {/* Tab 1: Campus Parking Availability */}
         {activeTab === 'dashboard' && (
           <UnifiedDashboard
@@ -400,7 +404,7 @@ export function App() {
       />
 
       {/* Streamlined Desktop Footer */}
-      <footer className="hidden md:block bg-slate-900 border-t border-slate-800 py-3.5 px-4 text-center text-xs text-slate-500">
+      <footer className="shrink-0 hidden md:block bg-slate-900 border-t border-slate-800 py-3.5 px-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="text-slate-400 font-medium">
             &copy; 2026 GGC SansPotholes &bull; Georgia Gwinnett College ITEC 4860

@@ -7,11 +7,11 @@ import {
   AlertTriangle, 
   MapPin, 
   PlusCircle, 
-  Edit3,
-  Activity,
-  ChevronDown,
-  ChevronUp,
-  X
+  Edit3, 
+  Activity, 
+  ChevronDown, 
+  ChevronUp, 
+  X 
 } from 'lucide-react';
 
 interface MyReportsViewProps {
@@ -79,10 +79,10 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 space-y-3">
+    <div className="h-full w-full max-w-4xl mx-auto px-4 sm:px-6 py-3 flex flex-col min-h-0 overflow-hidden">
       
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-lg">
+      {/* Header Banner - Fixed at top */}
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-3.5 shadow-lg">
         <div>
           <div className="flex items-center space-x-2">
             <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
@@ -118,13 +118,13 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
 
       {/* Lifecycle Explanation Card (Triggered by [?] button) */}
       {showLifecycleHelp && (
-        <div className="bg-slate-900 border border-emerald-700/60 rounded-2xl p-4 shadow-xl text-xs text-slate-200 space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-150">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+        <div className="shrink-0 mt-2 bg-slate-900 border border-emerald-700/60 rounded-2xl p-3 shadow-xl text-xs text-slate-200 space-y-2 max-h-44 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
             <div className="flex items-center space-x-2">
-              <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+              <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-[10px]">
                 ?
               </span>
-              <span className="font-bold text-white text-sm">How Hazard Resolution Works</span>
+              <span className="font-bold text-white text-xs">How Hazard Resolution Works</span>
             </div>
             <button
               onClick={() => setShowLifecycleHelp(false)}
@@ -135,19 +135,19 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
-            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+            <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800">
               <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">1. Reported</span>
               <p className="text-[11px] text-slate-300 mt-0.5">Submitted via camera, map tap, or 3x sensor detections.</p>
             </div>
-            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+            <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800">
               <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">2. Investigating</span>
               <p className="text-[11px] text-slate-300 mt-0.5">Municipal road agency inspects cavity depth and road risks.</p>
             </div>
-            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+            <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800">
               <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">3. Scheduled</span>
               <p className="text-[11px] text-slate-300 mt-0.5">Assigned road crew work order queued for milling and patching.</p>
             </div>
-            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+            <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800">
               <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">4. Repaired</span>
               <p className="text-[11px] text-slate-300 mt-0.5">Pavement leveled, inspected, and confirmed safe for drivers.</p>
             </div>
@@ -157,7 +157,7 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
 
       {/* Reports List or Empty State */}
       {myReports.length === 0 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center space-y-3">
+        <div className="shrink-0 mt-4 bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center space-y-3">
           <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
             <AlertTriangle className="w-6 h-6" />
           </div>
@@ -177,9 +177,9 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
           </div>
         </div>
       ) : (
-        <div className="space-y-2">
-          {/* Scrollable Container keeping content within the viewport */}
-          <div className="max-h-[calc(100vh-270px)] overflow-y-auto space-y-2 pr-1.5 scrollbar-thin">
+        <div className="flex-1 min-h-0 flex flex-col mt-2.5 overflow-hidden">
+          {/* Scrollable Container: ONLY THIS SCROLLS */}
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1.5 scrollbar-thin overscroll-contain">
             {displayedReports.map((report) => (
               <div
                 key={report.id}
@@ -240,9 +240,9 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
             ))}
           </div>
 
-          {/* Show All / Show Recent Toggle Button */}
+          {/* Show All / Show Recent Toggle Button - Fixed at bottom */}
           {myReports.length > initialDisplayCount && (
-            <div className="pt-1 text-center">
+            <div className="shrink-0 pt-2 pb-0.5 text-center">
               <button
                 type="button"
                 onClick={() => setShowAll(!showAll)}
