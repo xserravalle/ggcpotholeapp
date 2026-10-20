@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PotholeReport, SeverityLevel } from './types/pothole';
 import { TrackedHazardSpot } from './types/sensorQueue';
+import { DriveShockIncident } from './types/driveSession';
 import { ParkingLot, SimulationParams } from './types/parking';
 import { INITIAL_POTHOLES } from './data/potholesData';
 import { HIGH_RISK_ROAD_SEGMENTS } from './data/roadSegmentsData';
@@ -190,6 +191,53 @@ export function App() {
     setPotholes(prev => [newReport, ...prev]);
   };
 
+  // Promote all incidents from a completed Drive Session to official reports
+  const handlePromoteDriveIncidents = (incidents: DriveShockIncident[]) => {
+    const newReports: PotholeReport[] = incidents.map(inc => {
+      const uuid = crypto.randomUUID();
+      const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
+      const newId = `GW-POT-${uuid}`;
+      const dist = distanceFromCampusMiles({ lat: inc.latitude, lng: inc.longitude });
+      const classification = classifyJurisdiction(inc.latitude, inc.longitude, inc.roadName);
+
+      return {
+        id: newId,
+        trackingCode,
+        title: `Pothole on ${inc.roadName || 'Roadway'}`,
+        roadName: inc.roadName || 'Corridor',
+        address: inc.address || `${inc.latitude.toFixed(5)}, ${inc.longitude.toFixed(5)}`,
+        city: inc.city || 'Lawrenceville',
+        jurisdiction: classification.authority.name,
+        authorityId: classification.authority.id,
+        authorityName: classification.authority.name,
+        authorityEmail: classification.authority.contactEmail,
+        latitude: inc.latitude,
+        longitude: inc.longitude,
+        severity: inc.severity,
+        hazardType: 'POTHOLE',
+        status: 'reported',
+        verificationsCount: 1,
+        userConfirmed: true,
+        reportedAt: new Date(inc.timestamp).toISOString(),
+        lastVerifiedAt: new Date(inc.timestamp).toISOString(),
+        description: `Logged during Drive-Time Patrol (${inc.peakG.toFixed(2)}G Shock). Nearest address: ${inc.address}.`,
+        estimatedDepthInches: inc.peakG >= 6.0 ? 3.5 : 2.5,
+        estimatedWidthInches: inc.peakG >= 6.0 ? 20 : 14,
+        surfaceType: 'Asphalt',
+        damageRisk: inc.peakG >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
+        detectedBy: 'Vehicle Accelerometer Telemetry',
+        sensorDetected: true,
+        bumpIntensity: inc.peakG,
+        imageUrl: inc.imageUrl,
+        workOrderNumber: `REF-${newId}`,
+        distanceFromGgcMiles: dist,
+        source: 'sensor'
+      };
+    });
+
+    setPotholes(prev => [...newReports, ...prev]);
+  };
+
   // Update report details (from My Reports edit modal)
   const handleUpdateReport = (updatedReport: PotholeReport) => {
     setPotholes(prev => prev.map(p => p.id === updatedReport.id ? updatedReport : p));
@@ -261,6 +309,7 @@ export function App() {
         {activeTab === 'sensor' && (
           <DriveSensorView
             onPromoteSpotToReport={handlePromoteSpotToReport}
+            onPromoteDriveIncidents={handlePromoteDriveIncidents}
             onNavigateToMyReports={() => setActiveTab('my-reports')}
           />
         )}
