@@ -7,8 +7,8 @@ import {
   Mail, 
   X, 
   Building2, 
-  ExternalLink,
-  GraduationCap
+  MapPin,
+  ExternalLink
 } from 'lucide-react';
 
 interface DocketSuccessModalProps {
@@ -27,29 +27,33 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
   if (!isOpen || !report) return null;
 
   const trackingCode = report.trackingCode || `GAP-2026-${report.id.replace(/[^0-9]/g, '').slice(-4) || '1042'}`;
-  const authName = report.authorityName || report.jurisdiction;
-  const authEmail = report.authorityEmail || 'dotcustomerservice@gwinnettcounty.com';
+  const targetEmail = 'peyton.holland@gmail.com';
 
-  const emailSubject = encodeURIComponent(`[ROAD HAZARD DISPATCH] ${trackingCode} - ${report.severity.toUpperCase()} on ${report.roadName || report.address}`);
+  const emailSubject = encodeURIComponent(`[GGC SansPotholes] Road Hazard Report - ${trackingCode} (${report.severity.toUpperCase()})`);
   const emailBody = encodeURIComponent(
-    `ATTN: ${authName} Road Maintenance Dispatch,\n\n` +
-    `A priority road hazard has been logged and assigned to your jurisdiction.\n\n` +
+    `GGC SANSPOTHOLES ROAD HAZARD DOCKET\n` +
+    `========================================\n\n` +
     `Incident Tracking Code: ${trackingCode}\n` +
-    `Severity: ${report.severity.toUpperCase()}\n` +
-    `Hazard: ${report.hazardType || 'POTHOLE'}\n` +
-    `GPS Coordinates: ${report.latitude.toFixed(5)}, ${report.longitude.toFixed(5)}\n` +
-    `Corridor/Address: ${report.address}\n` +
-    `Landmark: ${report.landmark || 'N/A'}\n` +
-    `Telemetry: ${report.sensorDetected ? `Vertical shock spike of ${report.bumpIntensity}G` : report.detectedBy}\n\n` +
-    `Description: ${report.description}\n\n` +
-    `Official certified PDF docket has been generated. Please review and dispatch road crew.`
+    `Severity Rating:        ${report.severity.toUpperCase()}\n` +
+    `Hazard Type:            ${report.hazardType || 'POTHOLE'}\n` +
+    `Nearest Street Address: ${report.address}\n` +
+    `Landmark / Specifics:   ${report.landmark || 'None provided'}\n` +
+    `Potential Damage Risk:  ${report.damageRisk || 'Tire / Rim Damage'}\n` +
+    `Detection Source:       ${report.sensorDetected ? `In-Vehicle Accelerometer (${report.bumpIntensity}G Shock Spike)` : report.detectedBy}\n` +
+    `Driver Notes:           ${report.description || 'No additional details.'}\n` +
+    `Submitted Date & Time:  ${new Date().toLocaleString()}\n` +
+    `Reporter:               ${report.reporterName || 'Anonymous Citizen'}${report.reporterEmail ? ` <${report.reporterEmail}>` : ''}\n\n` +
+    `Map Location Pin:\n` +
+    `https://www.google.com/maps?q=${report.latitude},${report.longitude}\n\n` +
+    `========================================\n` +
+    `Dispatched via GGC SansPotholes (Academic Prototype)`
   );
 
-  const mailtoUrl = `mailto:${authEmail}?subject=${emailSubject}&body=${emailBody}`;
+  const mailtoUrl = `mailto:${targetEmail}?subject=${emailSubject}&body=${emailBody}`;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative my-8 animate-in fade-in zoom-in-95 text-xs">
+    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-start sm:items-center justify-center p-4 pt-14 sm:pt-6 overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 text-xs">
         
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
@@ -57,7 +61,7 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
             <div className="w-7 h-7 rounded-full bg-emerald-950 border border-emerald-700 flex items-center justify-center text-white">
               <Check className="w-4 h-4 text-emerald-400" />
             </div>
-            <span>Report Docket Successfully Logged</span>
+            <span>Road Report Generated</span>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
             <X className="w-5 h-5" />
@@ -73,31 +77,31 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
             {trackingCode}
           </div>
           <p className="text-xs text-slate-300 mt-1 font-semibold flex items-center justify-center gap-1">
-            <Building2 className="w-3.5 h-3.5 text-teal-400" />
-            <span>Assigned to: {authName}</span>
+            <Mail className="w-3.5 h-3.5 text-teal-400" />
+            <span>Target: <strong className="font-mono text-teal-300">{targetEmail}</strong></span>
           </p>
         </div>
 
         {/* Summary Card */}
-        <div className="bg-slate-950 rounded-xl p-3.5 border border-slate-800 space-y-1.5 mb-4 text-slate-300">
-          <div className="flex justify-between">
-            <span className="text-slate-500">Location:</span>
-            <span className="font-semibold text-white truncate max-w-[200px]">{report.address}</span>
+        <div className="bg-slate-950 rounded-xl p-3.5 border border-slate-800 space-y-2 mb-4 text-slate-300">
+          <div className="flex justify-between items-start gap-2">
+            <span className="text-slate-500 shrink-0">Closest Address:</span>
+            <span className="font-semibold text-white text-right truncate max-w-[220px]">{report.address}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500">Severity:</span>
             <span className={`font-bold uppercase ${
-              report.severity === 'critical' ? 'text-rose-400' : 'text-amber-400'
+              report.severity === 'critical' || report.severity === 'severe' ? 'text-rose-400' : 'text-amber-400'
             }`}>
               {report.severity}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500">Target Contact:</span>
-            <span className="font-mono text-teal-400">{authEmail}</span>
+            <span className="text-slate-500">Category:</span>
+            <span className="text-white font-medium">{report.hazardType || 'Pothole'}</span>
           </div>
           {report.sensorDetected && (
-            <div className="flex justify-between text-rose-400">
+            <div className="flex justify-between text-rose-400 font-medium">
               <span>Drive Telemetry:</span>
               <span className="font-bold">{report.bumpIntensity}G Shock Spike</span>
             </div>
@@ -105,26 +109,26 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
         </div>
 
         <p className="text-slate-400 text-center mb-4 leading-relaxed text-[11px]">
-          An official transportation hazard docket has been drafted. You can download the certified incident PDF or dispatch a direct pre-filled email to maintenance.
+          Tap below to send the complete formatted incident report to your testing email, or download the certified PDF docket.
         </p>
 
         {/* Actions */}
         <div className="space-y-2">
-          <button
-            onClick={() => generatePotholePdf(report)}
-            className="w-full py-2.5 px-4 bg-purple-700 hover:bg-purple-600 text-white font-bold rounded-xl shadow-lg shadow-purple-700/25 transition flex items-center justify-center gap-2 active:scale-98"
-          >
-            <FileDown className="w-4 h-4" />
-            <span>Download Certified Incident PDF</span>
-          </button>
-
           <a
             href={mailtoUrl}
-            className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow transition flex items-center justify-center gap-2 active:scale-98"
+            className="w-full py-2.5 px-4 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl shadow-lg shadow-teal-600/25 transition flex items-center justify-center gap-2 active:scale-98"
           >
             <Mail className="w-4 h-4" />
-            <span>Send Email to Maintenance Dispatch</span>
+            <span>Send Report to {targetEmail}</span>
           </a>
+
+          <button
+            onClick={() => generatePotholePdf(report)}
+            className="w-full py-2.5 px-4 bg-purple-700 hover:bg-purple-600 text-white font-bold rounded-xl shadow transition flex items-center justify-center gap-2 active:scale-98"
+          >
+            <FileDown className="w-4 h-4" />
+            <span>Download Incident PDF Docket</span>
+          </button>
 
           {onViewOnMap && (
             <button
