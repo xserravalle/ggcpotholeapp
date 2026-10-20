@@ -13,7 +13,9 @@ import {
   Layers,
   Edit3,
   Activity,
-  Trash2
+  Trash2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface MyReportsViewProps {
@@ -34,11 +36,14 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
   onDeleteReport
 }) => {
   const [editingReport, setEditingReport] = useState<PotholeReport | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
-  // Include sensor reports even though no person has confirmed them yet.
-    const myReports = potholes.filter(
-    p => p.source === 'user' || p.source === 'sensor'
+  // Include user reports, 3x sensor reports, and hazards the user confirmed
+  const myReports = potholes.filter(
+    p => p.source === 'user' || p.source === 'sensor' || p.userConfirmed
   );
+
+  const displayedReports = showAll ? myReports : myReports.slice(0, 5);
 
   const getStatusColor = (status: PotholeReport['status']) => {
     switch (status) {
@@ -86,14 +91,14 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
           <div className="flex items-center space-x-2">
             <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
               <CheckCircle2 className="w-6 h-6 text-teal-400" />
-              <span>My Reports</span>
+              <span>My Reports & Confirmations</span>
             </h2>
             <span className="text-xs font-mono bg-teal-950 text-teal-300 border border-teal-800/80 px-2.5 py-0.5 rounded-full font-bold">
               {myReports.length} Active
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Complete list of hazards reported from this device or auto-verified via 3x sensor detections. Review or edit details at any time.
+            Centralized list of hazards reported from this device or auto-verified via 3x sensor detections. Review or edit details at any time.
           </p>
         </div>
 
@@ -120,12 +125,6 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
           </div>
           <div className="flex items-center justify-center gap-3 pt-2">
             <button
-              onClick={onOpenReportModal}
-              className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl text-xs shadow transition"
-            >
-              Submit Pothole Report
-            </button>
-            <button
               onClick={onNavigateToMap}
               className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs border border-slate-700 transition"
             >
@@ -135,7 +134,8 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
         </div>
       ) : (
         <div className="space-y-4">
-          {myReports.map((report) => {
+          <div className={showAll ? "max-h-[580px] overflow-y-auto space-y-4 pr-1.5 scrollbar-thin" : "space-y-4"}>
+            {displayedReports.map((report) => {
             const step = getStatusStep(report.status);
 
             return (
@@ -225,6 +225,30 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
               </div>
             );
           })}
+          </div>
+
+          {/* Show All / Show Recent Toggle Button */}
+          {myReports.length > 5 && (
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => setShowAll(!showAll)}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-teal-300 hover:text-white font-bold rounded-2xl text-xs border border-slate-700 transition flex items-center justify-center gap-2 mx-auto active:scale-95 shadow-lg"
+              >
+                {showAll ? (
+                  <>
+                    <ChevronUp className="w-4 h-4" />
+                    <span>Show Recent 5 Only</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4" />
+                    <span>Show All ({myReports.length} Reports & Confirmations)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
