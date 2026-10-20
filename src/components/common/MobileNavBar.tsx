@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, MapPin, CheckCircle2, Settings } from 'lucide-react';
+import { Car, MapPin, CheckCircle2, Settings } from 'lucide-react';
 import { ActiveTab } from '../Header';
 
 interface MobileNavBarProps {
@@ -28,15 +28,15 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
         <span className="text-[10px] mt-0.5">Map</span>
       </button>
 
-      {/* Dashboard Tab */}
+      {/* Parking Tab */}
       <button
         onClick={() => setActiveTab('dashboard')}
         className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
           activeTab === 'dashboard' ? 'text-teal-400 font-bold' : 'text-slate-400 hover:text-slate-200'
         }`}
       >
-        <LayoutDashboard className="w-5 h-5" />
-        <span className="text-[10px] mt-0.5">Dashboard</span>
+        <Car className="w-5 h-5" />
+        <span className="text-[10px] mt-0.5">Parking</span>
       </button>
 
       {/* My Reports Tab */}

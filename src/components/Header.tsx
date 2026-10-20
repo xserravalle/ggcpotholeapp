@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   MapPin, 
+  Car,
   BarChart3, 
   Building2,
   Menu,
@@ -8,7 +9,6 @@ import {
   Activity,
   CheckCircle2,
   Info,
-  LayoutDashboard,
   ChevronRight,
   Settings
 } from 'lucide-react';
@@ -218,13 +218,13 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <MapPin className="w-4 h-4" />
-              <span>Map & Hazards</span>
+              <span>Map</span>
               <span className="text-[10px] bg-slate-800 text-teal-300 font-mono px-2 py-0.5 rounded-full border border-slate-700">
                 {potholeCount}
               </span>
             </button>
 
-            {/* Dashboard Tab */}
+            {/* Parking Tab */}
             <button
               onClick={() => setActiveTab('dashboard')}
               className={`px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap transition-all ${
@@ -233,8 +233,8 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
               }`}
             >
-              <LayoutDashboard className="w-4 h-4" />
-              <span>Dashboard & Parking</span>
+              <Car className="w-4 h-4" />
+              <span>Parking</span>
             </button>
 
             {/* My Reports Tab */}
