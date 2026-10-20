@@ -1,11 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  AlertTriangle, 
-  Car, 
   MapPin, 
-  FileText, 
   BarChart3, 
-  PlusCircle, 
   Building2,
   Menu,
   X,
@@ -13,7 +9,6 @@ import {
   CheckCircle2,
   Info,
   LayoutDashboard,
-  ShieldCheck,
   ChevronRight,
   Settings
 } from 'lucide-react';
@@ -37,7 +32,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
-  onOpenReportModal,
+  onOpenReportModal: _onOpenReportModal,
   onOpenSettings,
   potholeCount
 }) => {
