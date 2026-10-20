@@ -10,8 +10,12 @@ import {
   CheckCircle2,
   Info,
   ChevronRight,
-  Settings
+  Settings,
+  ShieldCheck,
+  User,
+  LogOut
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export type ActiveTab = 
   | 'dashboard'
@@ -26,6 +30,7 @@ interface HeaderProps {
   setActiveTab: (tab: ActiveTab) => void;
   onOpenReportModal?: () => void;
   onOpenSettings?: () => void;
+  onOpenAuthModal?: () => void;
   potholeCount: number;
 }
 
@@ -34,8 +39,12 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   onOpenReportModal: _onOpenReportModal,
   onOpenSettings,
+  onOpenAuthModal,
   potholeCount
 }) => {
+  const { user, isAdmin, isLoggedIn, openAuthModal: contextOpenAuthModal, logout } = useAuth();
+  const handleOpenAuth = onOpenAuthModal || contextOpenAuthModal;
+
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -84,6 +93,39 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Right Action & Menu */}
             <div className="flex items-center space-x-2 sm:space-x-3">
+              {/* Account / Role Badge or Sign In Button */}
+              {isAdmin ? (
+                <button
+                  onClick={handleOpenAuth}
+                  aria-label="Staff Administrator Portal"
+                  title="Staff Administrator Portal (Signed In)"
+                  className="px-2.5 py-1.5 rounded-xl bg-blue-950/70 border border-blue-600/60 text-blue-300 text-xs font-bold hover:bg-blue-900/80 transition flex items-center gap-1.5 active:scale-95"
+                >
+                  <ShieldCheck className="w-4 h-4 text-blue-400" />
+                  <span className="hidden sm:inline">Staff Admin</span>
+                </button>
+              ) : isLoggedIn ? (
+                <button
+                  onClick={handleOpenAuth}
+                  aria-label="Commuter Profile"
+                  title="Commuter Profile (Signed In)"
+                  className="px-2.5 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-600/60 text-emerald-300 text-xs font-bold hover:bg-emerald-900/80 transition flex items-center gap-1.5 active:scale-95"
+                >
+                  <User className="w-4 h-4 text-emerald-400" />
+                  <span className="hidden sm:inline max-w-[100px] truncate">{user.displayName || 'Commuter'}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleOpenAuth}
+                  aria-label="Sign in"
+                  title="Sign in or Admin access"
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition flex items-center gap-1.5 active:scale-95"
+                >
+                  <User className="w-4 h-4 text-slate-400" />
+                  <span className="hidden sm:inline">Sign In</span>
+                </button>
+              )}
+
               {/* Settings / Accessibility Button */}
               {onOpenSettings && (
                 <button
@@ -110,6 +152,32 @@ export const Header: React.FC<HeaderProps> = ({
                 {/* Dropdown Menu */}
                 {isMenuOpen && (
                   <div className="absolute right-0 mt-2 w-64 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 text-xs">
+                    
+                    {/* Active Profile Header */}
+                    <div className="px-3.5 py-2 border-b border-slate-800 flex items-center justify-between">
+                      <div className="min-w-0">
+                        <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                          Active Profile
+                        </div>
+                        <div className="font-bold text-white text-xs truncate">
+                          {isAdmin 
+                            ? 'Staff Administrator' 
+                            : isLoggedIn 
+                              ? (user.displayName || user.email) 
+                              : 'Guest Mode'}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          handleOpenAuth();
+                        }}
+                        className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300 hover:text-white border border-slate-700 transition"
+                      >
+                        {isLoggedIn ? 'Manage' : 'Sign In'}
+                      </button>
+                    </div>
+
                     <div className="px-3 py-1.5 border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                       Preferences & Driver Tools
                     </div>
@@ -149,41 +217,68 @@ export const Header: React.FC<HeaderProps> = ({
                       <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
                     </button>
 
-                    <div className="px-3 py-1.5 border-t border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400 tracking-wider mt-1">
-                      Operations & Agency Tools
-                    </div>
-
-                    <button
-                      onClick={() => handleSelectAdminTab('dispatcher')}
-                      className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-800 transition ${
-                        activeTab === 'dispatcher' ? 'text-blue-400 font-bold bg-slate-800/60' : 'text-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2.5">
-                        <Building2 className="w-4 h-4 text-blue-400" />
-                        <div>
-                          <div className="font-semibold">Municipal Dispatch Hub</div>
-                          <div className="text-[10px] text-slate-500">Agency work order tracking</div>
+                    {/* Operations & Agency Tools: ONLY for Admins */}
+                    {isAdmin ? (
+                      <>
+                        <div className="px-3 py-1.5 border-t border-b border-slate-800 text-[10px] uppercase font-bold text-blue-400 tracking-wider mt-1">
+                          Operations & Agency Tools
                         </div>
-                      </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
-                    </button>
 
-                    <button
-                      onClick={() => handleSelectAdminTab('analytics')}
-                      className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-800 transition ${
-                        activeTab === 'analytics' ? 'text-teal-400 font-bold bg-slate-800/60' : 'text-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2.5">
-                        <BarChart3 className="w-4 h-4 text-teal-400" />
-                        <div>
-                          <div className="font-semibold">Pavement Analytics</div>
-                          <div className="text-[10px] text-slate-500">Corridor PCI & risk metrics</div>
+                        <button
+                          onClick={() => handleSelectAdminTab('dispatcher')}
+                          className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-800 transition ${
+                            activeTab === 'dispatcher' ? 'text-blue-400 font-bold bg-slate-800/60' : 'text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <Building2 className="w-4 h-4 text-blue-400" />
+                            <div>
+                              <div className="font-semibold">Municipal Dispatch Hub</div>
+                              <div className="text-[10px] text-slate-500">Agency work order tracking</div>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                        </button>
+
+                        <button
+                          onClick={() => handleSelectAdminTab('analytics')}
+                          className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-800 transition ${
+                            activeTab === 'analytics' ? 'text-teal-400 font-bold bg-slate-800/60' : 'text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <BarChart3 className="w-4 h-4 text-teal-400" />
+                            <div>
+                              <div className="font-semibold">Pavement Analytics</div>
+                              <div className="text-[10px] text-slate-500">Corridor PCI & risk metrics</div>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="px-3 py-1.5 border-t border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400 tracking-wider mt-1">
+                          Staff Access
                         </div>
-                      </div>
-                      <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
-                    </button>
+                        <button
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            handleOpenAuth();
+                          }}
+                          className="w-full px-3.5 py-2 text-left flex items-center justify-between hover:bg-slate-800 transition text-slate-400 hover:text-white"
+                        >
+                          <div className="flex items-center space-x-2.5">
+                            <ShieldCheck className="w-4 h-4 text-blue-400" />
+                            <div>
+                              <div className="font-medium text-slate-300">Staff / Admin Sign In</div>
+                              <div className="text-[10px] text-slate-500">Agency work order portal</div>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                        </button>
+                      </>
+                    )}
 
                     <div className="my-1 border-t border-slate-800"></div>
 
@@ -197,6 +292,20 @@ export const Header: React.FC<HeaderProps> = ({
                       <Info className="w-4 h-4 text-slate-400" />
                       <span>About GGC SansPotholes</span>
                     </button>
+
+                    {isLoggedIn && (
+                      <button
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          logout();
+                        }}
+                        className="w-full px-3.5 py-2 text-left flex items-center space-x-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/30 transition border-t border-slate-800/80 mt-1"
+                      >
+                        <LogOut className="w-4 h-4 text-rose-400" />
+                        <span>Sign Out ({isAdmin ? 'Admin' : 'Commuter'})</span>
+                      </button>
+                    )}
+
                   </div>
                 )}
               </div>
@@ -243,6 +352,27 @@ export const Header: React.FC<HeaderProps> = ({
               <CheckCircle2 className="w-4 h-4" />
               <span>My Reports</span>
             </button>
+
+            {/* Active Admin Tools Tabs (Only visible when Admin navigates to them) */}
+            {isAdmin && activeTab === 'dispatcher' && (
+              <button
+                onClick={() => setActiveTab('dispatcher')}
+                className="px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap bg-blue-700 text-white shadow-md"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Dispatch Hub</span>
+              </button>
+            )}
+
+            {isAdmin && activeTab === 'analytics' && (
+              <button
+                onClick={() => setActiveTab('analytics')}
+                className="px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap bg-teal-700 text-white shadow-md"
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>Pavement Analytics</span>
+              </button>
+            )}
           </nav>
         </div>
       </header>
@@ -289,7 +419,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => setIsAboutOpen(false)}
                 className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl text-xs transition"
               >
-                Got it
+                Close
               </button>
             </div>
           </div>

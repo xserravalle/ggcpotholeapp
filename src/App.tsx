@@ -8,11 +8,13 @@ import { PARKING_LOTS } from './data/parkingLotsData';
 import { loadStoredPotholes, saveStoredPotholes } from './services/storageService';
 import { distanceFromCampusMiles } from './services/distanceCalculator';
 import { classifyJurisdiction } from './services/jurisdictionClassifier';
+import { useAuth } from './context/AuthContext';
 
 // Common Components
 import { Header, ActiveTab } from './components/Header';
 import { MobileNavBar } from './components/common/MobileNavBar';
 import { SettingsModal } from './components/common/SettingsModal';
+import { AuthModal } from './components/common/AuthModal';
 
 // Views
 import { UnifiedDashboard } from './components/dashboard/UnifiedDashboard';
@@ -30,6 +32,8 @@ import { MunicipalDispatcherModal } from './components/potholes/MunicipalDispatc
 import { LotDetailModal } from './components/parking/LotDetailModal';
 
 export function App() {
+  const { isAdmin, isAuthModalOpen, closeAuthModal, openAuthModal } = useAuth();
+
   // Navigation: Default to Map & Hazards
   const [activeTab, setActiveTab] = useState<ActiveTab>('potholes');
 
@@ -47,6 +51,13 @@ export function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [activeTab]);
+
+  // Route security: if a non-admin is currently on an admin-only tab, redirect safely to Map
+  useEffect(() => {
+    if (!isAdmin && (activeTab === 'dispatcher' || activeTab === 'analytics')) {
+      setActiveTab('potholes');
+    }
+  }, [isAdmin, activeTab]);
 
   // Interactive Selection State
   const [selectedPothole, setSelectedPothole] = useState<PotholeReport | null>(null);
@@ -157,8 +168,6 @@ export function App() {
   };
 
   // Promote a spot that hit 3x into an official confirmed PotholeReport
-  // Create a reviewable report after repeated impacts at one location.
-  // Sensor hits suggest a hazard but do not count as citizen confirmations.
   const handlePromoteSpotToReport = (spot: TrackedHazardSpot) => {
     const uuid = crypto.randomUUID();
     const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
@@ -182,7 +191,7 @@ export function App() {
       severity: spot.severity,
       hazardType: 'POTHOLE',
       status: 'reported',
-      verificationsCount: 0, // Only a person confirming the road condition should increase this count
+      verificationsCount: 0,
       userConfirmed: false,
       reportedAt: new Date().toISOString(),
       lastVerifiedAt: new Date().toISOString(),
@@ -193,7 +202,6 @@ export function App() {
       damageRisk: spot.maxGForce >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
       detectedBy: 'Vehicle Accelerometer Telemetry',
       sensorDetected: true,
-      // Preserve the readings so users can see what triggered the report
       sensorEvidence: {
         hitCount: spot.hitCount,
         maxGForce: spot.maxGForce,
@@ -203,7 +211,7 @@ export function App() {
       bumpIntensity: spot.maxGForce,
       workOrderNumber: `DISP-${newId}`,
       distanceFromGgcMiles: dist,
-      source: 'sensor' // Keep sensors reports distinguishable 
+      source: 'sensor'
     };
 
     setPotholes(prev => [newReport, ...prev]);
@@ -233,6 +241,7 @@ export function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenAuthModal={openAuthModal}
         potholeCount={potholes.length}
       />
 
@@ -285,8 +294,8 @@ export function App() {
           />
         )}
 
-        {/* Secondary Tab: Municipal Dispatcher Hub (accessible via hamburger menu) */}
-        {activeTab === 'dispatcher' && (
+        {/* Secondary Tab: Municipal Dispatcher Hub (accessible ONLY by Admins) */}
+        {isAdmin && activeTab === 'dispatcher' && (
           <AuthorityHubView
             potholes={potholes}
             onUpdateStatus={handleUpdateStatus}
@@ -298,8 +307,8 @@ export function App() {
           />
         )}
 
-        {/* Secondary Tab: Pavement Corridor Analytics (accessible via hamburger menu) */}
-        {activeTab === 'analytics' && (
+        {/* Secondary Tab: Pavement Corridor Analytics (accessible ONLY by Admins) */}
+        {isAdmin && activeTab === 'analytics' && (
           <PotholeAnalyticsView
             potholes={potholes}
             roadSegments={roadSegments}
@@ -307,12 +316,12 @@ export function App() {
         )}
       </main>
 
-
       {/* Pothole Inspector Drawer */}
       <PotholeDetailDrawer
         pothole={selectedPothole}
         onClose={() => setSelectedPothole(null)}
         onVerify={handleVerifyPothole}
+        isAdmin={isAdmin}
         onOpenDispatcher={(p) => {
           setSelectedPothole(null);
           handleOpenDispatcher(p);
@@ -343,8 +352,8 @@ export function App() {
         }}
       />
 
-      {/* Municipal Dispatcher Work Order Router Modal */}
-      {isDispatcherOpen && (
+      {/* Municipal Dispatcher Work Order Router Modal (Admin Only) */}
+      {isAdmin && isDispatcherOpen && (
         <MunicipalDispatcherModal
           isOpen={isDispatcherOpen}
           onClose={() => setIsDispatcherOpen(false)}
@@ -377,6 +386,12 @@ export function App() {
         potholes={potholes}
       />
 
+      {/* User & Admin Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={closeAuthModal}
+      />
+
       {/* Bottom Navigation Bar for Mobile Phones */}
       <MobileNavBar
         activeTab={activeTab}
@@ -391,19 +406,34 @@ export function App() {
             &copy; 2026 GGC SansPotholes &bull; Georgia Gwinnett College ITEC 4860
           </span>
           <div className="flex items-center space-x-4 text-slate-500">
-            <button
-              onClick={() => setActiveTab('dispatcher')}
-              className="hover:text-slate-300 transition"
-            >
-              Agency Dispatch
-            </button>
-            <span>&bull;</span>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className="hover:text-slate-300 transition"
-            >
-              Pavement Analytics
-            </button>
+            {isAdmin ? (
+              <>
+                <button
+                  onClick={() => setActiveTab('dispatcher')}
+                  className="hover:text-blue-400 transition"
+                >
+                  Agency Dispatch
+                </button>
+                <span>&bull;</span>
+                <button
+                  onClick={() => setActiveTab('analytics')}
+                  className="hover:text-teal-400 transition"
+                >
+                  Pavement Analytics
+                </button>
+                <span>&bull;</span>
+                <span className="text-blue-400 font-semibold font-mono text-[11px]">
+                  Admin Portal Active
+                </span>
+              </>
+            ) : (
+              <button
+                onClick={openAuthModal}
+                className="hover:text-slate-300 transition text-slate-400"
+              >
+                Staff / Admin Sign In
+              </button>
+            )}
           </div>
         </div>
       </footer>
