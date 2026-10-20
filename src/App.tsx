@@ -243,10 +243,6 @@ export function App() {
             onNavigateTab={setActiveTab}
             onSelectPothole={setSelectedPothole}
             onSelectLot={setSelectedLot}
-            onOpenReportModal={() => {
-              setSensorTriggeredTelemetry(undefined);
-              setIsReportModalOpen(true);
-            }}
             onVerifyPothole={handleVerifyPothole}
           />
         )}

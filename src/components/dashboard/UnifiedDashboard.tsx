@@ -38,7 +38,7 @@ interface UnifiedDashboardProps {
   onNavigateTab: (tab: ActiveTab) => void;
   onSelectPothole: (p: PotholeReport) => void;
   onSelectLot: (l: ParkingLot) => void;
-  onOpenReportModal: () => void;
+  onOpenReportModal?: () => void;
   onVerifyPothole: (id: string) => void;
 }
 
@@ -84,9 +84,9 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
       .slice(0, 4);
   }, [potholes]);
 
-  // My Reports (reports submitted by the current user or locally confirmed)
-  const myReports = useMemo(() => {
-    return potholes.filter(p => p.source === 'user' || (p.userConfirmed && p.id.startsWith('GW-POT-')));
+  // Count of user submitted or confirmed reports
+  const userReportsCount = useMemo(() => {
+    return potholes.filter(p => p.source === 'user' || p.source === 'sensor' || p.userConfirmed).length;
   }, [potholes]);
 
   // Count aggregates
@@ -412,81 +412,34 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
         </div>
       </div>
 
-      {/* SECTION 3: My Reports Section */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div className="flex items-center space-x-2">
-            <CheckCircle2 className="w-5 h-5 text-teal-400" />
-            <div>
-              <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
+      {/* SECTION 3: Centralized My Reports Navigation Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center space-x-3 text-center sm:text-left">
+          <div className="w-10 h-10 rounded-2xl bg-teal-500/10 text-teal-400 flex items-center justify-center border border-teal-500/20 shrink-0">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2 justify-center sm:justify-start">
+              <h3 className="text-base font-bold text-white tracking-tight">
                 My Reports & Confirmations
               </h3>
-              <p className="text-xs text-slate-400">
-                Hazards you submitted or validated from this device
-              </p>
+              <span className="text-xs font-mono bg-teal-950 text-teal-300 border border-teal-800/80 px-2.5 py-0.5 rounded-full font-bold">
+                {userReportsCount} Active
+              </span>
             </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Submit new road hazards, review 3x sensor detections, and track status updates in the My Reports tab.
+            </p>
           </div>
-
-          <button
-            onClick={onOpenReportModal}
-            className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white flex items-center gap-1.5 shadow-md shadow-teal-600/20 transition active:scale-95"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Report Hazard</span>
-          </button>
         </div>
 
-        {myReports.length === 0 ? (
-          <div className="text-center py-8 px-4 bg-slate-800/40 border border-dashed border-slate-700 rounded-2xl space-y-3">
-            <AlertTriangle className="w-8 h-8 text-slate-500 mx-auto" />
-            <div className="space-y-1">
-              <h4 className="text-sm font-semibold text-white">No hazards reported yet</h4>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Spotted a pothole or pavement crack on campus or local roads? Submit a report in 30 seconds to alert fellow drivers.
-              </p>
-            </div>
-            <button
-              onClick={onOpenReportModal}
-              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold rounded-xl text-xs shadow-md transition"
-            >
-              Report Your First Hazard
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {myReports.map((report) => (
-              <div
-                key={report.id}
-                onClick={() => onSelectPothole(report)}
-                className="bg-slate-800/60 hover:bg-slate-800 border border-slate-700/60 rounded-2xl p-3.5 flex items-center justify-between gap-3 cursor-pointer transition"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center space-x-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                    <h5 className="text-xs sm:text-sm font-bold text-white truncate">
-                      {report.title}
-                    </h5>
-                    <span className="text-[10px] text-slate-400 uppercase font-mono px-2 py-0.5 rounded bg-slate-700">
-                      {report.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-400 truncate mt-0.5">
-                    {report.roadName} • {report.city}
-                  </p>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <span className="text-xs font-mono font-bold text-teal-400 block">
-                    {report.verificationsCount} confirms
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    {report.trackingCode || 'Saved locally'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <button
+          onClick={() => onNavigateTab('my-reports')}
+          className="px-4 py-2.5 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white flex items-center gap-1.5 shadow-md shadow-teal-600/20 transition active:scale-95 shrink-0"
+        >
+          <span>Open My Reports</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
       </div>
 
     </div>
