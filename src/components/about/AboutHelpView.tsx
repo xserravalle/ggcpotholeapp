@@ -71,6 +71,31 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({
         </div>
       </div>
 
+      {/* Capstone PowerPoint Presentation Download Card */}
+      <div className="bg-gradient-to-r from-emerald-950/70 via-slate-900 to-slate-900 border border-emerald-500/40 rounded-3xl p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-1.5">
+          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 uppercase tracking-wide">
+            <GraduationCap className="w-3.5 h-3.5" />
+            <span>Capstone Deliverable • 12 Slides (.pptx)</span>
+          </div>
+          <h2 className="text-base sm:text-lg font-bold text-white">
+            GGC SansPotholes: Branch Evolution Presentation
+          </h2>
+          <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+            Download the official 12-slide PowerPoint presentation formatted entirely in <strong>Comic Sans MS</strong> with GGC branding, comparing <code>pholland10132026</code> vs. <code>pholland10202026</code> with full presenter speaker notes.
+          </p>
+        </div>
+
+        <a
+          href="/GGC_SansPotholes_Branch_Evolution_Presentation.pptx"
+          download="GGC_SansPotholes_Branch_Evolution_Presentation.pptx"
+          className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-lg transition active:scale-95 whitespace-nowrap shrink-0 border border-teal-400/40"
+        >
+          <FileDown className="w-4 h-4" />
+          <span>Download Presentation (.pptx)</span>
+        </a>
+      </div>
+
       {/* Data Transparency & Real Evidence Policy Notice */}
       <div className="bg-amber-950/30 border border-amber-600/40 rounded-3xl p-6 space-y-3">
         <div className="flex items-center gap-2 text-amber-300 font-bold text-sm sm:text-base">

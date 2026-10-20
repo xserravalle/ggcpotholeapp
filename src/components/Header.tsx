@@ -11,7 +11,8 @@ import {
   LayoutDashboard, 
   ChevronRight,
   HelpCircle,
-  Route
+  Route,
+  FileDown
 } from 'lucide-react';
 
 export type ActiveTab = 
@@ -197,6 +198,25 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                     <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
                   </button>
+
+                  {/* 6. Capstone Presentation Download */}
+                  <a
+                    href="/GGC_SansPotholes_Branch_Evolution_Presentation.pptx"
+                    download="GGC_SansPotholes_Branch_Evolution_Presentation.pptx"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-800 transition text-emerald-400 group"
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <FileDown className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition" />
+                      <div>
+                        <div className="font-semibold text-emerald-300">Download Presentation</div>
+                        <div className="text-[10px] text-slate-400">12 slides in Comic Sans MS (.pptx)</div>
+                      </div>
+                    </div>
+                    <span className="text-[9px] bg-emerald-950 text-emerald-300 font-bold px-1.5 py-0.5 rounded border border-emerald-800 uppercase">
+                      PPTX
+                    </span>
+                  </a>
                 </div>
               )}
             </div>
