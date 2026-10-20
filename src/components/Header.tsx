@@ -14,7 +14,8 @@ import {
   Info,
   LayoutDashboard,
   ShieldCheck,
-  ChevronRight
+  ChevronRight,
+  Settings
 } from 'lucide-react';
 
 export type ActiveTab = 
@@ -28,7 +29,8 @@ export type ActiveTab =
 interface HeaderProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
-  onOpenReportModal: () => void;
+  onOpenReportModal?: () => void;
+  onOpenSettings?: () => void;
   potholeCount: number;
 }
 
@@ -36,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   onOpenReportModal,
+  onOpenSettings,
   potholeCount
 }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -89,14 +92,18 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Right Action & Menu */}
             <div className="flex items-center space-x-2 sm:space-x-3">
-              {/* Primary Header CTA */}
-              <button
-                onClick={onOpenReportModal}
-                className="hidden sm:flex items-center space-x-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold px-4 py-2 rounded-xl shadow-lg shadow-teal-500/20 transition-all text-xs active:scale-95"
-              >
-                <PlusCircle className="w-4 h-4" />
-                <span>Report Hazard</span>
-              </button>
+              {/* Settings / Accessibility Button */}
+              {onOpenSettings && (
+                <button
+                  onClick={onOpenSettings}
+                  aria-label="Settings and options"
+                  title="Settings & Accessibility"
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition flex items-center gap-1.5 text-xs font-semibold active:scale-95"
+                >
+                  <Settings className="w-4 h-4 text-teal-400" />
+                  <span className="hidden sm:inline">Settings</span>
+                </button>
+              )}
 
               {/* Hamburger / Secondary Menu */}
               <div className="relative" ref={menuRef}>
@@ -112,6 +119,45 @@ export const Header: React.FC<HeaderProps> = ({
                 {isMenuOpen && (
                   <div className="absolute right-0 mt-2 w-64 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 text-xs">
                     <div className="px-3 py-1.5 border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                      Preferences & Driver Tools
+                    </div>
+
+                    {onOpenSettings && (
+                      <button
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          onOpenSettings();
+                        }}
+                        className="w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-800 transition text-slate-300"
+                      >
+                        <div className="flex items-center space-x-2.5">
+                          <Settings className="w-4 h-4 text-teal-400" />
+                          <div>
+                            <div className="font-semibold text-white">Settings & Accessibility</div>
+                            <div className="text-[10px] text-slate-500">Text size, themes & audio</div>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => handleSelectAdminTab('sensor')}
+                      className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-800 transition ${
+                        activeTab === 'sensor' ? 'text-purple-400 font-bold bg-slate-800/60' : 'text-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5">
+                        <Activity className="w-4 h-4 text-purple-400" />
+                        <div>
+                          <div className="font-semibold">Drive Sensor</div>
+                          <div className="text-[10px] text-slate-500">Accelerometer shock detector</div>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                    </button>
+
+                    <div className="px-3 py-1.5 border-t border-b border-slate-800 text-[10px] uppercase font-bold text-slate-400 tracking-wider mt-1">
                       Operations & Agency Tools
                     </div>
 
@@ -157,7 +203,7 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full px-3.5 py-2 text-left flex items-center space-x-2 text-slate-400 hover:text-white hover:bg-slate-800 transition"
                     >
                       <Info className="w-4 h-4 text-slate-400" />
-                      <span>About Gwinnett P3</span>
+                      <span>About GGC SansPotholes</span>
                     </button>
                   </div>
                 )}
@@ -194,19 +240,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <LayoutDashboard className="w-4 h-4" />
               <span>Dashboard & Parking</span>
-            </button>
-
-            {/* Drive Sensor Tab */}
-            <button
-              onClick={() => setActiveTab('sensor')}
-              className={`px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap transition-all ${
-                activeTab === 'sensor'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
-              }`}
-            >
-              <Activity className="w-4 h-4" />
-              <span>Drive Sensor</span>
             </button>
 
             {/* My Reports Tab */}

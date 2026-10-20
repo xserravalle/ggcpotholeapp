@@ -12,7 +12,7 @@ import { classifyJurisdiction } from './services/jurisdictionClassifier';
 // Common Components
 import { Header, ActiveTab } from './components/Header';
 import { MobileNavBar } from './components/common/MobileNavBar';
-import { AccessibilityBar } from './components/common/AccessibilityBar';
+import { SettingsModal } from './components/common/SettingsModal';
 
 // Views
 import { UnifiedDashboard } from './components/dashboard/UnifiedDashboard';
@@ -49,6 +49,7 @@ export function App() {
 
   // Modals & Triggers
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDispatcherOpen, setIsDispatcherOpen] = useState(false);
   const [dispatcherTargetPothole, setDispatcherTargetPothole] = useState<PotholeReport | null>(null);
   const [docketSuccessReport, setDocketSuccessReport] = useState<PotholeReport | null>(null);
@@ -226,15 +227,9 @@ export function App() {
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenReportModal={() => {
-          setSensorTriggeredTelemetry(undefined);
-          setIsReportModalOpen(true);
-        }}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         potholeCount={potholes.length}
       />
-
-      {/* Accessible Sizing, Theme & Voice Controls Bar */}
-      <AccessibilityBar potholes={potholes} />
 
       {/* Main Tab Content */}
       <main className="flex-1">
@@ -374,14 +369,22 @@ export function App() {
         }}
       />
 
+      {/* Settings & Accessibility Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onNavigateToSensor={() => {
+          setActiveTab('sensor');
+          setIsSettingsOpen(false);
+        }}
+        potholes={potholes}
+      />
+
       {/* Bottom Navigation Bar for Mobile Phones */}
       <MobileNavBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenReportModal={() => {
-          setSensorTriggeredTelemetry(undefined);
-          setIsReportModalOpen(true);
-        }}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       {/* Streamlined Desktop Footer */}
