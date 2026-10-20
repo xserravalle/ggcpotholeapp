@@ -3,18 +3,12 @@ import { PotholeReport } from '../../types/pothole';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import { SeverityBadge } from '../common/SeverityBadge';
 import { 
-  AlertTriangle, 
   MapPin, 
-  Calendar, 
-  CheckCircle2, 
   ThumbsUp, 
-  Send, 
   ShieldAlert, 
   Ruler, 
-  HardHat, 
   Building2, 
   X,
-  Share2,
   Volume2,
   VolumeX
 } from 'lucide-react';
@@ -23,14 +17,12 @@ interface PotholeDetailDrawerProps {
   pothole: PotholeReport | null;
   onClose: () => void;
   onVerify: (id: string) => void;
-  onOpenDispatcher: (pothole: PotholeReport) => void;
 }
 
 export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
   pothole,
   onClose,
-  onVerify,
-  onOpenDispatcher
+  onVerify
 }) => {
   const { speakPothole, stopSpeaking, isSpeaking } = useAccessibility();
 
@@ -120,7 +112,7 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
         </div>
 
         {/* Explain the sensor readings without presenting them as visual proof of a pothole. */}
-          {pothole.sensorEvidence && (
+        {pothole.sensorEvidence && (
           <section className="bg-teal-950/30 border border-teal-800/50 rounded-xl p-3.5 text-xs text-slate-200">
             <h3 className="font-semibold text-teal-300 mb-2">
               Why this sensor report was created
@@ -202,7 +194,7 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
             </span>
           </div>
           <p className="text-[11px] text-slate-400 mb-3">
-            Reports with multiple citizen upvotes receive priority dispatch in municipal work queues.
+            Reports with multiple citizen upvotes receive higher visibility in commuter queues.
           </p>
           <button
             onClick={() => onVerify(pothole.id)}
@@ -213,7 +205,7 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
           </button>
         </div>
 
-        {/* Municipal Jurisdiction & Work Order Info */}
+        {/* Jurisdiction Info */}
         <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3.5 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
@@ -224,35 +216,27 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
 
           {pothole.workOrderNumber && (
             <div className="flex justify-between text-xs pt-1 border-t border-slate-700/40">
-              <span className="text-slate-400">Work Order #:</span>
+              <span className="text-slate-400">Reference ID:</span>
               <span className="font-mono text-slate-200">{pothole.workOrderNumber}</span>
-            </div>
-          )}
-
-          {pothole.assignedCrew && (
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-400">Assigned Road Crew:</span>
-              <span className="text-slate-200">{pothole.assignedCrew}</span>
-            </div>
-          )}
-
-          {pothole.targetRepairDate && (
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-400">Target Completion:</span>
-              <span className="text-emerald-400 font-semibold">{pothole.targetRepairDate}</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Footer CTA Buttons */}
+      {/* Footer Action Buttons */}
       <div className="p-4 border-t border-slate-800 bg-slate-900 sticky bottom-0 flex gap-2">
         <button
-          onClick={() => onOpenDispatcher(pothole)}
-          className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 transition active:scale-98"
+          onClick={() => onVerify(pothole.id)}
+          className="flex-1 bg-teal-600 hover:bg-teal-500 text-white font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-teal-600/20 transition active:scale-98"
         >
-          <Send className="w-4 h-4" />
-          <span>Dispatch Structured Report</span>
+          <ThumbsUp className="w-4 h-4" />
+          <span>Confirm Hazard (+1 Upvote)</span>
+        </button>
+        <button
+          onClick={onClose}
+          className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+        >
+          Close
         </button>
       </div>
 
