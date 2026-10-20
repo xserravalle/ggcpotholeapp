@@ -66,21 +66,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-400 flex items-center justify-center border border-teal-500/30">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
               <Settings className="w-5 h-5" />
             </div>
             <div>
               <h3 id="settings-modal-title" className="text-lg font-bold text-white tracking-tight">
                 Settings & Accessibility
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-300">
                 Personalize font sizing, color themes, voice, and driver tools
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition"
             aria-label="Close settings"
           >
             <X className="w-5 h-5" />
@@ -89,7 +89,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Section 1: Font Sizing & Dyslexia Typography */}
         <div className="space-y-3">
-          <div className="flex items-center space-x-2 text-xs font-bold text-teal-400 uppercase tracking-wider">
+          <div className="flex items-center space-x-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
             <Eye className="w-4 h-4" />
             <span>Text Size & Typography</span>
           </div>
@@ -104,7 +104,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onClick={() => setFontSize(key)}
                   className={`py-2 px-1 rounded-xl text-center border transition flex flex-col items-center justify-center gap-0.5 ${
                     isActive 
-                      ? 'bg-teal-600 text-white border-teal-500 shadow-md shadow-teal-600/30 font-black' 
+                      ? 'bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30 font-black' 
                       : 'bg-slate-800/80 text-slate-300 border-slate-700/80 hover:bg-slate-800 hover:text-white'
                   }`}
                   aria-pressed={isActive}
@@ -123,7 +123,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <Type className="w-4 h-4 text-amber-400 shrink-0" />
                 <span className="text-xs font-bold text-white">Comic Sans MS Typography</span>
               </div>
-              <p className="text-[11px] text-slate-400 mt-0.5">
+              <p className="text-[11px] text-slate-300 mt-0.5">
                 Irregular character shapes assist readers with dyslexia and reduce cognitive fatigue
               </p>
             </div>
@@ -132,7 +132,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition shrink-0 border ${
                 fontFamily === 'comic-sans'
                   ? 'bg-amber-500/20 text-amber-300 border-amber-500/60'
-                  : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
+                  : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
               }`}
             >
               {fontFamily === 'comic-sans' ? 'Active (Default)' : 'Standard Sans'}
@@ -142,7 +142,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Section 2: Color Schemes */}
         <div className="space-y-3">
-          <div className="flex items-center space-x-2 text-xs font-bold text-teal-400 uppercase tracking-wider">
+          <div className="flex items-center space-x-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
             <Palette className="w-4 h-4" />
             <span>Color Palette & Contrast</span>
           </div>
@@ -156,20 +156,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onClick={() => setTheme(key)}
                   className={`p-3 rounded-2xl border text-left transition flex flex-col justify-between ${
                     isActive
-                      ? 'bg-slate-800 border-teal-500 shadow-md ring-1 ring-teal-500/50'
+                      ? 'bg-slate-800 border-emerald-500 shadow-md ring-1 ring-emerald-500/50'
                       : 'bg-slate-800/50 border-slate-700/70 hover:bg-slate-800 hover:border-slate-600'
                   }`}
                   aria-pressed={isActive}
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-xs font-bold ${isActive ? 'text-teal-300' : 'text-white'}`}>
+                    <span className={`text-xs font-bold ${isActive ? 'text-emerald-300' : 'text-white'}`}>
                       {title}
                     </span>
-                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-900/80 text-slate-400 border border-slate-700">
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-900/80 text-slate-300 border border-slate-700">
                       {badge}
                     </span>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">
+                  <p className="text-[10px] text-slate-300 mt-1 line-clamp-2">
                     {subtitle}
                   </p>
                 </button>
@@ -180,7 +180,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Section 3: Voice & Narration */}
         <div className="space-y-3">
-          <div className="flex items-center space-x-2 text-xs font-bold text-teal-400 uppercase tracking-wider">
+          <div className="flex items-center space-x-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
             <Volume2 className="w-4 h-4" />
             <span>Voice Audio Narration</span>
           </div>
@@ -188,7 +188,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="bg-slate-800/60 rounded-2xl p-3.5 border border-slate-700/80 flex items-center justify-between gap-3">
             <div>
               <span className="text-xs font-bold text-white block">Southern Voice Assistant</span>
-              <p className="text-[11px] text-slate-400 mt-0.5">
+              <p className="text-[11px] text-slate-300 mt-0.5">
                 Speaks a friendly voice overview of campus hazards and road conditions
               </p>
             </div>
@@ -203,7 +203,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             ) : (
               <button
                 onClick={() => speakSummary(potholes)}
-                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white flex items-center gap-1.5 shadow-md shadow-teal-600/30 transition shrink-0 active:scale-95"
+                className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition shrink-0 active:scale-95"
               >
                 <Volume2 className="w-3.5 h-3.5" />
                 <span>Play Voice</span>
@@ -214,7 +214,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         {/* Section 4: Drive Sensor Navigation */}
         <div className="space-y-3">
-          <div className="flex items-center space-x-2 text-xs font-bold text-teal-400 uppercase tracking-wider">
+          <div className="flex items-center space-x-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
             <Activity className="w-4 h-4" />
             <span>Vehicle Sensor Setup</span>
           </div>
@@ -222,14 +222,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="bg-slate-800/40 rounded-2xl p-3.5 border border-slate-700/60 flex items-center justify-between gap-3">
             <div className="min-w-0">
               <span className="text-xs font-bold text-white block">In-Vehicle Drive Sensor</span>
-              <p className="text-[11px] text-slate-400 mt-0.5">
+              <p className="text-[11px] text-slate-300 mt-0.5">
                 Optional silent 100 Hz accelerometer detector that clusters bumps and auto-logs after 3 strikes
               </p>
             </div>
             {onNavigateToSensor && (
               <button
                 onClick={onNavigateToSensor}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white flex items-center gap-1 transition shadow shrink-0 active:scale-95"
+                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-700 hover:bg-emerald-600 text-white flex items-center gap-1 transition shadow shrink-0 active:scale-95"
               >
                 <span>Open Sensor</span>
                 <ChevronRight className="w-3.5 h-3.5" />

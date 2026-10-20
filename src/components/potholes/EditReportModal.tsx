@@ -100,18 +100,18 @@ export const EditReportModal: React.FC<EditReportModalProps> = ({
         <div className="p-5 sm:p-6 border-b border-slate-800 flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-mono font-bold text-teal-400 bg-teal-950 border border-teal-800/80 px-2 py-0.5 rounded-md">
+              <span className="text-xs font-mono font-bold text-emerald-300 bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded-md">
                 {report.trackingCode || report.id}
               </span>
-              <span className="text-xs text-slate-400 capitalize bg-slate-800 px-2 py-0.5 rounded-md">
+              <span className="text-xs text-slate-300 capitalize bg-slate-800 px-2 py-0.5 rounded-md">
                 Status: <span className="text-white font-semibold">{report.status}</span>
               </span>
             </div>
             <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight mt-1.5">
               Review & Edit Report
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+            <p className="text-xs text-slate-300 mt-0.5 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span className="truncate">{report.address || `${report.roadName}, ${report.city}`}</span>
             </p>
           </div>
@@ -275,14 +275,14 @@ export const EditReportModal: React.FC<EditReportModalProps> = ({
                   </button>
                 </div>
               ) : (
-                <label className="w-20 h-20 rounded-xl border border-dashed border-slate-700 hover:border-teal-500 bg-slate-950 flex flex-col items-center justify-center cursor-pointer text-slate-400 hover:text-teal-400 transition shrink-0">
+                <label className="w-20 h-20 rounded-xl border border-dashed border-slate-700 hover:border-emerald-500 bg-slate-950 flex flex-col items-center justify-center cursor-pointer text-slate-300 hover:text-emerald-400 transition shrink-0">
                   <Camera className="w-5 h-5 mb-1" />
                   <span className="text-[10px]">Add Photo</span>
                   <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
                 </label>
               )}
-              <div className="text-[11px] text-slate-400">
-                <span className="block font-medium text-slate-300">Attach or update site photo</span>
+              <div className="text-[11px] text-slate-300">
+                <span className="block font-medium text-white">Attach or update site photo</span>
                 <span>Optional photo for public works dispatchers to confirm road surface breakdown.</span>
               </div>
             </div>
@@ -323,7 +323,7 @@ export const EditReportModal: React.FC<EditReportModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowDeleteConfirm(true)}
-                className="w-full sm:w-auto px-3.5 py-2 bg-slate-800 hover:bg-rose-950 hover:text-rose-300 text-slate-400 hover:border-rose-800 border border-slate-700 font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5"
+                className="w-full sm:w-auto px-3.5 py-2 bg-slate-800 hover:bg-rose-950 hover:text-rose-300 text-slate-300 hover:border-rose-800 border border-slate-700 font-semibold rounded-xl text-xs transition flex items-center justify-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete Report</span>

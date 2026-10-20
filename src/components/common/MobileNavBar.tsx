@@ -21,7 +21,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
       <button
         onClick={() => setActiveTab('potholes')}
         className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
-          activeTab === 'potholes' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          activeTab === 'potholes' ? 'text-emerald-400 font-bold' : 'text-slate-300 hover:text-white'
         }`}
       >
         <MapPin className="w-5 h-5" />
@@ -32,7 +32,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
       <button
         onClick={() => setActiveTab('dashboard')}
         className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
-          activeTab === 'dashboard' ? 'text-teal-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          activeTab === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-300 hover:text-white'
         }`}
       >
         <Car className="w-5 h-5" />
@@ -43,7 +43,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
       <button
         onClick={() => setActiveTab('my-reports')}
         className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
-          activeTab === 'my-reports' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+          activeTab === 'my-reports' ? 'text-blue-400 font-bold' : 'text-slate-300 hover:text-white'
         }`}
       >
         <CheckCircle2 className="w-5 h-5" />
@@ -54,7 +54,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
       {onOpenSettings && (
         <button
           onClick={onOpenSettings}
-          className="flex flex-col items-center justify-center py-1 px-3 rounded-xl text-slate-400 hover:text-teal-400 transition"
+          className="flex flex-col items-center justify-center py-1 px-3 rounded-xl text-slate-300 hover:text-emerald-400 transition"
         >
           <Settings className="w-5 h-5" />
           <span className="text-[10px] mt-0.5">Settings</span>

@@ -483,23 +483,23 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
                         <span>👆</span>
                         <span>{pothole.verificationsCount} drivers confirmed</span>
                       </span>
-                      <span className="flex items-center gap-1 text-[10px] text-slate-500">
+                      <span className="flex items-center gap-1 text-[10px] text-slate-600">
                         <span className={`w-2 h-2 rounded-full ${freshness.dotColor}`} />
                         <span>{freshness.text}</span>
                       </span>
                     </div>
 
                     {/* Proximity & Secondary GPS metadata */}
-                    <div className="text-slate-600 space-y-0.5 text-xs">
-                      <div className="font-medium text-slate-800">{pothole.address}</div>
-                      <div className="text-[11px] text-emerald-800 font-semibold">
+                    <div className="text-slate-700 space-y-0.5 text-xs">
+                      <div className="font-semibold text-slate-900">{pothole.address}</div>
+                      <div className="text-[11px] text-emerald-800 font-bold">
                         {dist.toFixed(2)} mi from GGC Student Center
                       </div>
-                      <div className="text-[10px] text-slate-500 font-mono">
+                      <div className="text-[10px] text-slate-600 font-mono">
                         GPS: {formatCoords(pothole.latitude, pothole.longitude)}
                       </div>
-                      <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
-                        <Building2 className="w-3 h-3 text-slate-400" />
+                      <div className="text-[10px] text-slate-600 flex items-center gap-1 mt-0.5">
+                        <Building2 className="w-3 h-3 text-slate-500" />
                         <span>Agency: {pothole.jurisdiction}</span>
                       </div>
                     </div>
@@ -509,7 +509,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
                       onClick={() => onSelectPothole(pothole)}
                       className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-1.5 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 transition shadow-sm active:scale-98 border border-slate-700"
                     >
-                      <FileText className="w-3.5 h-3.5 text-teal-400" />
+                      <FileText className="w-3.5 h-3.5 text-emerald-400" />
                       <span>More Details</span>
                     </button>
 
@@ -520,7 +520,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
                         className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-100 font-bold py-1.5 px-2.5 rounded-lg text-xs flex items-center justify-center gap-1 transition shadow-sm active:scale-98"
                         title="Listen to this report read aloud in Southern voice"
                       >
-                        <Volume2 className="w-3.5 h-3.5 text-teal-400" />
+                        <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
                         <span>Listen</span>
                       </button>
 

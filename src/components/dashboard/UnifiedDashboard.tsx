@@ -79,11 +79,11 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
         {/* Quick Stat Badges */}
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl px-3.5 py-2 text-center">
-            <span className="text-[10px] text-slate-400 uppercase font-bold block">Congested</span>
+            <span className="text-[10px] text-slate-300 uppercase font-bold block">Congested</span>
             <span className="text-base font-black font-mono text-amber-400">{fullLotsCount} of {parkingLots.length}</span>
           </div>
           <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl px-3.5 py-2 text-center">
-            <span className="text-[10px] text-slate-400 uppercase font-bold block">Total Capacity</span>
+            <span className="text-[10px] text-slate-300 uppercase font-bold block">Total Capacity</span>
             <span className="text-base font-black font-mono text-emerald-400">{totalCapacity}</span>
           </div>
         </div>
@@ -94,19 +94,19 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
           <div>
             <div className="flex items-center space-x-2">
-              <Car className="w-5 h-5 text-teal-400" />
+              <Car className="w-5 h-5 text-emerald-400" />
               <h3 className="text-base sm:text-lg font-bold text-white tracking-tight">
                 Top Busiest Parking Right Now
               </h3>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-300 mt-0.5">
               Live occupancy for GGC campus decks and major surrounding retail hubs
             </p>
           </div>
           
           <button
             onClick={() => setIsForecastExpanded(!isForecastExpanded)}
-            className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 flex items-center gap-1.5 transition"
+            className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 flex items-center gap-1.5 transition"
           >
             <Sliders className="w-3.5 h-3.5" />
             <span>{isForecastExpanded ? 'Hide Forecast Controls' : 'What-If Forecast & Time'}</span>
@@ -137,18 +137,18 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                         isCritical ? 'bg-red-500 animate-pulse' :
                         isModerate ? 'bg-amber-400' : 'bg-emerald-400'
                       }`}></span>
-                      <h4 className="text-sm font-bold text-white truncate group-hover:text-teal-300 transition">
+                      <h4 className="text-sm font-bold text-white truncate group-hover:text-emerald-300 transition">
                         {lot.name}
                       </h4>
-                      <span className="text-[10px] text-slate-400 px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700">
+                      <span className="text-[10px] text-slate-300 px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700">
                         {lot.category}
                       </span>
                     </div>
-                    <div className="flex items-center space-x-2 text-xs text-slate-400 mt-1">
-                      <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
+                    <div className="flex items-center space-x-2 text-xs text-slate-300 mt-1">
+                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                       <span className="truncate">{lot.address}</span>
                       <span>&bull;</span>
-                      <span className="text-teal-400/90 font-medium whitespace-nowrap">{distanceFromCampusMiles({ lat: lot.latitude, lng: lot.longitude }).toFixed(1)} mi from GGC</span>
+                      <span className="text-emerald-400 font-medium whitespace-nowrap">{distanceFromCampusMiles({ lat: lot.latitude, lng: lot.longitude }).toFixed(1)} mi from GGC</span>
                     </div>
                   </div>
                 </div>
@@ -161,7 +161,7 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                     }`}>
                       {state.occupancyPercent}% Full
                     </span>
-                    <span className="text-xs text-slate-400 font-mono">
+                    <span className="text-xs text-slate-300 font-mono">
                       ({state.availableSpots} open / {lot.totalCapacity})
                     </span>
                   </div>
@@ -186,11 +186,11 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
           <div className="mt-4 pt-4 border-t border-slate-800 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
-                <h4 className="text-sm font-bold text-teal-300 flex items-center gap-1.5">
-                  <Clock className="w-4 h-4" />
+                <h4 className="text-sm font-bold text-emerald-300 flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-emerald-400" />
                   What-If Simulation Time & Rush Hour Engine
                 </h4>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-300">
                   Adjust the day, class change schedules, and weather conditions to forecast parking loads:
                 </p>
               </div>
@@ -200,7 +200,7 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                 <button
                   onClick={() => setForecastViewMode('cards')}
                   className={`px-3 py-1 rounded-lg font-medium transition ${
-                    forecastViewMode === 'cards' ? 'bg-teal-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                    forecastViewMode === 'cards' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
                   }`}
                 >
                   All Lots Grid
@@ -208,7 +208,7 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
                 <button
                   onClick={() => setForecastViewMode('curves')}
                   className={`px-3 py-1 rounded-lg font-medium transition ${
-                    forecastViewMode === 'curves' ? 'bg-teal-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                    forecastViewMode === 'curves' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white'
                   }`}
                 >
                   Predictive Curves

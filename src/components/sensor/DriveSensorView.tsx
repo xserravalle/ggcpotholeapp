@@ -320,7 +320,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           <Activity className="w-6 h-6 text-emerald-400" />
           <span>Silent In-Vehicle Drive Sensor</span>
         </h2>
-        <p className="text-xs text-slate-400 max-w-lg mx-auto">
+        <p className="text-xs text-slate-300 max-w-lg mx-auto">
           Runs 100% silently with zero popups, noises, or vibrations. Spots hit 3 times are automatically verified and added to your My Reports page.
         </p>
       </div>
@@ -335,7 +335,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           {onNavigateToMyReports && (
             <button
               onClick={onNavigateToMyReports}
-              className="text-[11px] font-bold text-white bg-teal-600 hover:bg-teal-500 px-3 py-1 rounded-lg transition"
+              className="text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded-lg transition"
             >
               View in My Reports
             </button>
@@ -356,7 +356,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
               <span className="text-xs font-bold text-white uppercase tracking-wider block">
                 {isMonitoring ? 'Sensor Active (Monitoring 100Hz)' : 'Sensor Idle / Paused'}
               </span>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-slate-300">
                 Zero audio • Zero vibrations • Zero driver distraction
               </span>
             </div>
@@ -391,15 +391,15 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           
           {/* Gauge Readout */}
           <div className="bg-slate-950 rounded-2xl p-4 border border-slate-800/80 flex flex-col justify-center items-center text-center">
-            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+            <span className="text-[10px] uppercase font-bold text-slate-300 tracking-wider">
               Current Z-Axis Shock
             </span>
             <div className={`text-4xl font-black font-mono mt-1 ${
-              isSpike ? 'text-rose-400' : isMonitoring ? 'text-emerald-400' : 'text-slate-500'
+              isSpike ? 'text-rose-400' : isMonitoring ? 'text-emerald-400' : 'text-slate-400'
             }`}>
-              {displayG.toFixed(2)} <span className="text-sm font-sans font-bold text-slate-400">G</span>
+              {displayG.toFixed(2)} <span className="text-sm font-sans font-bold text-slate-300">G</span>
             </div>
-            <span className="text-[10px] text-slate-500 mt-1 font-mono">
+            <span className="text-[10px] text-slate-400 mt-1 font-mono">
               Baseline: 1.00G Earth Gravity
             </span>
           </div>
@@ -407,7 +407,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           {/* Real-time Oscilloscope Waveform */}
           <div className="sm:col-span-2 bg-slate-950 rounded-2xl p-3 border border-slate-800/80 flex flex-col justify-between overflow-hidden">
             <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] uppercase font-mono text-slate-400">
+              <span className="text-[10px] uppercase font-mono text-slate-300">
                 100Hz Shock Waveform
               </span>
               <span className="text-[10px] font-mono text-emerald-400 font-bold">
@@ -426,26 +426,25 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
 
         </div>
 
-        {/* Demo Simulation Controls for Capstone Presentation */}
       </div>
 
       {/* Currently Tracked Spots (3x Threshold Progress) */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <Target className="w-5 h-5 text-teal-400" />
+            <Target className="w-5 h-5 text-emerald-400" />
             <h3 className="text-base font-bold text-white">
               Tracked Road Spots & Hit Count
             </h3>
           </div>
           <div className="flex items-center space-x-2">
-            <span className="text-xs font-mono bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full border border-slate-700">
+            <span className="text-xs font-mono bg-slate-800 text-slate-200 px-2.5 py-0.5 rounded-full border border-slate-700">
               {trackedSpots.length} Locations Monitored
             </span>
             {trackedSpots.length > 0 && (
               <button
                 onClick={handleClearTrackedSpots}
-                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-rose-400 text-xs font-semibold transition flex items-center gap-1 border border-slate-700 active:scale-95"
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-rose-400 text-xs font-semibold transition flex items-center gap-1 border border-slate-700 active:scale-95"
                 title="Clear all tracked road locations"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -456,8 +455,8 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
         </div>
 
         {trackedSpots.length === 0 ? (
-          <div className="bg-slate-950/60 rounded-2xl p-6 text-center border border-slate-800/80 text-xs text-slate-400 space-y-1">
-            <p className="font-semibold text-slate-300">No road impacts registered yet</p>
+          <div className="bg-slate-950/60 rounded-2xl p-6 text-center border border-slate-800/80 text-xs text-slate-300 space-y-1">
+            <p className="font-semibold text-white">No road impacts registered yet</p>
             <p>When you encounter road shocks while driving, spots will automatically cluster here until reaching 3 strikes.</p>
           </div>
         ) : (
@@ -483,7 +482,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
                       }`}>
                         {isPromoted ? '✓ 3x Confirmed Report' : `Strikes: ${spot.hitCount} of 3`}
                       </span>
-                      <span className="text-[11px] font-mono text-slate-400">
+                      <span className="text-[11px] font-mono text-slate-300">
                         Peak: {spot.maxGForce}G
                       </span>
                     </div>
@@ -492,8 +491,8 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
                       {spot.roadName}
                     </h4>
 
-                    <p className="text-slate-400 text-[11px] flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
+                    <p className="text-slate-300 text-[11px] flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                       <span>{spot.latitude.toFixed(5)}, {spot.longitude.toFixed(5)} ({spot.city})</span>
                     </p>
                   </div>
@@ -505,8 +504,8 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
                           key={step} 
                           className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-xs ${
                             spot.hitCount >= step 
-                              ? 'bg-teal-500 text-slate-950' 
-                              : 'bg-slate-800 text-slate-500 border border-slate-700'
+                              ? 'bg-emerald-500 text-slate-950' 
+                              : 'bg-slate-800 text-slate-400 border border-slate-700'
                           }`}
                         >
                           {spot.hitCount >= step ? '✓' : step}
@@ -517,7 +516,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
                     {isPromoted && onNavigateToMyReports && (
                       <button
                         onClick={onNavigateToMyReports}
-                        className="px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl text-xs transition"
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition"
                       >
                         View Report
                       </button>

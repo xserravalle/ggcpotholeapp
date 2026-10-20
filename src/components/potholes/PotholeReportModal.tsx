@@ -249,7 +249,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
                   <span className="text-xs font-semibold text-slate-200 block mt-1">
                     Tap to Launch Camera or Upload Image
                   </span>
-                  <span className="text-[10px] text-slate-500">
+                  <span className="text-[10px] text-slate-400">
                     Works directly on iOS Safari and Android Chrome (no app store required)
                   </span>
                 </label>
@@ -279,7 +279,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                <span className="text-[10px] uppercase font-bold text-slate-300 tracking-wider">
                   Automated Dispatch Routing
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">
@@ -289,12 +289,12 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
               <div className="text-sm font-bold text-white mt-0.5 truncate">
                 {assignedAuth.name}
               </div>
-              <div className="text-[11px] text-slate-400 mt-0.5">
+              <div className="text-[11px] text-slate-300 mt-0.5">
                 {classification.matchReason}
               </div>
-              <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-300 font-mono">
+              <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-200 font-mono">
                 <span className="flex items-center gap-1">
-                  <Mail className="w-3 h-3 text-teal-400" /> {assignedAuth.contactEmail}
+                  <Mail className="w-3 h-3 text-emerald-400" /> {assignedAuth.contactEmail}
                 </span>
                 <span>☎ {assignedAuth.potholeHotline}</span>
               </div>
