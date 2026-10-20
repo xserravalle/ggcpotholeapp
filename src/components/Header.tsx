@@ -75,9 +75,6 @@ export const Header: React.FC<HeaderProps> = ({
                   <h1 className="text-lg sm:text-xl font-extrabold text-white tracking-tight">
                     GGC <span className="text-emerald-400 font-black">SansPotholes</span>
                   </h1>
-                  <span className="hidden sm:inline-block text-[11px] font-semibold bg-slate-800 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
-                    Comic Sans Edition
-                  </span>
                 </div>
                 <p className="text-xs text-slate-300 hidden sm:block">
                   Report road hazards in Comic Sans. Find parking. Gwinnett County — powered by you.
@@ -219,9 +216,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <MapPin className="w-4 h-4" />
               <span>Map</span>
-              <span className="text-[10px] bg-slate-800 text-emerald-300 font-mono px-2 py-0.5 rounded-full border border-slate-700">
-                {potholeCount}
-              </span>
             </button>
 
             {/* Parking Tab */}
