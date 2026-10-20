@@ -1,21 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { PotholeReport } from '../../types/pothole';
+import { useAccessibility } from '../../context/AccessibilityContext';
 import { EditReportModal } from './EditReportModal';
 import { 
   CheckCircle2, 
   AlertTriangle, 
   MapPin, 
   PlusCircle, 
-  Clock, 
-  ThumbsUp, 
-  ExternalLink,
-  Shield,
-  Layers,
   Edit3,
   Activity,
-  Trash2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  X
 } from 'lucide-react';
 
 interface MyReportsViewProps {
@@ -35,15 +31,25 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
   onUpdateReport,
   onDeleteReport
 }) => {
+  const { fontSize } = useAccessibility();
   const [editingReport, setEditingReport] = useState<PotholeReport | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [showLifecycleHelp, setShowLifecycleHelp] = useState(false);
 
   // Include user reports, 3x sensor reports, and hazards the user confirmed
   const myReports = potholes.filter(
     p => p.source === 'user' || p.source === 'sensor' || p.userConfirmed
   );
 
-  const displayedReports = showAll ? myReports : myReports.slice(0, 5);
+  // Dynamic initial count: 4 for small, 3 for normal/large, 2 for huge font
+  const initialDisplayCount = useMemo(() => {
+    if (fontSize === 'huge') return 2;
+    if (fontSize === 'large') return 3;
+    if (fontSize === 'small') return 4;
+    return 3;
+  }, [fontSize]);
+
+  const displayedReports = showAll ? myReports : myReports.slice(0, initialDisplayCount);
 
   const getStatusColor = (status: PotholeReport['status']) => {
     switch (status) {
@@ -55,16 +61,6 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
         return 'bg-amber-950 text-amber-300 border-amber-800';
       default:
         return 'bg-slate-800 text-slate-300 border-slate-700';
-    }
-  };
-
-  const getStatusStep = (status: PotholeReport['status']) => {
-    switch (status) {
-      case 'reported': return 1;
-      case 'investigating': return 2;
-      case 'scheduled': return 3;
-      case 'repaired': return 4;
-      default: return 1;
     }
   };
 
@@ -83,10 +79,10 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 space-y-3.5">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 space-y-3">
       
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-3.5 sm:p-4 shadow-lg">
         <div>
           <div className="flex items-center space-x-2">
             <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
@@ -96,6 +92,15 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
             <span className="text-xs font-mono bg-emerald-950 text-emerald-300 border border-emerald-800 px-2.5 py-0.5 rounded-full font-bold">
               {myReports.length} Active
             </span>
+            <button
+              type="button"
+              onClick={() => setShowLifecycleHelp(!showLifecycleHelp)}
+              className="w-5 h-5 rounded-full bg-slate-800 hover:bg-emerald-950 text-slate-300 hover:text-emerald-300 border border-slate-700 hover:border-emerald-700 flex items-center justify-center text-xs font-bold transition shadow-sm"
+              title="How report resolution works (Stages explained)"
+              aria-label="Lifecycle resolution process"
+            >
+              ?
+            </button>
           </div>
           <p className="text-xs text-slate-300 mt-0.5">
             Centralized log of hazards you submitted, confirmed, or auto-logged via 3x sensor detections.
@@ -110,6 +115,45 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
           <span>Report New Hazard</span>
         </button>
       </div>
+
+      {/* Lifecycle Explanation Card (Triggered by [?] button) */}
+      {showLifecycleHelp && (
+        <div className="bg-slate-900 border border-emerald-700/60 rounded-2xl p-4 shadow-xl text-xs text-slate-200 space-y-2.5 animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div className="flex items-center space-x-2">
+              <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                ?
+              </span>
+              <span className="font-bold text-white text-sm">How Hazard Resolution Works</span>
+            </div>
+            <button
+              onClick={() => setShowLifecycleHelp(false)}
+              className="p-1 text-slate-400 hover:text-white transition"
+              aria-label="Close help"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">1. Reported</span>
+              <p className="text-[11px] text-slate-300 mt-0.5">Submitted via camera, map tap, or 3x sensor detections.</p>
+            </div>
+            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">2. Investigating</span>
+              <p className="text-[11px] text-slate-300 mt-0.5">Municipal road agency inspects cavity depth and road risks.</p>
+            </div>
+            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">3. Scheduled</span>
+              <p className="text-[11px] text-slate-300 mt-0.5">Assigned road crew work order queued for milling and patching.</p>
+            </div>
+            <div className="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">4. Repaired</span>
+              <p className="text-[11px] text-slate-300 mt-0.5">Pavement leveled, inspected, and confirmed safe for drivers.</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reports List or Empty State */}
       {myReports.length === 0 ? (
@@ -135,104 +179,69 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
       ) : (
         <div className="space-y-2">
           {/* Scrollable Container keeping content within the viewport */}
-          <div className="max-h-[calc(100vh-215px)] overflow-y-auto space-y-2.5 pr-1.5 scrollbar-thin">
-            {displayedReports.map((report) => {
-              const step = getStatusStep(report.status);
-
-              return (
-                <div
-                  key={report.id}
-                  onClick={() => onSelectPothole(report)}
-                  className="bg-slate-900 border border-slate-800 hover:border-emerald-700/60 rounded-2xl p-3 sm:p-3.5 shadow-md transition cursor-pointer space-y-2 group relative"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    
-                    {/* Left Column: Details */}
-                    <div className="space-y-1 flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(report.status)}`}>
-                          {report.status}
-                        </span>
-                        <span className="text-xs font-mono text-slate-300">
-                          {report.trackingCode || report.id}
-                        </span>
-                        {report.sensorDetected && (
-                          <span className="text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 px-2 py-0.5 rounded-md flex items-center gap-1">
-                            <Activity className="w-3 h-3 text-emerald-400" />
-                            <span>3x Sensor Verified ({report.bumpIntensity || 7.2}G)</span>
-                          </span>
-                        )}
-                      </div>
-
-                      <h3 className="text-sm font-bold text-white group-hover:text-emerald-300 transition truncate">
-                        {report.title}
-                      </h3>
-
-                      <p className="text-xs text-slate-300 flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{report.address || `${report.roadName}, ${report.city}`}</span>
-                      </p>
-
-                      {report.description && (
-                        <p className="text-xs text-slate-300/90 line-clamp-1 pt-0.5">
-                          {report.description}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Right Column: Jurisdiction & Action Button */}
-                    <div className="flex flex-col items-end justify-between gap-2 shrink-0">
-                      <div className="text-right">
-                        <span className="text-xs font-bold text-emerald-400 flex items-center justify-end gap-1">
-                          <span>👆</span>
-                          <span>{report.verificationsCount} verified</span>
-                        </span>
-                        <span className="text-[11px] text-slate-400 block mt-0.5">
-                          {report.jurisdiction}
-                        </span>
-                      </div>
-
-                      {/* Edit / Review Button */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingReport(report);
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-emerald-700 text-slate-200 hover:text-white border border-slate-700 hover:border-emerald-600 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95"
-                      >
-                        <Edit3 className="w-3 h-3 text-emerald-400 group-hover:text-white" />
-                        <span>Edit / Review</span>
-                      </button>
-                    </div>
+          <div className="max-h-[calc(100vh-270px)] overflow-y-auto space-y-2 pr-1.5 scrollbar-thin">
+            {displayedReports.map((report) => (
+              <div
+                key={report.id}
+                onClick={() => onSelectPothole(report)}
+                className="bg-slate-900 border border-slate-800 hover:border-emerald-600/70 rounded-2xl p-3 sm:p-3.5 shadow-md transition cursor-pointer flex items-center justify-between gap-3 group relative"
+              >
+                {/* Details: Stage, Authority, Title, Location */}
+                <div className="space-y-1 flex-1 min-w-0">
+                  <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(report.status)}`}>
+                      {report.status}
+                    </span>
+                    <span className="text-xs font-semibold text-emerald-400">
+                      {report.jurisdiction || report.authorityName || 'Gwinnett County'}
+                    </span>
+                    <span className="text-xs font-mono text-slate-400">
+                      • {report.trackingCode || report.id}
+                    </span>
+                    {report.sensorDetected && (
+                      <span className="text-[10px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-800/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <Activity className="w-3 h-3 text-emerald-400" />
+                        <span>3x Sensor Verified ({report.bumpIntensity || 7.2}G)</span>
+                      </span>
+                    )}
                   </div>
 
-                  {/* Compact Progress Pipeline */}
-                  <div className="pt-1.5 border-t border-slate-800/80 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 shrink-0">
-                      <span className={step >= 1 ? 'text-emerald-400 font-bold' : ''}>1. Reported</span>
-                      <span>→</span>
-                      <span className={step >= 2 ? 'text-emerald-400 font-bold' : ''}>2. Investigating</span>
-                      <span>→</span>
-                      <span className={step >= 3 ? 'text-emerald-400 font-bold' : ''}>3. Scheduled</span>
-                      <span>→</span>
-                      <span className={step >= 4 ? 'text-emerald-400 font-bold' : ''}>4. Repaired</span>
-                    </div>
-                    <div className="flex-1 max-w-[120px] grid grid-cols-4 gap-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${step >= 1 ? 'bg-emerald-500' : 'bg-transparent'}`} />
-                      <div className={`h-full rounded-full ${step >= 2 ? 'bg-emerald-500' : 'bg-transparent'}`} />
-                      <div className={`h-full rounded-full ${step >= 3 ? 'bg-emerald-500' : 'bg-transparent'}`} />
-                      <div className={`h-full rounded-full ${step >= 4 ? 'bg-emerald-400' : 'bg-transparent'}`} />
-                    </div>
-                  </div>
+                  <h3 className="text-sm font-bold text-white group-hover:text-emerald-300 transition truncate">
+                    {report.title}
+                  </h3>
 
+                  <p className="text-xs text-slate-300 flex items-center gap-1.5 truncate">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="truncate">{report.address || `${report.roadName}, ${report.city}`}</span>
+                  </p>
                 </div>
-              );
-            })}
+
+                {/* Right Column: Upvotes & Edit / Review Button */}
+                <div className="shrink-0 flex items-center gap-2.5">
+                  {report.verificationsCount > 0 && (
+                    <span className="hidden sm:inline-flex text-xs font-bold text-emerald-400 items-center gap-1">
+                      <span>👆</span>
+                      <span>{report.verificationsCount}</span>
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingReport(report);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-emerald-700 text-slate-200 hover:text-white border border-slate-700 hover:border-emerald-600 text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-sm"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-emerald-400 group-hover:text-white" />
+                    <span>Edit / Review</span>
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Show All / Show Recent Toggle Button */}
-          {myReports.length > 5 && (
+          {myReports.length > initialDisplayCount && (
             <div className="pt-1 text-center">
               <button
                 type="button"
@@ -242,7 +251,7 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
                 {showAll ? (
                   <>
                     <ChevronUp className="w-3.5 h-3.5" />
-                    <span>Show Recent 5 Only</span>
+                    <span>Show Recent ({initialDisplayCount}) Only</span>
                   </>
                 ) : (
                   <>
