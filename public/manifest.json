@@ -1,11 +1,11 @@
 {
-  "name": "GGC SansPotholes - GGC & Gwinnett Dispatch",
+  "name": "GGC SansPotholes - Parking & Hazards",
   "short_name": "SansPotholes",
-  "description": "Unified roadway hazard detection, in-vehicle sensor telemetry, and dispatch router for Georgia Gwinnett College & Gwinnett County DOT",
+  "description": "Visualizing Gwinnett County, sans potholes. Academic prototype for roadway hazard detection and campus parking forecasts at Georgia Gwinnett College.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#020617",
-  "theme_color": "#0f172a",
+  "theme_color": "#020617",
   "icons": [
     {
       "src": "/favicon.svg",

@@ -23,17 +23,37 @@ const PRESETS: Preset[] = [
 interface MunicipalQuickJumpProps {
   onSelectPreset: (lat: number, lng: number, zoom: number, id: string) => void;
   activePresetId?: string;
+  userLocation?: { lat: number; lng: number } | null;
 }
 
 export const MunicipalQuickJump: React.FC<MunicipalQuickJumpProps> = ({
   onSelectPreset,
-  activePresetId
+  activePresetId,
+  userLocation
 }) => {
   return (
     <div className="px-3 py-2 bg-slate-900/95 border-b border-slate-800 flex items-center gap-1.5 overflow-x-auto text-xs no-scrollbar">
       <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px] whitespace-nowrap mr-1.5">
         Jump to Area:
       </span>
+
+      {/* 1. Live User GPS Location Chip if Available */}
+      {userLocation && (
+        <button
+          onClick={() => onSelectPreset(userLocation.lat, userLocation.lng, 16, 'my-location')}
+          className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition flex items-center gap-1.5 border ${
+            activePresetId === 'my-location'
+              ? 'bg-blue-900/70 text-white border-blue-400 shadow-sm ring-1 ring-blue-400/50'
+              : 'bg-slate-800/80 hover:bg-slate-700 text-blue-300 border-blue-500/40'
+          }`}
+          title="Return to your physical GPS position"
+        >
+          <span className="w-2 h-2 rounded-full shrink-0 bg-blue-400 animate-pulse" />
+          <span>📍 My Location</span>
+        </button>
+      )}
+
+      {/* 2. Municipal Presets */}
       {PRESETS.map(preset => {
         const isActive = activePresetId === preset.id;
         return (

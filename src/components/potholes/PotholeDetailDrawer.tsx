@@ -1,16 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PotholeReport } from '../../types/pothole';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import { SeverityBadge } from '../common/SeverityBadge';
+import { generatePotholePdf } from '../../services/pdfGenerator';
 import { 
   MapPin, 
   ThumbsUp, 
-  Send, 
   ShieldAlert, 
+  Activity, 
   Building2, 
   X,
   Volume2,
-  VolumeX
+  VolumeX,
+  ExternalLink,
+  FileDown,
+  RefreshCw,
+  Send
 } from 'lucide-react';
 
 interface PotholeDetailDrawerProps {
@@ -29,11 +34,37 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
   isAdmin = false
 }) => {
   const { speakPothole, stopSpeaking, isSpeaking } = useAccessibility();
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   if (!pothole) return null;
 
   const isRepaired = pothole.status === 'repaired';
   const hasValidImage = Boolean(pothole.imageUrl && pothole.imageUrl.trim() !== '');
+
+  // Calculate measured or estimated shock telemetry
+  const shockValue = 
+    pothole.bumpIntensity && pothole.bumpIntensity > 0
+      ? pothole.bumpIntensity
+      : pothole.sensorEvidence?.maxGForce
+      ? pothole.sensorEvidence.maxGForce
+      : pothole.severity === 'critical'
+      ? 7.80
+      : pothole.severity === 'severe'
+      ? 5.40
+      : pothole.severity === 'moderate'
+      ? 3.80
+      : 1.80;
+
+  const handleDownloadPdf = async () => {
+    setIsDownloadingPdf(true);
+    try {
+      await generatePotholePdf(pothole);
+    } catch (e) {
+      console.error('Error generating PDF:', e);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   return (
     <div className="fixed inset-y-0 right-0 w-full sm:w-[460px] bg-slate-900 border-l border-slate-800 shadow-2xl z-50 overflow-y-auto flex flex-col animate-in slide-in-from-right duration-300">
@@ -48,9 +79,13 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
           ) : (
             <SeverityBadge severity={pothole.severity} />
           )}
-          <span className="text-xs text-slate-400 font-mono">#{pothole.id}</span>
+          <span className="text-xs font-mono text-slate-400">
+            #{pothole.id}
+          </span>
         </div>
-        <div className="flex items-center space-x-2">
+
+        <div className="flex items-center space-x-1.5">
+          {/* Audio Narration */}
           <button
             onClick={() => isSpeaking ? stopSpeaking() : speakPothole(pothole)}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
@@ -63,6 +98,23 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
             {isSpeaking ? <VolumeX className="w-3.5 h-3.5 text-amber-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
             <span>{isSpeaking ? 'Stop' : 'Listen'}</span>
           </button>
+
+          {/* PDF Docket Download */}
+          <button
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf}
+            className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 flex items-center gap-1 transition disabled:opacity-60"
+            title="Download PDF Claim Docket"
+          >
+            {isDownloadingPdf ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <FileDown className="w-3.5 h-3.5 text-teal-400" />
+            )}
+            <span>PDF</span>
+          </button>
+
+          {/* Close Drawer */}
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
@@ -76,11 +128,23 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
       <div className="p-3.5 sm:p-4 space-y-3 flex-1 text-xs">
         {/* Title & Location */}
         <div>
-          <div className="mb-1">
+          <div className="flex items-center justify-between gap-2 mb-1">
             <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-950 text-emerald-300 border border-emerald-800 inline-flex items-center gap-1">
               📍 {pothole.landmark || pothole.roadName || 'GGC Campus Corridor'}
             </span>
+
+            {/* Google Maps Jump Link */}
+            <a
+              href={`https://www.google.com/maps?q=${pothole.latitude},${pothole.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] font-semibold text-teal-400 hover:text-teal-300 flex items-center gap-1 transition"
+            >
+              <span>Google Maps</span>
+              <ExternalLink className="w-3 h-3 text-teal-400" />
+            </a>
           </div>
+
           <h2 className="text-base font-bold text-white leading-snug">{pothole.title}</h2>
           <div className="flex items-start space-x-2 mt-1.5 text-xs text-slate-200">
             <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
@@ -118,6 +182,41 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
           </div>
         )}
 
+        {/* Compact Physical Metrics & Shock Reading Grid */}
+        <div className="grid grid-cols-4 gap-2">
+          <div className="bg-slate-800/40 border border-slate-700/50 p-2 rounded-xl text-center">
+            <span className="text-[10px] text-slate-300 block">Depth</span>
+            <span className="text-xs font-bold text-white font-mono mt-0.5 block">
+              {pothole.estimatedDepthInches}"
+            </span>
+          </div>
+
+          <div className="bg-slate-800/40 border border-slate-700/50 p-2 rounded-xl text-center">
+            <span className="text-[10px] text-slate-300 block">Width</span>
+            <span className="text-xs font-bold text-white font-mono mt-0.5 block">
+              {pothole.estimatedWidthInches}"
+            </span>
+          </div>
+
+          <div className="bg-slate-800/40 border border-slate-700/50 p-2 rounded-xl text-center">
+            <span className="text-[10px] text-slate-300 block">Material</span>
+            <span className="text-xs font-bold text-white mt-0.5 block truncate">
+              {pothole.surfaceType || 'Asphalt'}
+            </span>
+          </div>
+
+          <div className="bg-slate-800/40 border border-slate-700/50 p-2 rounded-xl text-center">
+            <span className="text-[10px] text-slate-300 block flex items-center justify-center gap-1">
+              <Activity className="w-3 h-3 text-emerald-400" /> Shock
+            </span>
+            <span className={`text-xs font-bold font-mono mt-0.5 block ${
+              shockValue >= 6.0 ? 'text-rose-400' : shockValue >= 3.0 ? 'text-amber-400' : 'text-emerald-400'
+            }`}>
+              {shockValue.toFixed(1)}G
+            </span>
+          </div>
+        </div>
+
         {/* Sensor readings if applicable */}
         {pothole.sensorEvidence && (
           <section className="bg-emerald-950/30 border border-emerald-800/50 rounded-xl p-2.5 text-xs text-slate-200">
@@ -136,30 +235,6 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
             </div>
           </section>
         )}
-
-        {/* Compact Physical Metrics Grid */}
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-slate-800/40 border border-slate-700/50 p-2 rounded-xl text-center">
-            <span className="text-[10px] text-slate-300 block">Depth</span>
-            <span className="text-xs font-bold text-white font-mono mt-0.5 block">
-              {pothole.estimatedDepthInches}"
-            </span>
-          </div>
-
-          <div className="bg-slate-800/40 border border-slate-700/50 p-2 rounded-xl text-center">
-            <span className="text-[10px] text-slate-300 block">Width</span>
-            <span className="text-xs font-bold text-white font-mono mt-0.5 block">
-              {pothole.estimatedWidthInches}"
-            </span>
-          </div>
-
-          <div className="bg-slate-800/40 border border-slate-700/50 p-2 rounded-xl text-center">
-            <span className="text-[10px] text-slate-300 block">Material</span>
-            <span className="text-xs font-bold text-white mt-0.5 block truncate">
-              {pothole.surfaceType}
-            </span>
-          </div>
-        </div>
 
         {/* Damage Hazard Assessment & Crowdsourced Verification Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -235,7 +310,6 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
         )}
 
       </div>
-
     </div>
   );
 };

@@ -1,20 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 import { PotholeReport, SeverityLevel, HazardType } from '../../types/pothole';
 import { classifyJurisdiction } from '../../services/jurisdictionClassifier';
 import { reverseGeocode } from '../../services/reverseGeocoding';
+import { generateMapSnapshot } from '../../services/mapSnapshotService';
 import { compressImageFile } from '../../utils/imageCompressor';
 import { 
-  Camera, 
   X, 
-  Building2, 
   MapPin, 
-  Crosshair, 
-  Upload, 
-  Sparkles, 
   Activity, 
   CheckCircle2, 
-  Clock, 
   Mail,
+  AlertTriangle,
+  RefreshCw,
+  Camera,
+  Building2,
   GraduationCap
 } from 'lucide-react';
 
@@ -34,16 +35,51 @@ interface PotholeReportModalProps {
   };
 }
 
-const PRESETS = [
-  { label: '🎓 GGC Campus Entrance (Collins Hill Rd)', lat: 33.9821, lng: -84.0048, road: 'Collins Hill Rd', city: 'Lawrenceville' },
-  { label: '🏛️ Historic Lawrenceville Square', lat: 33.9565, lng: -83.9892, road: 'W Crogan St', city: 'Lawrenceville' },
-  { label: '🛍️ Duluth (Pleasant Hill @ I-85)', lat: 33.9592, lng: -84.1338, road: 'Pleasant Hill Rd', city: 'Duluth' },
-  { label: '💡 Peachtree Corners (Curiosity Lab)', lat: 33.9715, lng: -84.2238, road: 'Technology Pkwy', city: 'Peachtree Corners' },
-  { label: '⚡ GA-316 Express @ Sugarloaf', lat: 33.9712, lng: -84.0320, road: 'SR 316 (University Pkwy)', city: 'Lawrenceville' }
-];
+// Controller to keep mini map centered when GPS coordinates change
+const ReportMapUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      map.setView(center, 16, { animate: true });
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [center, map]);
+  return null;
+};
 
-// Hooks must run in the same order on every render, so the open check lives in this
-// wrapper. The dialog mounts fresh each time it opens, exactly as before.
+// Allow clicking on map to fine-tune the exact shock / hazard pin
+const MapClickToReposition: React.FC<{ onPositionChange: (lat: number, lng: number) => void }> = ({ onPositionChange }) => {
+  useMapEvents({
+    click(e) {
+      onPositionChange(e.latlng.lat, e.latlng.lng);
+    }
+  });
+  return null;
+};
+
+// Pulsing Shock Pin Marker for Report Modal
+const createReportMarkerIcon = (severity: SeverityLevel) => {
+  const color = 
+    severity === 'critical' ? '#f43f5e' : 
+    severity === 'severe' ? '#ef4444' : 
+    severity === 'moderate' ? '#f59e0b' : '#10b981';
+
+  return L.divIcon({
+    className: 'custom-report-pin',
+    html: `
+      <div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
+        <span style="position: absolute; width: 34px; height: 34px; border-radius: 50%; background: ${color}44; animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+        <span style="position: relative; width: 18px; height: 18px; border-radius: 50%; background: ${color}; border: 3px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;">
+          <span style="width: 4px; height: 4px; border-radius: 50%; background: #ffffff;"></span>
+        </span>
+      </div>
+    `,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17]
+  });
+};
+
 export const PotholeReportModal: React.FC<PotholeReportModalProps> = (props) =>
   props.isOpen ? <PotholeReportDialogBody {...props} /> : null;
 
@@ -53,33 +89,77 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   initialTelemetry,
   initialCoords
 }) => {
-
   const [title, setTitle] = useState('');
-  const [address, setAddress] = useState(initialCoords?.address || '1000 University Center Ln, Lawrenceville, GA 30043');
-  const [roadName, setRoadName] = useState('University Center Ln');
+  const [address, setAddress] = useState(initialCoords?.address || 'Locating nearest street address...');
+  const [roadName, setRoadName] = useState('');
   const [landmark, setLandmark] = useState('');
   const [city, setCity] = useState('Lawrenceville');
   const [latitude, setLatitude] = useState(initialCoords?.lat || 33.9798);
   const [longitude, setLongitude] = useState(initialCoords?.lng || -84.0017);
   const [severity, setSeverity] = useState<SeverityLevel>(initialTelemetry?.severity || (initialTelemetry?.sensorDetected ? 'critical' : 'moderate'));
   const [hazardType, setHazardType] = useState<HazardType>('POTHOLE');
-  const [estimatedDepthInches, setEstimatedDepthInches] = useState(3.5);
-  const [estimatedWidthInches, setEstimatedWidthInches] = useState(18);
-  const [surfaceType, setSurfaceType] = useState<'Asphalt' | 'Concrete' | 'Composite'>('Asphalt');
+  const [estimatedDepthInches] = useState(3.5);
+  const [estimatedWidthInches] = useState(18);
+  const [surfaceType] = useState<'Asphalt' | 'Concrete' | 'Composite'>('Asphalt');
   const [damageRisk, setDamageRisk] = useState<PotholeReport['damageRisk']>('Tire / Rim Damage');
   const [description, setDescription] = useState(
     initialTelemetry?.sensorDetected
-      ? `[Auto-Sensor Triggered] Vertical impact spike of ${initialTelemetry.bumpIntensity}G captured while driving.`
+      ? `[Auto-Sensor Triggered] Hardware shock spike of ${initialTelemetry.bumpIntensity}G captured while driving.`
       : ''
   );
   const [reporterName, setReporterName] = useState('');
   const [reporterEmail, setReporterEmail] = useState('');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Dynamic automated classification
+  // Dynamic jurisdiction classification
   const classification = classifyJurisdiction(latitude, longitude, `${roadName} ${address}`);
   const assignedAuth = classification.authority;
+
+  // Auto-populate nearest closest address on open
+  useEffect(() => {
+    if (initialCoords?.lat && initialCoords?.lng) {
+      setIsResolvingAddress(true);
+      reverseGeocode(initialCoords.lat, initialCoords.lng).then(geo => {
+        setAddress(geo.address);
+        setRoadName(geo.road);
+        setCity(geo.city);
+        setIsResolvingAddress(false);
+      });
+    } else if ('geolocation' in navigator) {
+      setIsResolvingAddress(true);
+      navigator.geolocation.getCurrentPosition(
+        async pos => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          setLatitude(lat);
+          setLongitude(lng);
+          const geo = await reverseGeocode(lat, lng);
+          if (geo && geo.address) {
+            setAddress(geo.address);
+            setRoadName(geo.road);
+            setCity(geo.city);
+          }
+          setIsResolvingAddress(false);
+        },
+        async () => {
+          const geo = await reverseGeocode(latitude, longitude);
+          setAddress(geo.address);
+          setRoadName(geo.road);
+          setCity(geo.city);
+          setIsResolvingAddress(false);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
+    } else {
+      reverseGeocode(latitude, longitude).then(geo => {
+        setAddress(geo.address);
+        setRoadName(geo.road);
+        setCity(geo.city);
+      });
+    }
+  }, []);
 
   // Handle Photo Capture / Upload
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,8 +174,8 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
     }
   };
 
-  // GPS Device Locator
-  const handleGpsPinpoint = () => {
+  // Manual trigger to re-pinpoint via GPS if desired
+  const handleRefreshLocation = () => {
     if ('geolocation' in navigator) {
       setIsResolvingAddress(true);
       navigator.geolocation.getCurrentPosition(
@@ -105,37 +185,59 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
           setLatitude(lat);
           setLongitude(lng);
           const geo = await reverseGeocode(lat, lng);
-          setAddress(geo.address);
-          setRoadName(geo.road);
-          setCity(geo.city);
+          if (geo && geo.address) {
+            setAddress(geo.address);
+            setRoadName(geo.road);
+            setCity(geo.city);
+          }
           setIsResolvingAddress(false);
         },
-        err => {
+        () => {
           setIsResolvingAddress(false);
-          alert('GPS location permission denied or timed out.');
+          alert('Could not update GPS location. Please check browser location permissions.');
         },
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
       );
     }
   };
 
-  // Handle Preset Selection
-  const handleApplyPreset = (p: typeof PRESETS[0]) => {
-    setLatitude(p.lat);
-    setLongitude(p.lng);
-    setRoadName(p.road);
-    setCity(p.city);
-    setAddress(`${p.road}, ${p.city}, GA`);
-    setTitle(`Pavement Void on ${p.road}`);
+  // Re-position when user clicks on the mini map
+  const handleMapPinMove = async (newLat: number, newLng: number) => {
+    setLatitude(newLat);
+    setLongitude(newLng);
+    setIsResolvingAddress(true);
+    const geo = await reverseGeocode(newLat, newLng);
+    if (geo && geo.address) {
+      setAddress(geo.address);
+      setRoadName(geo.road);
+      setCity(geo.city);
+    }
+    setIsResolvingAddress(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalTitle = title.trim() || `Road Hazard on ${roadName || 'Corridor'}`;
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    let finalImageUrl = photoPreview || undefined;
+    if (!finalImageUrl) {
+      try {
+        finalImageUrl = await generateMapSnapshot(latitude, longitude, {
+          severity,
+          roadName: roadName || address.split(',')[0],
+          landmark
+        });
+      } catch (err) {
+        console.warn('Failed to capture map snapshot:', err);
+      }
+    }
+
+    const finalTitle = title.trim() || `Road Hazard on ${roadName || address.split(',')[0] || 'Corridor'}`;
 
     onSubmitReport({
       title: finalTitle,
-      address: address || `${roadName}, ${city}, GA`,
+      address: address || 'Lawrenceville, GA',
       roadName: roadName || 'Local Roadway',
       city: city || 'Lawrenceville',
       jurisdiction: assignedAuth.name,
@@ -154,86 +256,104 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
       detectedBy: initialTelemetry?.sensorDetected ? 'Vehicle Accelerometer Telemetry' : 'User Mobile Report',
       sensorDetected: initialTelemetry?.sensorDetected || false,
       bumpIntensity: initialTelemetry?.bumpIntensity || 0,
-      description: description || `Reported ${severity} hazard on ${roadName}. Requires inspection by ${assignedAuth.name}.`,
+      description: description || `Reported ${severity} hazard on ${address}.`,
       landmark,
       reporterName: reporterName || 'Anonymous Reporter',
       reporterEmail,
-      imageUrl: photoPreview || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&w=600&q=80',
+      imageUrl: finalImageUrl,
       source: initialTelemetry?.sensorDetected ? 'sensor' : 'user'
     });
 
+    setIsSubmitting(false);
     onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative my-6 animate-in fade-in zoom-in-95">
+    <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 pt-14 sm:pt-6 overflow-y-auto">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl relative my-auto animate-in fade-in zoom-in-95 text-xs max-h-[90vh] flex flex-col">
         
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/20">
-              <Camera className="w-5 h-5" />
+        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 mb-3 shrink-0">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white flex items-center justify-center shadow-md">
+              <AlertTriangle className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white">Report Road Hazard / Pothole</h2>
+                <h2 className="text-sm sm:text-base font-bold text-white">Report Road Hazard</h2>
                 {initialTelemetry?.sensorDetected && (
-                  <span className="bg-rose-950 text-rose-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-rose-800 flex items-center gap-1">
-                    <Activity className="w-3 h-3" /> Auto-Shock Captured ({initialTelemetry.bumpIntensity}G)
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-950 text-rose-300 border border-rose-800 flex items-center gap-1 animate-pulse">
+                    <Activity className="w-2.5 h-2.5" />
+                    <span>{initialTelemetry.bumpIntensity}G Shock</span>
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-400">
-                Geotagged hazard docket routed directly to GGC Facilities, GCDOT, or City Maintenance
+              <p className="text-[11px] text-slate-400">
+                Official Incident Intake • Dispatched directly to municipal routing
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+          <button 
+            type="button"
+            onClick={onClose} 
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Quick Presets for fast testing */}
-        <div className="mb-4 bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/60 text-xs">
-          <div className="flex items-center justify-between mb-1.5 text-slate-300 font-medium">
-            <span className="flex items-center gap-1 text-teal-400 text-[11px]">
-              <Sparkles className="w-3.5 h-3.5" /> Gwinnett & GGC Quick Locations:
-            </span>
-            <button
-              type="button"
-              onClick={handleGpsPinpoint}
-              className="text-[11px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-bold transition"
-            >
-              <Crosshair className="w-3 h-3" /> Pinpoint via Phone GPS
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {PRESETS.map((p, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleApplyPreset(p)}
-                className="bg-slate-700/70 hover:bg-emerald-600 hover:text-white text-[11px] text-slate-200 px-2 py-1 rounded transition"
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+        {/* Scrollable Form Content */}
+        <form onSubmit={handleSubmit} className="space-y-3 overflow-y-auto pr-1">
           
-          {/* Photo Evidence (Mobile Camera Shutter) */}
+          {/* Map Location Centralized around Detected Shock / GPS */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-[11px] text-slate-300 font-semibold mb-1">
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-teal-400" />
+                <span>Shock Location Center</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-normal">
+                Tap map to adjust pin
+              </span>
+            </div>
+
+            <div className="relative rounded-xl overflow-hidden border border-slate-700/80 shadow-md bg-slate-950">
+              <div className="h-36 sm:h-40 w-full">
+                <MapContainer
+                  center={[latitude, longitude]}
+                  zoom={16}
+                  scrollWheelZoom={false}
+                  dragging={true}
+                  touchZoom={true}
+                  className="h-full w-full z-0"
+                >
+                  <TileLayer
+                    attribution='&copy; OpenStreetMap'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <ReportMapUpdater center={[latitude, longitude]} />
+                  <MapClickToReposition onPositionChange={handleMapPinMove} />
+                  <Marker
+                    position={[latitude, longitude]}
+                    icon={createReportMarkerIcon(severity)}
+                  />
+                </MapContainer>
+              </div>
+
+              {/* Coordinates Pill */}
+              <div className="absolute top-2 left-2 z-[1000] bg-slate-900/90 backdrop-blur px-2 py-0.5 rounded border border-slate-700 text-[10px] font-mono text-slate-200 shadow">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block mr-1 animate-pulse"></span>
+                <span>{latitude.toFixed(5)}, {longitude.toFixed(5)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Photo Evidence (Mobile Camera Shutter / Upload) */}
           <div>
             <label className="block text-slate-300 font-bold uppercase tracking-wider text-[11px] mb-1">
-              Photo Evidence (Camera Shutter / Upload)
+              Photo Evidence (Camera / Upload or Map Snapshot)
             </label>
-            <div className="border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl p-3 bg-slate-950/60 transition text-center relative group">
+            <div className="border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl p-2.5 bg-slate-950/60 transition text-center relative group">
               <input
                 type="file"
                 accept="image/*"
@@ -244,13 +364,13 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
               />
               
               {!photoPreview ? (
-                <label htmlFor="camera-photo-input" className="cursor-pointer py-3 block">
-                  <Camera className="w-8 h-8 mx-auto text-slate-400 group-hover:text-emerald-400 transition" />
+                <label htmlFor="camera-photo-input" className="cursor-pointer py-2 block">
+                  <Camera className="w-6 h-6 mx-auto text-slate-400 group-hover:text-emerald-400 transition" />
                   <span className="text-xs font-semibold text-slate-200 block mt-1">
-                    Tap to Launch Camera or Upload Image
+                    Tap to Launch Camera or Upload Image (Optional)
                   </span>
                   <span className="text-[10px] text-slate-400">
-                    Works directly on iOS Safari and Android Chrome (no app store required)
+                    If omitted, verified OpenStreetMap incident snapshot will be attached
                   </span>
                 </label>
               ) : (
@@ -258,18 +378,103 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
                   <img
                     src={photoPreview}
                     alt="Captured Pothole"
-                    className="w-full h-32 object-cover rounded-lg border border-slate-700"
+                    className="w-full h-28 object-cover rounded-lg border border-slate-700"
                   />
                   <button
                     type="button"
                     onClick={() => setPhotoPreview(null)}
-                    className="absolute top-2 right-2 p-1 bg-rose-600 hover:bg-rose-500 text-white rounded-full shadow"
+                    className="absolute top-2 right-2 bg-red-600 hover:bg-red-500 text-white p-1 rounded-full text-xs shadow"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Street Address (Auto-Populated with Closest Specific Address) */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-slate-300 font-semibold text-[11px] flex items-center gap-1">
+                <span>Nearest Street Address</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleRefreshLocation}
+                disabled={isResolvingAddress}
+                className="text-[10px] text-teal-400 hover:text-teal-300 flex items-center gap-1 font-bold transition disabled:opacity-50"
+              >
+                <RefreshCw className={`w-2.5 h-2.5 ${isResolvingAddress ? 'animate-spin' : ''}`} />
+                <span>{isResolvingAddress ? 'Resolving GPS...' : 'Refresh Address'}</span>
+              </button>
+            </div>
+            <input
+              type="text"
+              required
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="e.g. 1000 University Center Ln, Lawrenceville, GA 30043"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:ring-1 focus:ring-teal-500 outline-none text-xs font-medium"
+            />
+          </div>
+
+          {/* Hazard Title */}
+          <div>
+            <label className="block text-slate-300 font-semibold mb-1 text-[11px]">
+              Hazard Title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder={`Road Hazard on ${roadName || address.split(',')[0] || 'Corridor'}`}
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:ring-1 focus:ring-teal-500 outline-none text-xs"
+            />
+          </div>
+
+          {/* Severity & Damage Risk */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Severity</label>
+              <select
+                value={severity}
+                onChange={(e) => setSeverity(e.target.value as SeverityLevel)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-medium focus:ring-1 focus:ring-teal-500 outline-none"
+              >
+                <option value="low">Low - Minor Surface Dip</option>
+                <option value="moderate">Moderate - Noticeable Bump</option>
+                <option value="severe">Severe - Heavy Jar / Rim Impact</option>
+                <option value="critical">Critical - Immediate Hazard</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Damage Risk</label>
+              <select
+                value={damageRisk}
+                onChange={(e) => setDamageRisk(e.target.value as any)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-medium focus:ring-1 focus:ring-teal-500 outline-none"
+              >
+                <option value="Tire / Rim Damage">Tire / Rim Damage</option>
+                <option value="Suspension / Alignment">Suspension Risk</option>
+                <option value="Loss of Control Hazard">Axle / Control Hazard</option>
+                <option value="Cosmetic">Cosmetic Damage</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Landmark / Specific Location */}
+          <div>
+            <label className="block text-slate-300 font-semibold mb-1 text-[11px]">
+              Landmark / Specific Location
+            </label>
+            <input
+              type="text"
+              value={landmark}
+              onChange={(e) => setLandmark(e.target.value)}
+              placeholder="e.g. Near GGC Student Center / Right Lane / Turn In"
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:ring-1 focus:ring-teal-500 outline-none text-xs"
+            />
           </div>
 
           {/* Dynamic Automated Dispatch Authority Badge Card */}
@@ -301,166 +506,70 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
             </div>
           </div>
 
-          {/* Severity & Hazard Type */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">Severity Rating</label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {(['minor', 'moderate', 'severe', 'critical'] as SeverityLevel[]).map((lvl) => (
-                  <button
-                    key={lvl}
-                    type="button"
-                    onClick={() => setSeverity(lvl)}
-                    className={`py-1.5 rounded-lg font-bold text-[11px] capitalize transition border ${
-                      severity === lvl
-                        ? lvl === 'critical'
-                          ? 'bg-rose-700 text-white border-rose-500 shadow'
-                          : lvl === 'severe'
-                          ? 'bg-red-600 text-white border-red-500 shadow'
-                          : lvl === 'moderate'
-                          ? 'bg-amber-600 text-white border-amber-500 shadow'
-                          : 'bg-emerald-600 text-white border-emerald-500 shadow'
-                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
-                    }`}
-                  >
-                    {lvl}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">Hazard Category</label>
-              <select
-                value={hazardType}
-                onChange={(e) => setHazardType(e.target.value as HazardType)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-medium focus:ring-1 focus:ring-teal-500 outline-none"
-              >
-                <option value="POTHOLE">Pothole / Pavement Crater</option>
-                <option value="ROAD_CRACK">Alligator Fatigue Cracking</option>
-                <option value="MANHOLE_COLLAPSE">Sunken Drain / Manhole</option>
-                <option value="SINKHOLE_RISK">Sinkhole Warning Void</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Street Address & Corridor */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-slate-300 font-semibold">Street / Road Address</label>
-                {isResolvingAddress && <span className="text-[10px] text-teal-400">Resolving GPS...</span>}
-              </div>
-              <input
-                type="text"
-                required
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                placeholder="1000 University Center Ln, Lawrenceville, GA"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:ring-1 focus:ring-teal-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1">Landmark / Specific Location</label>
-              <input
-                type="text"
-                value={landmark}
-                onChange={(e) => setLandmark(e.target.value)}
-                placeholder="Near GGC Student Center / Entrance / Lane 2"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:ring-1 focus:ring-teal-500 outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Coordinates & Damage Risk */}
-          <div className="grid grid-cols-3 gap-2 font-mono">
-            <div>
-              <label className="block text-slate-400 text-[10px] mb-1 font-sans">Latitude</label>
-              <input
-                type="number"
-                step="0.0001"
-                value={latitude}
-                onChange={(e) => setLatitude(parseFloat(e.target.value))}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-white text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-400 text-[10px] mb-1 font-sans">Longitude</label>
-              <input
-                type="number"
-                step="0.0001"
-                value={longitude}
-                onChange={(e) => setLongitude(parseFloat(e.target.value))}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-white text-xs"
-              />
-            </div>
-            <div>
-              <label className="block text-slate-400 text-[10px] mb-1 font-sans">Damage Risk</label>
-              <select
-                value={damageRisk}
-                onChange={(e) => setDamageRisk(e.target.value as any)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-white text-xs font-sans"
-              >
-                <option value="Tire / Rim Damage">Tire/Rim Damage</option>
-                <option value="Suspension / Alignment">Suspension Risk</option>
-                <option value="Loss of Control Hazard">Axle/Control Risk</option>
-                <option value="Cosmetic">Cosmetic</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Description */}
+          {/* Notes & Driver Details */}
           <div>
-            <label className="block text-slate-300 font-semibold mb-1">Notes & Driver Hazard Details</label>
+            <label className="block text-slate-300 font-semibold mb-1 text-[11px]">
+              Notes & Driver Details
+            </label>
             <textarea
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Approx width/depth, right/left lane, rainwater pooling, cars bottoming out..."
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:ring-1 focus:ring-teal-500 outline-none resize-none"
+              placeholder="e.g. Right lane dip, approx 4 inches deep, water pooling..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-white placeholder-slate-500 focus:ring-1 focus:ring-teal-500 outline-none resize-none text-xs"
             />
           </div>
 
-          {/* Optional Reporter Info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          {/* Optional Reporter Name */}
+          <div className="grid grid-cols-2 gap-2 pt-0.5">
             <div>
-              <label className="block text-slate-400 text-[11px] mb-0.5">Your Name (Optional)</label>
+              <label className="block text-slate-400 text-[10px] mb-0.5">Your Name (Optional)</label>
               <input
                 type="text"
                 value={reporterName}
                 onChange={(e) => setReporterName(e.target.value)}
-                placeholder="Citizen or Student Name"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1 text-white text-xs"
+                placeholder="Student / Driver Name"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white text-[11px]"
               />
             </div>
             <div>
-              <label className="block text-slate-400 text-[11px] mb-0.5">Your Email for Updates</label>
+              <label className="block text-slate-400 text-[10px] mb-0.5">Your Email (Optional)</label>
               <input
                 type="email"
                 value={reporterEmail}
                 onChange={(e) => setReporterEmail(e.target.value)}
-                placeholder="student@ggc.edu or citizen@email.com"
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1 text-white text-xs"
+                placeholder="For status updates"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 text-white text-[11px]"
               />
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+          {/* Fixed Action Buttons */}
+          <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-slate-800 shrink-0 mt-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              disabled={isSubmitting}
+              className="px-3.5 py-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold shadow-lg shadow-emerald-600/25 transition active:scale-95 flex items-center gap-1.5"
+              disabled={isSubmitting}
+              className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold shadow-md shadow-emerald-600/25 transition active:scale-95 flex items-center gap-1.5 disabled:opacity-60"
             >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Submit & Route Incident</span>
+              {isSubmitting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Submitting Road Report...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Submit Road Report</span>
+                </>
+              )}
             </button>
           </div>
 

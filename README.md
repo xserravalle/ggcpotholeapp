@@ -111,7 +111,6 @@ The AI turned the post-drive queue into a forced daily review pop-up each mornin
 3. **Drive Sensor (`DriveSensorView`)**: In-vehicle monitoring screen showing live accelerometer readings, 3x spot hit clustering list, and demo simulator buttons.
 4. **My Reports (`MyReportsView`)**: Complete list of user-submitted and 3x-verified reports with in-place review, editing, and photo attachment.
 5. **Authority Hub (`AuthorityHubView`)**: Multi-agency dispatch desk for filtering work orders by city, updating repair status lifecycles, and exporting CSV work orders.
-6. **Analytics (`PotholeAnalyticsView`)**: Pavement condition index (PCI) charts, severity breakdown graphs, and recurring corridor risk rankings.
 
 ---
 

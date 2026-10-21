@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PotholeReport, SeverityLevel } from './types/pothole';
 import { TrackedHazardSpot } from './types/sensorQueue';
+import { DriveShockIncident } from './types/driveSession';
 import { ParkingLot, SimulationParams } from './types/parking';
 import { INITIAL_POTHOLES } from './data/potholesData';
 import { HIGH_RISK_ROAD_SEGMENTS } from './data/roadSegmentsData';
@@ -21,6 +22,7 @@ import { UnifiedDashboard } from './components/dashboard/UnifiedDashboard';
 import { PotholeMapView } from './components/potholes/PotholeMapView';
 import { DriveSensorView } from './components/sensor/DriveSensorView';
 import { MyReportsView } from './components/potholes/MyReportsView';
+import { AboutHelpView } from './components/about/AboutHelpView';
 import { AuthorityHubView } from './components/dispatcher/AuthorityHubView';
 import { PotholeAnalyticsView } from './components/potholes/PotholeAnalyticsView';
 
@@ -95,6 +97,11 @@ export function App() {
     isRainWeather: false
   });
 
+  const handleOpenDispatcher = (pothole?: PotholeReport) => {
+    setDispatcherTargetPothole(pothole || null);
+    setIsDispatcherOpen(true);
+  };
+
   // Verification Handler (Upvote)
   const handleVerifyPothole = (id: string) => {
     setPotholes(prev => prev.map(p => {
@@ -136,7 +143,7 @@ export function App() {
       userConfirmed: true,
       reportedAt: new Date().toISOString(),
       lastVerifiedAt: new Date().toISOString(),
-      workOrderNumber: `DISP-${trackingCode}`,
+      workOrderNumber: `REF-${trackingCode}`,
       distanceFromGgcMiles: dist,
       source: 'user'
     };
@@ -159,12 +166,6 @@ export function App() {
     if (selectedPothole && selectedPothole.id === id) {
       setSelectedPothole(prev => prev ? { ...prev, status: newStatus } : null);
     }
-  };
-
-  // Open Dispatcher for specific pothole
-  const handleOpenDispatcher = (p: PotholeReport) => {
-    setDispatcherTargetPothole(p);
-    setIsDispatcherOpen(true);
   };
 
   // Promote a spot that hit 3x into an official confirmed PotholeReport
@@ -209,12 +210,59 @@ export function App() {
         lastDetectedAt: spot.lastHitAt
       },
       bumpIntensity: spot.maxGForce,
-      workOrderNumber: `DISP-${newId}`,
+      workOrderNumber: `REF-${newId}`,
       distanceFromGgcMiles: dist,
       source: 'sensor'
     };
 
     setPotholes(prev => [newReport, ...prev]);
+  };
+
+  // Promote all incidents from a completed Drive Session to official reports
+  const handlePromoteDriveIncidents = (incidents: DriveShockIncident[]) => {
+    const newReports: PotholeReport[] = incidents.map(inc => {
+      const uuid = crypto.randomUUID();
+      const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
+      const newId = `GW-POT-${uuid}`;
+      const dist = distanceFromCampusMiles({ lat: inc.latitude, lng: inc.longitude });
+      const classification = classifyJurisdiction(inc.latitude, inc.longitude, inc.roadName);
+
+      return {
+        id: newId,
+        trackingCode,
+        title: `Pothole on ${inc.roadName || 'Roadway'}`,
+        roadName: inc.roadName || 'Corridor',
+        address: inc.address || `${inc.latitude.toFixed(5)}, ${inc.longitude.toFixed(5)}`,
+        city: inc.city || 'Lawrenceville',
+        jurisdiction: classification.authority.name,
+        authorityId: classification.authority.id,
+        authorityName: classification.authority.name,
+        authorityEmail: classification.authority.contactEmail,
+        latitude: inc.latitude,
+        longitude: inc.longitude,
+        severity: inc.severity,
+        hazardType: 'POTHOLE',
+        status: 'reported',
+        verificationsCount: 1,
+        userConfirmed: true,
+        reportedAt: new Date(inc.timestamp).toISOString(),
+        lastVerifiedAt: new Date(inc.timestamp).toISOString(),
+        description: `Logged during Drive-Time Patrol (${inc.peakG.toFixed(2)}G Shock). Nearest address: ${inc.address}.`,
+        estimatedDepthInches: inc.peakG >= 6.0 ? 3.5 : 2.5,
+        estimatedWidthInches: inc.peakG >= 6.0 ? 20 : 14,
+        surfaceType: 'Asphalt',
+        damageRisk: inc.peakG >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
+        detectedBy: 'Vehicle Accelerometer Telemetry',
+        sensorDetected: true,
+        bumpIntensity: inc.peakG,
+        imageUrl: inc.imageUrl,
+        workOrderNumber: `REF-${newId}`,
+        distanceFromGgcMiles: dist,
+        source: 'sensor'
+      };
+    });
+
+    setPotholes(prev => [...newReports, ...prev]);
   };
 
   // Update report details (from My Reports edit modal)
@@ -272,13 +320,15 @@ export function App() {
             onMapDropPin={(lat, lng, address) => {
               setDroppedPinCoords({ lat, lng, address });
             }}
+            onNavigateToDrive={() => setActiveTab('sensor')}
           />
         )}
 
-        {/* Tab 3: Dedicated Drive Sensor View with Silent 3x Auto-Logging */}
+        {/* Tab 3: Dedicated Drive Sensor View with Silent Auto-Logging */}
         {activeTab === 'sensor' && (
           <DriveSensorView
             onPromoteSpotToReport={handlePromoteSpotToReport}
+            onPromoteDriveIncidents={handlePromoteDriveIncidents}
             onNavigateToMyReports={() => setActiveTab('my-reports')}
           />
         )}
@@ -318,6 +368,14 @@ export function App() {
             roadSegments={roadSegments}
           />
         )}
+
+        {/* Tab 6: About & Help Documentation */}
+        {activeTab === 'about' && (
+          <AboutHelpView
+            onNavigateTab={setActiveTab}
+            onOpenReportModal={() => setIsReportModalOpen(true)}
+          />
+        )}
       </main>
 
       {/* Pothole Inspector Drawer */}
@@ -345,7 +403,7 @@ export function App() {
         initialCoords={droppedPinCoords}
       />
 
-      {/* Incident Docket Success & Dispatch Modal */}
+      {/* Incident Docket Success Modal */}
       <DocketSuccessModal
         isOpen={!!docketSuccessReport}
         onClose={() => setDocketSuccessReport(null)}
@@ -401,15 +459,23 @@ export function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenReportModal={() => setIsReportModalOpen(true)}
       />
 
       {/* Streamlined Desktop Footer */}
       <footer className="shrink-0 hidden md:block bg-slate-900 border-t border-slate-800 py-3.5 px-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="text-slate-400 font-medium">
-            &copy; 2026 GGC SansPotholes &bull; Georgia Gwinnett College ITEC 4860
+            &copy; 2026 GGC SansPotholes &bull; Georgia Gwinnett College ITEC 4860 &bull; Erick Vale, Tina Ly, Hina Luna, Peyton Holland
           </span>
           <div className="flex items-center space-x-4 text-slate-500">
+            <button
+              onClick={() => setActiveTab('about')}
+              className="hover:text-slate-300 transition"
+            >
+              About & Help
+            </button>
+            <span>&bull;</span>
             {isAdmin ? (
               <>
                 <button

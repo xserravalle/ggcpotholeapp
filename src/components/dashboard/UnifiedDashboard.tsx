@@ -74,6 +74,12 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
           <p className="text-xs sm:text-sm text-slate-300 mt-1">
             Real-time occupancy for Georgia Gwinnett College student decks, faculty lots, and perimeter parking.
           </p>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-[11px] font-mono text-amber-300 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/30 inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              Simulated Demo Feed (Academic Prototype)
+            </span>
+          </div>
         </div>
 
         {/* Quick Stat Badges */}

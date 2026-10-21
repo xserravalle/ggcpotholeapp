@@ -16,7 +16,9 @@ import {
   Building2,
   Clock,
   Volume2,
-  FileText
+  FileText,
+  Route,
+  Loader2
 } from 'lucide-react';
 
 interface PotholeMapViewProps {
@@ -26,6 +28,7 @@ interface PotholeMapViewProps {
   onSelectPothole: (pothole: PotholeReport) => void;
   onVerifyPothole: (id: string) => void;
   onMapDropPin?: (lat: number, lng: number, address: string) => void;
+  onNavigateToDrive?: () => void;
 }
 
 // Controller to smoothly pan & zoom map
@@ -45,6 +48,22 @@ const MapClickHandler: React.FC<{ onMapClick: (lat: number, lng: number) => void
     }
   });
   return null;
+};
+
+// User Live GPS Beacon Icon (Pulsing Radar Wave)
+const createUserLocationBeaconIcon = () => {
+  return L.divIcon({
+    html: `
+      <div style="position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+        <div style="position: absolute; width: 36px; height: 36px; border-radius: 50%; background: rgba(59, 130, 246, 0.45); animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+        <div style="width: 18px; height: 18px; background: #2563eb; border: 3px solid #ffffff; border-radius: 50%; box-shadow: 0 0 12px rgba(37, 99, 235, 0.9); position: relative; z-index: 2;"></div>
+      </div>
+    `,
+    className: 'user-gps-beacon-icon',
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -18]
+  });
 };
 
 // Dynamic Marker Icon Generator with Theme Awareness (Colorblind, High Contrast, Standard GGC, Dark)
@@ -152,7 +171,7 @@ const createTrafficLightIcon = (
         box-shadow: 0 4px 8px -1px rgba(0,0,0,0.5); 
         display: flex; 
         align-items: center; 
-        justify-content: center;
+        justify-content: center; 
         color: ${textColor};
         font-weight: 900;
         font-size: 13px;
@@ -225,30 +244,92 @@ function getFreshnessInfo(reportedAt: string, lastVerifiedAt?: string) {
   }
 }
 
+type ViewScope = 'my-location' | 'campus' | 'gwinnett';
+
 export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   potholes,
   roadSegments,
   selectedPothole,
   onSelectPothole,
   onVerifyPothole,
-  onMapDropPin
+  onMapDropPin,
+  onNavigateToDrive
 }) => {
   const { speakPothole, theme } = useAccessibility();
-  // Map View Scopes
-  const [viewScope, setViewScope] = useState<'campus' | 'gwinnett'>('campus');
+
+  // User GPS Location State
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy?: number } | null>(null);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [locationStatusText, setLocationStatusText] = useState<string>('Acquiring GPS...');
+
+  // Map View Scopes: Defaults to 'my-location' as requested
+  const [viewScope, setViewScope] = useState<ViewScope>('my-location');
+  const [activePresetId, setActivePresetId] = useState<string>('my-location');
+
+  // Initial map target: defaults to user location on mount, with GGC fallback
   const [mapTarget, setMapTarget] = useState<{ center: [number, number]; zoom: number }>({
     center: [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng],
-    zoom: 14
+    zoom: 15
   });
 
-  const [activePresetId, setActivePresetId] = useState<string>('ggc');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [droppedPin, setDroppedPin] = useState<{ lat: number; lng: number; address: string } | null>(null);
 
+  // Default to User's GPS Location on Component Mount
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      setIsLocating(true);
+      setLocationStatusText('Acquiring GPS location...');
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const accuracy = pos.coords.accuracy;
+          setUserLocation({ lat, lng, accuracy });
+          setMapTarget({ center: [lat, lng], zoom: 16 });
+          setViewScope('my-location');
+          setActivePresetId('my-location');
+          setIsLocating(false);
+          setLocationStatusText('GPS Locked');
+        },
+        err => {
+          console.warn('Initial GPS positioning denied or unavailable; falling back to GGC campus:', err.message);
+          setViewScope('campus');
+          setActivePresetId('ggc');
+          setMapTarget({ center: [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng], zoom: 14 });
+          setIsLocating(false);
+          setLocationStatusText('GGC Campus (GPS Offline)');
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+      );
+    } else {
+      setViewScope('campus');
+      setActivePresetId('ggc');
+      setLocationStatusText('GGC Campus');
+    }
+  }, []);
+
+  // Automatically center map around selected pothole shock location
+  useEffect(() => {
+    if (selectedPothole) {
+      setMapTarget({
+        center: [selectedPothole.latitude, selectedPothole.longitude],
+        zoom: 16
+      });
+    }
+  }, [selectedPothole]);
+
   // Toggle View Scope
-  const handleScopeChange = (scope: 'campus' | 'gwinnett') => {
+  const handleScopeChange = (scope: ViewScope) => {
     setViewScope(scope);
-    if (scope === 'campus') {
+    if (scope === 'my-location') {
+      if (userLocation) {
+        setActivePresetId('my-location');
+        setMapTarget({ center: [userLocation.lat, userLocation.lng], zoom: 16 });
+      } else {
+        handleGpsLocate();
+      }
+    } else if (scope === 'campus') {
       setActivePresetId('ggc');
       setMapTarget({ center: [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng], zoom: 14 });
     } else {
@@ -257,28 +338,44 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
     }
   };
 
-  // Quick Preset Click
+  // Quick Preset Click from Municipal bar
   const handlePresetSelect = (lat: number, lng: number, zoom: number, id: string) => {
     setActivePresetId(id);
     setMapTarget({ center: [lat, lng], zoom });
+    if (id === 'my-location') {
+      setViewScope('my-location');
+    } else if (id === 'ggc') {
+      setViewScope('campus');
+    } else {
+      setViewScope('gwinnett');
+    }
   };
 
-  // GPS Device Geolocation
+  // Explicit User Re-locate Button Click
   const handleGpsLocate = () => {
     if ('geolocation' in navigator) {
+      setIsLocating(true);
+      setLocationStatusText('Locating...');
       navigator.geolocation.getCurrentPosition(
-        async pos => {
+        pos => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
+          const accuracy = pos.coords.accuracy;
+          setUserLocation({ lat, lng, accuracy });
           setMapTarget({ center: [lat, lng], zoom: 16 });
-          const geo = await reverseGeocode(lat, lng);
-          setDroppedPin({ lat, lng, address: geo.address });
+          setViewScope('my-location');
+          setActivePresetId('my-location');
+          setIsLocating(false);
+          setLocationStatusText('GPS Locked');
         },
-        () => {
-          alert('GPS location access denied or unavailable.');
+        err => {
+          setIsLocating(false);
+          alert('GPS location access denied or unavailable: ' + err.message);
         },
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: true, timeout: 10000 }
       );
+    } else {
+      alert('Geolocation is not supported by your browser.');
     }
   };
 
@@ -298,6 +395,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
       if (severityFilter === 'moderate' && p.severity !== 'moderate') return false;
       if (severityFilter === 'resolved' && p.status !== 'repaired') return false;
       
+      // When explicitly scoped to GGC Campus, filter by 1.8 mi radius
       if (viewScope === 'campus') {
         const dist = p.distanceFromGgcMiles ?? distanceFromCampusMiles({ lat: p.latitude, lng: p.longitude });
         if (dist > 1.8) return false;
@@ -309,45 +407,79 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   return (
     <div className="flex flex-col h-[calc(100vh-125px)] relative select-none">
       
-      {/* Top Scope Switcher & Clean Top-Right Filter Bar */}
+      {/* Top Scope Switcher & Action Toolbar */}
       <div className="bg-slate-900 border-b border-slate-800 px-3 sm:px-4 py-2 z-20 flex flex-wrap items-center justify-between gap-2 text-xs">
         
-        {/* Left: View Scope Switcher & GPS */}
-        <div className="flex items-center space-x-2">
-          <div className="inline-flex rounded-xl bg-slate-800 p-0.5 border border-slate-700 font-semibold">
+        {/* Left: View Scope Switcher & Prominent Drive-Time Mapping Button */}
+        <div className="flex items-center flex-wrap gap-2">
+          
+          {/* Scope Segmented Control */}
+          <div className="inline-flex rounded-xl bg-slate-800 p-0.5 border border-slate-700 font-semibold shadow-xs">
+            {/* 1. Default: My Location */}
+            <button
+              onClick={() => handleScopeChange('my-location')}
+              className={`px-2.5 sm:px-3 py-1 rounded-lg transition flex items-center gap-1.5 ${
+                viewScope === 'my-location'
+                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+              title="Default view: Centered on your physical GPS position"
+            >
+              {isLocating ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-300" />
+              ) : (
+                <Crosshair className={`w-3.5 h-3.5 ${userLocation ? 'text-blue-300' : 'text-slate-400'}`} />
+              )}
+              <span>My Location</span>
+              {userLocation && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+              )}
+            </button>
+
+            {/* 2. GGC Campus */}
             <button
               onClick={() => handleScopeChange('campus')}
-              className={`px-3 py-1 rounded-lg transition flex items-center gap-1.5 ${
+              className={`px-2.5 sm:px-3 py-1 rounded-lg transition flex items-center gap-1.5 ${
                 viewScope === 'campus'
                   ? 'bg-emerald-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:text-white'
               }`}
+              title="Center on GGC Campus (1-mile radius perimeter)"
             >
               <GraduationCap className="w-3.5 h-3.5" />
               <span>GGC Campus</span>
             </button>
 
+            {/* 3. All Gwinnett */}
             <button
               onClick={() => handleScopeChange('gwinnett')}
-              className={`px-3 py-1 rounded-lg transition flex items-center gap-1.5 ${
+              className={`px-2.5 sm:px-3 py-1 rounded-lg transition flex items-center gap-1.5 ${
                 viewScope === 'gwinnett'
-                  ? 'bg-blue-600 text-white shadow-xs font-bold'
+                  ? 'bg-purple-600 text-white shadow-xs font-bold'
                   : 'text-slate-400 hover:text-white'
               }`}
+              title="Show all hazards across Gwinnett County"
             >
               <MapIcon className="w-3.5 h-3.5" />
               <span>All Gwinnett</span>
             </button>
           </div>
 
-          <button
-            onClick={handleGpsLocate}
-            className="flex items-center space-x-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 font-medium transition"
-            title="Locate via phone GPS"
-          >
-            <Crosshair className="w-3.5 h-3.5 text-teal-400" />
-            <span className="hidden sm:inline">Near Me</span>
-          </button>
+          {/* Predominant Drive-Time Mapping Button (Next to Map controls for easy navigation) */}
+          {onNavigateToDrive && (
+            <button
+              onClick={onNavigateToDrive}
+              className="flex items-center space-x-1.5 px-3 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold transition shadow-sm active:scale-95 border border-teal-400/40 text-xs whitespace-nowrap"
+              title="Switch directly to Drive-Time Mapping to track road shocks while driving"
+            >
+              <Route className="w-3.5 h-3.5 text-white" />
+              <span>Drive-Time Mapping</span>
+              <span className="text-[10px] bg-teal-950/70 text-teal-200 px-1.5 py-0.2 rounded font-mono uppercase tracking-wide">
+                Patrol
+              </span>
+            </button>
+          )}
+
         </div>
 
         {/* Right: Consolidated Traffic Light Filter */}
@@ -371,10 +503,11 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
 
       </div>
 
-      {/* Municipal Quick Jump Presets */}
+      {/* Municipal Quick Jump Presets (with Live User GPS Location chip) */}
       <MunicipalQuickJump
         onSelectPreset={handlePresetSelect}
         activePresetId={activePresetId}
+        userLocation={userLocation}
       />
 
       {/* Main Full-Height Leaflet Map Canvas */}
@@ -394,6 +527,45 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             maxZoom={19}
           />
+
+          {/* User Live GPS Location Beacon Marker */}
+          {userLocation && (
+            <>
+              <Marker
+                position={[userLocation.lat, userLocation.lng]}
+                icon={createUserLocationBeaconIcon()}
+              >
+                <Popup>
+                  <div className="text-slate-900 text-xs p-1">
+                    <strong className="text-blue-700 text-sm block">📍 You Are Here</strong>
+                    <p className="text-slate-600 mt-0.5">
+                      {userLocation.accuracy ? `GPS Accuracy: ±${Math.round(userLocation.accuracy)}m` : 'Current physical GPS coordinates'}
+                    </p>
+                    <p className="text-[10px] text-slate-500 font-mono mt-1">
+                      {formatCoords(userLocation.lat, userLocation.lng)}
+                    </p>
+                    <span className="text-[10px] text-emerald-700 font-semibold block mt-1">
+                      Default map view centered at your live location.
+                    </span>
+                  </div>
+                </Popup>
+              </Marker>
+
+              {userLocation.accuracy && userLocation.accuracy > 0 && userLocation.accuracy < 500 && (
+                <Circle
+                  center={[userLocation.lat, userLocation.lng]}
+                  radius={userLocation.accuracy}
+                  pathOptions={{
+                    color: '#3b82f6',
+                    weight: 1,
+                    fillColor: '#60a5fa',
+                    fillOpacity: 0.12,
+                    dashArray: '4, 4'
+                  }}
+                />
+              )}
+            </>
+          )}
 
           {/* GGC Campus 1-Mile Radius Circle */}
           <Circle
