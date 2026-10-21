@@ -1,8 +1,16 @@
 import React, { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
+import { AccessibilityProvider } from '@/context/AccessibilityContext';
+import { AuthProvider } from '@/context/AuthContext';
 
 const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
-  return <>{children}</>;
+  return (
+    <AuthProvider>
+      <AccessibilityProvider>
+        {children}
+      </AccessibilityProvider>
+    </AuthProvider>
+  );
 };
 
 const customRender = (

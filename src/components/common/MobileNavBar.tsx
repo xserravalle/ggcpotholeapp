@@ -1,11 +1,12 @@
 import React from 'react';
-import { LayoutDashboard, MapPin, Plus, Route, CheckCircle2 } from 'lucide-react';
+import { Car, MapPin, Plus, Route, CheckCircle2 } from 'lucide-react';
 import { ActiveTab } from '../Header';
 
 interface MobileNavBarProps {
   activeTab: ActiveTab;
   setActiveTab: (tab: ActiveTab) => void;
-  onOpenReportModal: () => void;
+  onOpenSettings?: () => void;
+  onOpenReportModal?: () => void;
 }
 
 export const MobileNavBar: React.FC<MobileNavBarProps> = ({
@@ -19,15 +20,15 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
       {/* 1. Map Tab */}
       <button
         onClick={() => setActiveTab('potholes')}
-        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
-          activeTab === 'potholes' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+        className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
+          activeTab === 'potholes' ? 'text-emerald-400 font-bold' : 'text-slate-300 hover:text-white'
         }`}
       >
         <MapPin className="w-5 h-5" />
         <span className="text-[10px] mt-0.5">Map</span>
       </button>
 
-      {/* 2. Drive-Time Mapping Tab (Prominently next to Map) */}
+      {/* 2. Drive-Time Mapping Tab */}
       <button
         onClick={() => setActiveTab('sensor')}
         className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
@@ -47,22 +48,22 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
         <Plus className="w-6 h-6 stroke-[3]" />
       </button>
 
-      {/* 4. Parking & Hazards Tab */}
+      {/* 4. Parking Tab */}
       <button
         onClick={() => setActiveTab('dashboard')}
-        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
-          activeTab === 'dashboard' ? 'text-teal-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+        className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
+          activeTab === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-300 hover:text-white'
         }`}
       >
-        <LayoutDashboard className="w-5 h-5" />
+        <Car className="w-5 h-5" />
         <span className="text-[10px] mt-0.5">Parking</span>
       </button>
 
       {/* 5. My Reports Tab */}
       <button
         onClick={() => setActiveTab('my-reports')}
-        className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
-          activeTab === 'my-reports' ? 'text-blue-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+        className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
+          activeTab === 'my-reports' ? 'text-blue-400 font-bold' : 'text-slate-300 hover:text-white'
         }`}
       >
         <CheckCircle2 className="w-5 h-5" />

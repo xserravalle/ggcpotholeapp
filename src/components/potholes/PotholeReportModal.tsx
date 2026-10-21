@@ -5,6 +5,7 @@ import { PotholeReport, SeverityLevel, HazardType } from '../../types/pothole';
 import { classifyJurisdiction } from '../../services/jurisdictionClassifier';
 import { reverseGeocode } from '../../services/reverseGeocoding';
 import { generateMapSnapshot } from '../../services/mapSnapshotService';
+import { compressImageFile } from '../../utils/imageCompressor';
 import { 
   X, 
   MapPin, 
@@ -13,7 +14,9 @@ import {
   Mail,
   AlertTriangle,
   RefreshCw,
-  Camera
+  Camera,
+  Building2,
+  GraduationCap
 } from 'lucide-react';
 
 interface PotholeReportModalProps {
@@ -106,11 +109,9 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   );
   const [reporterName, setReporterName] = useState('');
   const [reporterEmail, setReporterEmail] = useState('');
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Testing Destination Email
-  const TARGET_EMAIL = 'peyton.holland@gmail.com';
 
   // Dynamic jurisdiction classification
   const classification = classifyJurisdiction(latitude, longitude, `${roadName} ${address}`);
@@ -160,6 +161,19 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
     }
   }, []);
 
+  // Handle Photo Capture / Upload
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const compressedDataUrl = await compressImageFile(file);
+        setPhotoPreview(compressedDataUrl);
+      } catch (err) {
+        console.error('Failed to compress image:', err);
+      }
+    }
+  };
+
   // Manual trigger to re-pinpoint via GPS if desired
   const handleRefreshLocation = () => {
     if ('geolocation' in navigator) {
@@ -206,15 +220,17 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
     if (isSubmitting) return;
     setIsSubmitting(true);
 
-    let snapshotUrl = '';
-    try {
-      snapshotUrl = await generateMapSnapshot(latitude, longitude, {
-        severity,
-        roadName: roadName || address.split(',')[0],
-        landmark
-      });
-    } catch (err) {
-      console.warn('Failed to capture map snapshot:', err);
+    let finalImageUrl = photoPreview || undefined;
+    if (!finalImageUrl) {
+      try {
+        finalImageUrl = await generateMapSnapshot(latitude, longitude, {
+          severity,
+          roadName: roadName || address.split(',')[0],
+          landmark
+        });
+      } catch (err) {
+        console.warn('Failed to capture map snapshot:', err);
+      }
     }
 
     const finalTitle = title.trim() || `Road Hazard on ${roadName || address.split(',')[0] || 'Corridor'}`;
@@ -226,8 +242,8 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
       city: city || 'Lawrenceville',
       jurisdiction: assignedAuth.name,
       authorityId: assignedAuth.id,
-      authorityName: 'GGC SansPotholes Maintenance Router',
-      authorityEmail: TARGET_EMAIL,
+      authorityName: assignedAuth.name,
+      authorityEmail: assignedAuth.contactEmail,
       latitude,
       longitude,
       severity,
@@ -240,11 +256,11 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
       detectedBy: initialTelemetry?.sensorDetected ? 'Vehicle Accelerometer Telemetry' : 'User Mobile Report',
       sensorDetected: initialTelemetry?.sensorDetected || false,
       bumpIntensity: initialTelemetry?.bumpIntensity || 0,
-      description: description || `Reported ${severity} hazard on ${address}. Routed to ${TARGET_EMAIL}.`,
+      description: description || `Reported ${severity} hazard on ${address}.`,
       landmark,
       reporterName: reporterName || 'Anonymous Reporter',
       reporterEmail,
-      imageUrl: snapshotUrl || undefined,
+      imageUrl: finalImageUrl,
       source: initialTelemetry?.sensorDetected ? 'sensor' : 'user'
     });
 
@@ -273,7 +289,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
                 )}
               </div>
               <p className="text-[11px] text-slate-400">
-                Official Incident Intake • Dispatched directly to testing inbox
+                Official Incident Intake • Dispatched directly to municipal routing
               </p>
             </div>
           </div>
@@ -289,22 +305,6 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
         {/* Scrollable Form Content */}
         <form onSubmit={handleSubmit} className="space-y-3 overflow-y-auto pr-1">
           
-          {/* Dispatch Notice Card */}
-          <div className="bg-slate-950/80 border border-teal-900/60 rounded-xl p-2.5 flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="w-6 h-6 rounded-lg bg-teal-950 border border-teal-700/80 flex items-center justify-center text-teal-400 shrink-0">
-                <Mail className="w-3.5 h-3.5" />
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-400 block">Report Dispatched To:</span>
-                <span className="font-mono font-bold text-teal-300 text-xs">{TARGET_EMAIL}</span>
-              </div>
-            </div>
-            <span className="text-[10px] bg-teal-950 text-teal-400 border border-teal-800/80 px-2 py-0.5 rounded-full font-semibold">
-              Testing Mode
-            </span>
-          </div>
-
           {/* Map Location Centralized around Detected Shock / GPS */}
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[11px] text-slate-300 font-semibold mb-1">
@@ -345,12 +345,50 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block mr-1 animate-pulse"></span>
                 <span>{latitude.toFixed(5)}, {longitude.toFixed(5)}</span>
               </div>
+            </div>
+          </div>
 
-              {/* Snapshot Included Badge */}
-              <div className="absolute bottom-2 right-2 z-[1000] bg-slate-900/90 backdrop-blur px-2 py-0.5 rounded border border-slate-700/80 text-[10px] font-mono text-teal-300 shadow flex items-center gap-1">
-                <Camera className="w-3 h-3 text-teal-400" />
-                <span>Screenshot Auto-Captured</span>
-              </div>
+          {/* Photo Evidence (Mobile Camera Shutter / Upload) */}
+          <div>
+            <label className="block text-slate-300 font-bold uppercase tracking-wider text-[11px] mb-1">
+              Photo Evidence (Camera / Upload or Map Snapshot)
+            </label>
+            <div className="border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl p-2.5 bg-slate-950/60 transition text-center relative group">
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoChange}
+                className="hidden"
+                id="camera-photo-input"
+              />
+              
+              {!photoPreview ? (
+                <label htmlFor="camera-photo-input" className="cursor-pointer py-2 block">
+                  <Camera className="w-6 h-6 mx-auto text-slate-400 group-hover:text-emerald-400 transition" />
+                  <span className="text-xs font-semibold text-slate-200 block mt-1">
+                    Tap to Launch Camera or Upload Image (Optional)
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    If omitted, verified OpenStreetMap incident snapshot will be attached
+                  </span>
+                </label>
+              ) : (
+                <div className="relative">
+                  <img
+                    src={photoPreview}
+                    alt="Captured Pothole"
+                    className="w-full h-28 object-cover rounded-lg border border-slate-700"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setPhotoPreview(null)}
+                    className="absolute top-2 right-2 bg-red-600 hover:bg-red-500 text-white p-1 rounded-full text-xs shadow"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -439,6 +477,35 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
             />
           </div>
 
+          {/* Dynamic Automated Dispatch Authority Badge Card */}
+          <div className="bg-slate-800/80 border border-slate-700 rounded-xl p-3 flex items-start space-x-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-950 text-emerald-400 border border-emerald-800 flex items-center justify-center shrink-0 mt-0.5">
+              {assignedAuth.id === 'GGC' ? <GraduationCap className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase font-bold text-slate-300 tracking-wider">
+                  Automated Dispatch Routing
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">
+                  {assignedAuth.slaTurnaround} Turnaround
+                </span>
+              </div>
+              <div className="text-sm font-bold text-white mt-0.5 truncate">
+                {assignedAuth.name}
+              </div>
+              <div className="text-[11px] text-slate-300 mt-0.5">
+                {classification.matchReason}
+              </div>
+              <div className="flex items-center gap-3 mt-1.5 text-[11px] text-slate-200 font-mono">
+                <span className="flex items-center gap-1">
+                  <Mail className="w-3 h-3 text-emerald-400" /> {assignedAuth.contactEmail}
+                </span>
+                <span>☎ {assignedAuth.potholeHotline}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Notes & Driver Details */}
           <div>
             <label className="block text-slate-300 font-semibold mb-1 text-[11px]">
@@ -495,7 +562,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
               {isSubmitting ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Capturing Location Image...</span>
+                  <span>Submitting Road Report...</span>
                 </>
               ) : (
                 <>

@@ -9,11 +9,13 @@ import { PARKING_LOTS } from './data/parkingLotsData';
 import { loadStoredPotholes, saveStoredPotholes } from './services/storageService';
 import { distanceFromCampusMiles } from './services/distanceCalculator';
 import { classifyJurisdiction } from './services/jurisdictionClassifier';
+import { useAuth } from './context/AuthContext';
 
 // Common Components
 import { Header, ActiveTab } from './components/Header';
 import { MobileNavBar } from './components/common/MobileNavBar';
-import { AccessibilityBar } from './components/common/AccessibilityBar';
+import { SettingsModal } from './components/common/SettingsModal';
+import { AuthModal } from './components/common/AuthModal';
 
 // Views
 import { UnifiedDashboard } from './components/dashboard/UnifiedDashboard';
@@ -21,14 +23,19 @@ import { PotholeMapView } from './components/potholes/PotholeMapView';
 import { DriveSensorView } from './components/sensor/DriveSensorView';
 import { MyReportsView } from './components/potholes/MyReportsView';
 import { AboutHelpView } from './components/about/AboutHelpView';
+import { AuthorityHubView } from './components/dispatcher/AuthorityHubView';
+import { PotholeAnalyticsView } from './components/potholes/PotholeAnalyticsView';
 
 // Modals & Drawers
 import { PotholeDetailDrawer } from './components/potholes/PotholeDetailDrawer';
 import { PotholeReportModal } from './components/potholes/PotholeReportModal';
 import { DocketSuccessModal } from './components/potholes/DocketSuccessModal';
+import { MunicipalDispatcherModal } from './components/potholes/MunicipalDispatcherModal';
 import { LotDetailModal } from './components/parking/LotDetailModal';
 
 export function App() {
+  const { isAdmin, isAuthModalOpen, closeAuthModal, openAuthModal } = useAuth();
+
   // Navigation: Default to Map & Hazards
   const [activeTab, setActiveTab] = useState<ActiveTab>('potholes');
 
@@ -42,12 +49,27 @@ export function App() {
     saveStoredPotholes(potholes);
   }, [potholes]);
 
+  // Always reset window scroll position to top on tab change
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [activeTab]);
+
+  // Route security: if a non-admin is currently on an admin-only tab, redirect safely to Map
+  useEffect(() => {
+    if (!isAdmin && (activeTab === 'dispatcher' || activeTab === 'analytics')) {
+      setActiveTab('potholes');
+    }
+  }, [isAdmin, activeTab]);
+
   // Interactive Selection State
   const [selectedPothole, setSelectedPothole] = useState<PotholeReport | null>(null);
   const [selectedLot, setSelectedLot] = useState<ParkingLot | null>(null);
 
   // Modals & Triggers
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDispatcherOpen, setIsDispatcherOpen] = useState(false);
+  const [dispatcherTargetPothole, setDispatcherTargetPothole] = useState<PotholeReport | null>(null);
   const [docketSuccessReport, setDocketSuccessReport] = useState<PotholeReport | null>(null);
 
   // Sensor / Accelerometer Trigger State
@@ -74,6 +96,11 @@ export function App() {
     isGgcClassChange: false,
     isRainWeather: false
   });
+
+  const handleOpenDispatcher = (pothole?: PotholeReport) => {
+    setDispatcherTargetPothole(pothole || null);
+    setIsDispatcherOpen(true);
+  };
 
   // Verification Handler (Upvote)
   const handleVerifyPothole = (id: string) => {
@@ -255,39 +282,30 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-teal-500 selection:text-slate-950 pb-16 md:pb-0">
+    <div className={`bg-slate-950 text-slate-100 flex flex-col selection:bg-teal-500 selection:text-slate-950 ${
+      activeTab === 'my-reports' 
+        ? 'h-screen max-h-screen overflow-hidden pb-16 md:pb-0' 
+        : 'min-h-screen pb-16 md:pb-0'
+    }`}>
       
       {/* Universal Streamlined Header */}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenReportModal={() => {
-          setSensorTriggeredTelemetry(undefined);
-          setIsReportModalOpen(true);
-        }}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenAuthModal={openAuthModal}
         potholeCount={potholes.length}
       />
 
-      {/* Accessible Sizing, Theme & Voice Controls Bar */}
-      <AccessibilityBar potholes={potholes} />
-
       {/* Main Tab Content */}
-      <main className="flex-1">
-        {/* Tab 1: Consolidated Dashboard */}
+      <main className={`flex-1 ${activeTab === 'my-reports' ? 'min-h-0 overflow-hidden flex flex-col' : ''}`}>
+        {/* Tab 1: Campus Parking Availability */}
         {activeTab === 'dashboard' && (
           <UnifiedDashboard
-            potholes={potholes}
             parkingLots={parkingLots}
             simulationParams={simulationParams}
             onChangeSimulationParams={setSimulationParams}
-            onNavigateTab={setActiveTab}
-            onSelectPothole={setSelectedPothole}
             onSelectLot={setSelectedLot}
-            onOpenReportModal={() => {
-              setSensorTriggeredTelemetry(undefined);
-              setIsReportModalOpen(true);
-            }}
-            onVerifyPothole={handleVerifyPothole}
           />
         )}
 
@@ -330,6 +348,27 @@ export function App() {
           />
         )}
 
+        {/* Secondary Tab: Municipal Dispatcher Hub (accessible ONLY by Admins) */}
+        {isAdmin && activeTab === 'dispatcher' && (
+          <AuthorityHubView
+            potholes={potholes}
+            onUpdateStatus={handleUpdateStatus}
+            onOpenDispatcherModal={handleOpenDispatcher}
+            onSelectPotholeForMap={(p) => {
+              setSelectedPothole(p);
+              setActiveTab('potholes');
+            }}
+          />
+        )}
+
+        {/* Secondary Tab: Pavement Corridor Analytics (accessible ONLY by Admins) */}
+        {isAdmin && activeTab === 'analytics' && (
+          <PotholeAnalyticsView
+            potholes={potholes}
+            roadSegments={roadSegments}
+          />
+        )}
+
         {/* Tab 6: About & Help Documentation */}
         {activeTab === 'about' && (
           <AboutHelpView
@@ -344,6 +383,11 @@ export function App() {
         pothole={selectedPothole}
         onClose={() => setSelectedPothole(null)}
         onVerify={handleVerifyPothole}
+        isAdmin={isAdmin}
+        onOpenDispatcher={(p) => {
+          setSelectedPothole(null);
+          handleOpenDispatcher(p);
+        }}
       />
 
       {/* Citizen / Student Reporting Modal */}
@@ -370,6 +414,18 @@ export function App() {
         }}
       />
 
+      {/* Municipal Dispatcher Work Order Router Modal (Admin Only) */}
+      {isAdmin && isDispatcherOpen && (
+        <MunicipalDispatcherModal
+          isOpen={isDispatcherOpen}
+          onClose={() => setIsDispatcherOpen(false)}
+          pothole={dispatcherTargetPothole || potholes[0]}
+          allPotholes={potholes}
+          onSelectPothole={setDispatcherTargetPothole}
+          onUpdateStatus={handleUpdateStatus}
+        />
+      )}
+
       {/* Parking Lot Detail Modal */}
       <LotDetailModal
         lot={selectedLot}
@@ -381,21 +437,36 @@ export function App() {
         }}
       />
 
+      {/* Settings & Accessibility Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onNavigateToSensor={() => {
+          setActiveTab('sensor');
+          setIsSettingsOpen(false);
+        }}
+        potholes={potholes}
+      />
+
+      {/* User & Admin Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={closeAuthModal}
+      />
+
       {/* Bottom Navigation Bar for Mobile Phones */}
       <MobileNavBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenReportModal={() => {
-          setSensorTriggeredTelemetry(undefined);
-          setIsReportModalOpen(true);
-        }}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenReportModal={() => setIsReportModalOpen(true)}
       />
 
       {/* Streamlined Desktop Footer */}
-      <footer className="hidden md:block bg-slate-900 border-t border-slate-800 py-3.5 px-4 text-center text-xs text-slate-500">
+      <footer className="shrink-0 hidden md:block bg-slate-900 border-t border-slate-800 py-3.5 px-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="text-slate-400 font-medium">
-            (c) 2026 GGC SansPotholes - Georgia Gwinnett College - ITEC4860 - Erick Vale, Tina Ly, Hina Luna, Peyton Holland
+            &copy; 2026 GGC SansPotholes &bull; Georgia Gwinnett College ITEC 4860 &bull; Erick Vale, Tina Ly, Hina Luna, Peyton Holland
           </span>
           <div className="flex items-center space-x-4 text-slate-500">
             <button
@@ -404,7 +475,35 @@ export function App() {
             >
               About & Help
             </button>
-
+            <span>&bull;</span>
+            {isAdmin ? (
+              <>
+                <button
+                  onClick={() => setActiveTab('dispatcher')}
+                  className="hover:text-blue-400 transition"
+                >
+                  Agency Dispatch
+                </button>
+                <span>&bull;</span>
+                <button
+                  onClick={() => setActiveTab('analytics')}
+                  className="hover:text-teal-400 transition"
+                >
+                  Pavement Analytics
+                </button>
+                <span>&bull;</span>
+                <span className="text-blue-400 font-semibold font-mono text-[11px]">
+                  Admin Portal Active
+                </span>
+              </>
+            ) : (
+              <button
+                onClick={openAuthModal}
+                className="hover:text-slate-300 transition text-slate-400"
+              >
+                Staff / Admin Sign In
+              </button>
+            )}
           </div>
         </div>
       </footer>

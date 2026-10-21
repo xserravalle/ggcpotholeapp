@@ -26,8 +26,10 @@ describe('Header Component', () => {
     expect(header).toBeTruthy();
   });
 
-  it('should display pothole count', () => {
+  it('should render primary navigation tabs', () => {
     render(<Header {...mockProps} />);
-    expect(screen.getByText(/42/)).toBeTruthy();
+    expect(screen.getByText('Map')).toBeTruthy();
+    expect(screen.getByText('Parking')).toBeTruthy();
+    expect(screen.getByText('My Reports')).toBeTruthy();
   });
 });
