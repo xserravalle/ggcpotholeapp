@@ -100,7 +100,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
       {/* Top Bar: Title, Live Slider Display & Reset */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
         <div className="flex items-center space-x-2">
-          <Sliders className="w-4 h-4 text-teal-400" />
+          <Sliders className="w-4 h-4 text-emerald-400" />
           <h3 className="font-bold text-white text-sm">
             Gwinnett Parking Predictive Simulator & Time Controls
           </h3>
@@ -108,13 +108,13 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
 
         {/* Current Active Simulated Time Tag */}
         <div className="flex items-center space-x-2">
-          <div className="bg-teal-950/80 border border-teal-700/80 text-teal-300 font-mono font-bold px-3 py-1 rounded-lg flex items-center gap-1.5 shadow-inner">
-            <Clock className="w-3.5 h-3.5 text-teal-400" />
+          <div className="bg-emerald-950/80 border border-emerald-700/80 text-emerald-300 font-mono font-bold px-3 py-1 rounded-lg flex items-center gap-1.5 shadow-inner">
+            <Clock className="w-3.5 h-3.5 text-emerald-400" />
             <span>{params.dayOfWeek}, {formatTime(params.hourOfDay, params.minuteOfDay)}</span>
           </div>
           <button
             onClick={() => applyPreset('reset')}
-            className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition"
+            className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition"
             title="Reset to default Saturday afternoon"
           >
             <RotateCcw className="w-4 h-4" />
@@ -124,7 +124,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
 
       {/* Day of Week Selector */}
       <div>
-        <label className="block text-slate-400 font-medium mb-1.5 flex items-center gap-1.5">
+        <label className="block text-slate-300 font-medium mb-1.5 flex items-center gap-1.5">
           <Calendar className="w-3.5 h-3.5 text-blue-400" /> Day of Week:
         </label>
         <div className="grid grid-cols-7 gap-1">
@@ -152,9 +152,9 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
 
       {/* Time of Day Slider (6 AM to 11 PM) */}
       <div>
-        <div className="flex items-center justify-between text-slate-300 mb-1.5">
-          <span className="font-medium text-slate-400">Hour of Day (6:00 AM - 11:59 PM):</span>
-          <span className="font-mono text-teal-300 font-bold">{formatTime(params.hourOfDay, params.minuteOfDay)}</span>
+        <div className="flex items-center justify-between text-slate-200 mb-1.5">
+          <span className="font-medium text-slate-300">Hour of Day (6:00 AM - 11:59 PM):</span>
+          <span className="font-mono text-emerald-300 font-bold">{formatTime(params.hourOfDay, params.minuteOfDay)}</span>
         </div>
         <input
           type="range"
@@ -163,9 +163,9 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
           step="1"
           value={params.hourOfDay}
           onChange={(e) => onChangeParams({ ...params, hourOfDay: parseInt(e.target.value) })}
-          className="w-full accent-teal-400 cursor-pointer h-2 bg-slate-800 rounded-lg"
+          className="w-full accent-emerald-500 cursor-pointer h-2 bg-slate-800 rounded-lg"
         />
-        <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+        <div className="flex justify-between text-[10px] text-slate-400 font-mono mt-1">
           <span>6 AM (Morning Open)</span>
           <span>12 PM (Lunch)</span>
           <span>5 PM (Evening Commute)</span>
@@ -175,7 +175,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
 
       {/* Predictive Surge Scenario Toggles */}
       <div>
-        <label className="block text-slate-400 font-medium mb-1.5">
+        <label className="block text-slate-300 font-medium mb-1.5">
           Dynamic Surge Modifiers (Predictive Overlays):
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -187,15 +187,15 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
             className={`p-2.5 rounded-xl border flex items-center space-x-2.5 transition text-left ${
               params.isWeekendRush
                 ? 'bg-amber-950/60 border-amber-500 text-amber-200'
-                : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
+                : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800'
             }`}
           >
-            <div className={`p-1.5 rounded-lg ${params.isWeekendRush ? 'bg-amber-500 text-slate-950' : 'bg-slate-700 text-slate-300'}`}>
+            <div className={`p-1.5 rounded-lg ${params.isWeekendRush ? 'bg-amber-500 text-slate-950' : 'bg-slate-700 text-slate-200'}`}>
               <Flame className="w-3.5 h-3.5" />
             </div>
             <div>
-              <div className="font-bold text-[11px]">Weekend Rush Surge</div>
-              <div className="text-[10px] text-slate-400">+18% Costco, Sam's & Malls</div>
+              <div className="font-bold text-[11px] text-white">Weekend Rush Surge</div>
+              <div className="text-[10px] text-slate-300">+18% Costco, Sam's & Malls</div>
             </div>
           </button>
 
@@ -206,15 +206,15 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
             className={`p-2.5 rounded-xl border flex items-center space-x-2.5 transition text-left ${
               params.isHolidaySurge
                 ? 'bg-rose-950/60 border-rose-500 text-rose-200'
-                : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
+                : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800'
             }`}
           >
-            <div className={`p-1.5 rounded-lg ${params.isHolidaySurge ? 'bg-rose-500 text-white' : 'bg-slate-700 text-slate-300'}`}>
+            <div className={`p-1.5 rounded-lg ${params.isHolidaySurge ? 'bg-rose-500 text-white' : 'bg-slate-700 text-slate-200'}`}>
               <ShoppingBag className="w-3.5 h-3.5" />
             </div>
             <div>
-              <div className="font-bold text-[11px]">Holiday Shopping Surge</div>
-              <div className="text-[10px] text-slate-400">+35% Black Friday / Retail</div>
+              <div className="font-bold text-[11px] text-white">Holiday Shopping Surge</div>
+              <div className="text-[10px] text-slate-300">+35% Black Friday / Retail</div>
             </div>
           </button>
 
@@ -225,15 +225,15 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
             className={`p-2.5 rounded-xl border flex items-center space-x-2.5 transition text-left ${
               params.isGgcClassChange
                 ? 'bg-purple-950/60 border-purple-500 text-purple-200'
-                : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
+                : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800'
             }`}
           >
-            <div className={`p-1.5 rounded-lg ${params.isGgcClassChange ? 'bg-purple-500 text-white' : 'bg-slate-700 text-slate-300'}`}>
+            <div className={`p-1.5 rounded-lg ${params.isGgcClassChange ? 'bg-purple-500 text-white' : 'bg-slate-700 text-slate-200'}`}>
               <GraduationCap className="w-3.5 h-3.5" />
             </div>
             <div>
-              <div className="font-bold text-[11px]">GGC Class-Change Peak</div>
-              <div className="text-[10px] text-slate-400">+30% Campus Decks & Lots</div>
+              <div className="font-bold text-[11px] text-white">GGC Class-Change Peak</div>
+              <div className="text-[10px] text-slate-300">+30% Campus Decks & Lots</div>
             </div>
           </button>
 
@@ -244,15 +244,15 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
             className={`p-2.5 rounded-xl border flex items-center space-x-2.5 transition text-left ${
               params.isRainWeather
                 ? 'bg-blue-950/60 border-blue-500 text-blue-200'
-                : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:bg-slate-800'
+                : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800'
             }`}
           >
-            <div className={`p-1.5 rounded-lg ${params.isRainWeather ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-300'}`}>
+            <div className={`p-1.5 rounded-lg ${params.isRainWeather ? 'bg-blue-500 text-white' : 'bg-slate-700 text-slate-200'}`}>
               <CloudRain className="w-3.5 h-3.5" />
             </div>
             <div>
-              <div className="font-bold text-[11px]">Inclement Weather</div>
-              <div className="text-[10px] text-slate-400">+15% Slower Lot Turnover</div>
+              <div className="font-bold text-[11px] text-white">Inclement Weather</div>
+              <div className="text-[10px] text-slate-300">+15% Slower Lot Turnover</div>
             </div>
           </button>
 
@@ -261,8 +261,8 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({
 
       {/* Quick Preset Buttons */}
       <div className="pt-2 border-t border-slate-800 flex flex-wrap items-center gap-1.5 text-[11px]">
-        <span className="text-slate-400 font-medium flex items-center gap-1 mr-1">
-          <Sparkles className="w-3 h-3 text-teal-400" /> One-Click Gwinnett Scenarios:
+        <span className="text-slate-300 font-medium flex items-center gap-1 mr-1">
+          <Sparkles className="w-3 h-3 text-emerald-400" /> One-Click Gwinnett Scenarios:
         </span>
         <button
           type="button"

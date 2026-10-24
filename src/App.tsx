@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PotholeReport, SeverityLevel } from './types/pothole';
 import { TrackedHazardSpot } from './types/sensorQueue';
+import { DriveShockIncident } from './types/driveSession';
 import { ParkingLot, SimulationParams } from './types/parking';
 import { INITIAL_POTHOLES } from './data/potholesData';
 import { HIGH_RISK_ROAD_SEGMENTS } from './data/roadSegmentsData';
@@ -8,20 +9,22 @@ import { PARKING_LOTS } from './data/parkingLotsData';
 import { loadStoredPotholes, saveStoredPotholes } from './services/storageService';
 import { distanceFromCampusMiles } from './services/distanceCalculator';
 import { classifyJurisdiction } from './services/jurisdictionClassifier';
+import { useAuth } from './context/AuthContext';
 
 // Common Components
 import { Header, ActiveTab } from './components/Header';
 import { MobileNavBar } from './components/common/MobileNavBar';
+import { SettingsModal } from './components/common/SettingsModal';
+import { AuthModal } from './components/common/AuthModal';
 
 // Views
 import { UnifiedDashboard } from './components/dashboard/UnifiedDashboard';
 import { PotholeMapView } from './components/potholes/PotholeMapView';
 import { DriveSensorView } from './components/sensor/DriveSensorView';
 import { MyReportsView } from './components/potholes/MyReportsView';
+import { AboutHelpView } from './components/about/AboutHelpView';
 import { AuthorityHubView } from './components/dispatcher/AuthorityHubView';
-import { LoginPage } from './components/auth/LoginPage';
 import { PotholeAnalyticsView } from './components/potholes/PotholeAnalyticsView';
-import { getSession, isSessionValid, logout, AuthSession } from './services/authService';
 
 // Modals & Drawers
 import { PotholeDetailDrawer } from './components/potholes/PotholeDetailDrawer';
@@ -31,6 +34,8 @@ import { MunicipalDispatcherModal } from './components/potholes/MunicipalDispatc
 import { LotDetailModal } from './components/parking/LotDetailModal';
 
 export function App() {
+  const { isAdmin, isAuthModalOpen, closeAuthModal, openAuthModal } = useAuth();
+
   // Navigation: Default to Map & Hazards
   const [activeTab, setActiveTab] = useState<ActiveTab>('potholes');
 
@@ -39,24 +44,22 @@ export function App() {
   const [roadSegments] = useState(HIGH_RISK_ROAD_SEGMENTS);
   const [parkingLots] = useState<ParkingLot[]>(PARKING_LOTS);
 
-  // Admin Authentication State & Periodic Expiration Check
-  const [authSession, setAuthSession] = useState<AuthSession | null>(() => getSession());
-
-  useEffect(() => {
-    const checkSession = () => {
-      if (!isSessionValid()) {
-        setAuthSession(null);
-      }
-    };
-    checkSession();
-    const interval = setInterval(checkSession, 60000);
-    return () => clearInterval(interval);
-  }, []);
-
   // Auto-save whenever potholes state changes
   useEffect(() => {
     saveStoredPotholes(potholes);
   }, [potholes]);
+
+  // Always reset window scroll position to top on tab change
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [activeTab]);
+
+  // Route security: if a non-admin is currently on an admin-only tab, redirect safely to Map
+  useEffect(() => {
+    if (!isAdmin && (activeTab === 'dispatcher' || activeTab === 'analytics')) {
+      setActiveTab('potholes');
+    }
+  }, [isAdmin, activeTab]);
 
   // Interactive Selection State
   const [selectedPothole, setSelectedPothole] = useState<PotholeReport | null>(null);
@@ -64,6 +67,7 @@ export function App() {
 
   // Modals & Triggers
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDispatcherOpen, setIsDispatcherOpen] = useState(false);
   const [dispatcherTargetPothole, setDispatcherTargetPothole] = useState<PotholeReport | null>(null);
   const [docketSuccessReport, setDocketSuccessReport] = useState<PotholeReport | null>(null);
@@ -92,6 +96,11 @@ export function App() {
     isGgcClassChange: false,
     isRainWeather: false
   });
+
+  const handleOpenDispatcher = (pothole?: PotholeReport) => {
+    setDispatcherTargetPothole(pothole || null);
+    setIsDispatcherOpen(true);
+  };
 
   // Verification Handler (Upvote)
   const handleVerifyPothole = (id: string) => {
@@ -134,7 +143,7 @@ export function App() {
       userConfirmed: true,
       reportedAt: new Date().toISOString(),
       lastVerifiedAt: new Date().toISOString(),
-      workOrderNumber: `DISP-${trackingCode}`,
+      workOrderNumber: `REF-${trackingCode}`,
       distanceFromGgcMiles: dist,
       source: 'user'
     };
@@ -159,15 +168,7 @@ export function App() {
     }
   };
 
-  // Open Dispatcher for specific pothole
-  const handleOpenDispatcher = (p: PotholeReport) => {
-    setDispatcherTargetPothole(p);
-    setIsDispatcherOpen(true);
-  };
-
   // Promote a spot that hit 3x into an official confirmed PotholeReport
-  // Create a reviewable report after repeated impacts at one location.
-  // Sensor hits suggest a hazard but do not count as citizen confirmations.
   const handlePromoteSpotToReport = (spot: TrackedHazardSpot) => {
     const uuid = crypto.randomUUID();
     const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
@@ -191,7 +192,7 @@ export function App() {
       severity: spot.severity,
       hazardType: 'POTHOLE',
       status: 'reported',
-      verificationsCount: 0, // Only a person confirming the road condition should increase this count
+      verificationsCount: 0,
       userConfirmed: false,
       reportedAt: new Date().toISOString(),
       lastVerifiedAt: new Date().toISOString(),
@@ -202,7 +203,6 @@ export function App() {
       damageRisk: spot.maxGForce >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
       detectedBy: 'Vehicle Accelerometer Telemetry',
       sensorDetected: true,
-      // Preserve the readings so users can see what triggered the report
       sensorEvidence: {
         hitCount: spot.hitCount,
         maxGForce: spot.maxGForce,
@@ -210,12 +210,59 @@ export function App() {
         lastDetectedAt: spot.lastHitAt
       },
       bumpIntensity: spot.maxGForce,
-      workOrderNumber: `DISP-${newId}`,
+      workOrderNumber: `REF-${newId}`,
       distanceFromGgcMiles: dist,
-      source: 'sensor' // Keep sensors reports distinguishable 
+      source: 'sensor'
     };
 
     setPotholes(prev => [newReport, ...prev]);
+  };
+
+  // Promote all incidents from a completed Drive Session to official reports
+  const handlePromoteDriveIncidents = (incidents: DriveShockIncident[]) => {
+    const newReports: PotholeReport[] = incidents.map(inc => {
+      const uuid = crypto.randomUUID();
+      const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
+      const newId = `GW-POT-${uuid}`;
+      const dist = distanceFromCampusMiles({ lat: inc.latitude, lng: inc.longitude });
+      const classification = classifyJurisdiction(inc.latitude, inc.longitude, inc.roadName);
+
+      return {
+        id: newId,
+        trackingCode,
+        title: `Pothole on ${inc.roadName || 'Roadway'}`,
+        roadName: inc.roadName || 'Corridor',
+        address: inc.address || `${inc.latitude.toFixed(5)}, ${inc.longitude.toFixed(5)}`,
+        city: inc.city || 'Lawrenceville',
+        jurisdiction: classification.authority.name,
+        authorityId: classification.authority.id,
+        authorityName: classification.authority.name,
+        authorityEmail: classification.authority.contactEmail,
+        latitude: inc.latitude,
+        longitude: inc.longitude,
+        severity: inc.severity,
+        hazardType: 'POTHOLE',
+        status: 'reported',
+        verificationsCount: 1,
+        userConfirmed: true,
+        reportedAt: new Date(inc.timestamp).toISOString(),
+        lastVerifiedAt: new Date(inc.timestamp).toISOString(),
+        description: `Logged during Drive-Time Patrol (${inc.peakG.toFixed(2)}G Shock). Nearest address: ${inc.address}.`,
+        estimatedDepthInches: inc.peakG >= 6.0 ? 3.5 : 2.5,
+        estimatedWidthInches: inc.peakG >= 6.0 ? 20 : 14,
+        surfaceType: 'Asphalt',
+        damageRisk: inc.peakG >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
+        detectedBy: 'Vehicle Accelerometer Telemetry',
+        sensorDetected: true,
+        bumpIntensity: inc.peakG,
+        imageUrl: inc.imageUrl,
+        workOrderNumber: `REF-${newId}`,
+        distanceFromGgcMiles: dist,
+        source: 'sensor'
+      };
+    });
+
+    setPotholes(prev => [...newReports, ...prev]);
   };
 
   // Update report details (from My Reports edit modal)
@@ -235,36 +282,30 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-teal-500 selection:text-slate-950 pb-16 md:pb-0">
+    <div className={`bg-slate-950 text-slate-100 flex flex-col selection:bg-teal-500 selection:text-slate-950 ${
+      activeTab === 'my-reports' 
+        ? 'h-screen max-h-screen overflow-hidden pb-16 md:pb-0' 
+        : 'min-h-screen pb-16 md:pb-0'
+    }`}>
       
       {/* Universal Streamlined Header */}
       <Header
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenReportModal={() => {
-          setSensorTriggeredTelemetry(undefined);
-          setIsReportModalOpen(true);
-        }}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenAuthModal={openAuthModal}
         potholeCount={potholes.length}
       />
 
       {/* Main Tab Content */}
-      <main className="flex-1">
-        {/* Tab 1: Consolidated Dashboard */}
+      <main className={`flex-1 ${activeTab === 'my-reports' ? 'min-h-0 overflow-hidden flex flex-col' : ''}`}>
+        {/* Tab 1: Campus Parking Availability */}
         {activeTab === 'dashboard' && (
           <UnifiedDashboard
-            potholes={potholes}
             parkingLots={parkingLots}
             simulationParams={simulationParams}
             onChangeSimulationParams={setSimulationParams}
-            onNavigateTab={setActiveTab}
-            onSelectPothole={setSelectedPothole}
             onSelectLot={setSelectedLot}
-            onOpenReportModal={() => {
-              setSensorTriggeredTelemetry(undefined);
-              setIsReportModalOpen(true);
-            }}
-            onVerifyPothole={handleVerifyPothole}
           />
         )}
 
@@ -279,6 +320,7 @@ export function App() {
             onMapDropPin={(lat, lng, address) => {
               setDroppedPinCoords({ lat, lng, address });
             }}
+            onNavigateToDrive={() => setActiveTab('sensor')}
           />
         )}
 
@@ -287,6 +329,7 @@ export function App() {
           <DriveSensorView
             potholes={potholes}
             onPromoteSpotToReport={handlePromoteSpotToReport}
+            onPromoteDriveIncidents={handlePromoteDriveIncidents}
             onNavigateToMyReports={() => setActiveTab('my-reports')}
           />
         )}
@@ -306,46 +349,42 @@ export function App() {
           />
         )}
 
-        {/* Secondary Tab: Municipal Dispatcher Hub (accessible via hamburger menu, auth-protected) */}
-        {activeTab === 'dispatcher' && (
-          authSession ? (
-            <AuthorityHubView
-              potholes={potholes}
-              onUpdateStatus={handleUpdateStatus}
-              onOpenDispatcherModal={handleOpenDispatcher}
-              onSelectPotholeForMap={(p) => {
-                setSelectedPothole(p);
-                setActiveTab('potholes');
-              }}
-              currentUser={authSession}
-              onLogout={() => {
-                logout();
-                setAuthSession(null);
-              }}
-            />
-          ) : (
-            <LoginPage
-              onLoginSuccess={(newSession) => setAuthSession(newSession)}
-              onCancel={() => setActiveTab('potholes')}
-            />
-          )
+        {/* Secondary Tab: Municipal Dispatcher Hub (accessible ONLY by Admins) */}
+        {isAdmin && activeTab === 'dispatcher' && (
+          <AuthorityHubView
+            potholes={potholes}
+            onUpdateStatus={handleUpdateStatus}
+            onOpenDispatcherModal={handleOpenDispatcher}
+            onSelectPotholeForMap={(p) => {
+              setSelectedPothole(p);
+              setActiveTab('potholes');
+            }}
+          />
         )}
 
-        {/* Secondary Tab: Pavement Corridor Analytics (accessible via hamburger menu) */}
-        {activeTab === 'analytics' && (
+        {/* Secondary Tab: Pavement Corridor Analytics (accessible ONLY by Admins) */}
+        {isAdmin && activeTab === 'analytics' && (
           <PotholeAnalyticsView
             potholes={potholes}
             roadSegments={roadSegments}
           />
         )}
-      </main>
 
+        {/* Tab 6: About & Help Documentation */}
+        {activeTab === 'about' && (
+          <AboutHelpView
+            onNavigateTab={setActiveTab}
+            onOpenReportModal={() => setIsReportModalOpen(true)}
+          />
+        )}
+      </main>
 
       {/* Pothole Inspector Drawer */}
       <PotholeDetailDrawer
         pothole={selectedPothole}
         onClose={() => setSelectedPothole(null)}
         onVerify={handleVerifyPothole}
+        isAdmin={isAdmin}
         onOpenDispatcher={(p) => {
           setSelectedPothole(null);
           handleOpenDispatcher(p);
@@ -365,7 +404,7 @@ export function App() {
         initialCoords={droppedPinCoords}
       />
 
-      {/* Incident Docket Success & Dispatch Modal */}
+      {/* Incident Docket Success Modal */}
       <DocketSuccessModal
         isOpen={!!docketSuccessReport}
         onClose={() => setDocketSuccessReport(null)}
@@ -376,8 +415,8 @@ export function App() {
         }}
       />
 
-      {/* Municipal Dispatcher Work Order Router Modal */}
-      {isDispatcherOpen && (
+      {/* Municipal Dispatcher Work Order Router Modal (Admin Only) */}
+      {isAdmin && isDispatcherOpen && (
         <MunicipalDispatcherModal
           isOpen={isDispatcherOpen}
           onClose={() => setIsDispatcherOpen(false)}
@@ -399,36 +438,73 @@ export function App() {
         }}
       />
 
+      {/* Settings & Accessibility Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onNavigateToSensor={() => {
+          setActiveTab('sensor');
+          setIsSettingsOpen(false);
+        }}
+        potholes={potholes}
+      />
+
+      {/* User & Admin Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={closeAuthModal}
+      />
+
       {/* Bottom Navigation Bar for Mobile Phones */}
       <MobileNavBar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onOpenReportModal={() => {
-          setSensorTriggeredTelemetry(undefined);
-          setIsReportModalOpen(true);
-        }}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenReportModal={() => setIsReportModalOpen(true)}
       />
 
       {/* Streamlined Desktop Footer */}
-      <footer className="hidden md:block bg-slate-900 border-t border-slate-800 py-3.5 px-4 text-center text-xs text-slate-500">
+      <footer className="shrink-0 hidden md:block bg-slate-900 border-t border-slate-800 py-3.5 px-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
           <span className="text-slate-400 font-medium">
-            &copy; 2026 Gwinnett P3 &bull; Georgia Gwinnett College (GGC) & Gwinnett County Commuter Pilot
+            &copy; 2026 GGC SansPotholes &bull; Georgia Gwinnett College ITEC 4860 &bull; Erick Vale, Tina Ly, Hina Luna, Peyton Holland
           </span>
           <div className="flex items-center space-x-4 text-slate-500">
             <button
-              onClick={() => setActiveTab('dispatcher')}
+              onClick={() => setActiveTab('about')}
               className="hover:text-slate-300 transition"
             >
-              Agency Dispatch
+              About & Help
             </button>
             <span>&bull;</span>
-            <button
-              onClick={() => setActiveTab('analytics')}
-              className="hover:text-slate-300 transition"
-            >
-              Pavement Analytics
-            </button>
+            {isAdmin ? (
+              <>
+                <button
+                  onClick={() => setActiveTab('dispatcher')}
+                  className="hover:text-blue-400 transition"
+                >
+                  Agency Dispatch
+                </button>
+                <span>&bull;</span>
+                <button
+                  onClick={() => setActiveTab('analytics')}
+                  className="hover:text-teal-400 transition"
+                >
+                  Pavement Analytics
+                </button>
+                <span>&bull;</span>
+                <span className="text-blue-400 font-semibold font-mono text-[11px]">
+                  Admin Portal Active
+                </span>
+              </>
+            ) : (
+              <button
+                onClick={openAuthModal}
+                className="hover:text-slate-300 transition text-slate-400"
+              >
+                Staff / Admin Sign In
+              </button>
+            )}
           </div>
         </div>
       </footer>
