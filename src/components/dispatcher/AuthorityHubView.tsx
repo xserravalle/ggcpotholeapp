@@ -38,11 +38,11 @@ export const AuthorityHubView: React.FC<AuthorityHubViewProps> = ({
   // KPI Metrics
   const totalCount = potholes.length;
   const pendingCount = potholes.filter(p => p.status === 'reported').length;
-  const dispatchedCount = potholes.filter(p => p.status === 'investigating').length;
-  const scheduledCount = potholes.filter(p => p.status === 'scheduled').length;
-  const repairedCount = potholes.filter(p => p.status === 'repaired').length;
+  const dispatchedCount = potholes.filter(p => p.status === 'verified').length;
+  const scheduledCount = potholes.filter(p => p.status === 'assigned' || p.status === 'in_progress').length;
+  const repairedCount = potholes.filter(p => p.status === 'resolved' || p.status === 'closed').length;
   const ggcCampusCount = potholes.filter(p => p.authorityId === 'GGC' || p.jurisdiction?.includes('GGC')).length;
-  const criticalCount = potholes.filter(p => (p.severity === 'critical' || p.severity === 'severe') && p.status !== 'repaired').length;
+  const criticalCount = potholes.filter(p => (p.severity === 'critical' || p.severity === 'severe') && p.status !== 'resolved' && p.status !== 'closed').length;
 
   // Filtered List
   const filteredList = potholes.filter(p => {
@@ -186,9 +186,12 @@ export const AuthorityHubView: React.FC<AuthorityHubViewProps> = ({
         >
           <option value="all">All Lifecycles</option>
           <option value="reported">Reported</option>
-          <option value="investigating">Investigating / Dispatched</option>
-          <option value="scheduled">Scheduled for Repair</option>
-          <option value="repaired">Repaired</option>
+          <option value="verified">Verified & Triaged</option>
+          <option value="assigned">Assigned to Crew</option>
+          <option value="in_progress">In Progress</option>
+          <option value="resolved">Resolved</option>
+          <option value="closed">Closed</option>
+          <option value="rejected">Rejected</option>
         </select>
       </div>
 
@@ -285,19 +288,26 @@ export const AuthorityHubView: React.FC<AuthorityHubViewProps> = ({
                           value={item.status}
                           onChange={(e) => onUpdateStatus(item.id, e.target.value as PotholeStatus)}
                           className={`text-xs font-bold rounded-lg px-2.5 py-1 border outline-none cursor-pointer ${
-                            item.status === 'repaired'
+                            item.status === 'resolved' || item.status === 'closed'
                               ? 'bg-emerald-950 text-emerald-300 border-emerald-700'
-                              : item.status === 'scheduled'
+                              : item.status === 'assigned'
                               ? 'bg-purple-950 text-purple-300 border-purple-700'
-                              : item.status === 'investigating'
+                              : item.status === 'in_progress'
+                              ? 'bg-cyan-950 text-cyan-300 border-cyan-700'
+                              : item.status === 'verified'
                               ? 'bg-blue-950 text-blue-300 border-blue-700'
-                              : 'bg-slate-800 text-slate-300 border-slate-700'
+                              : item.status === 'rejected'
+                              ? 'bg-rose-950 text-rose-300 border-rose-700'
+                              : 'bg-amber-950 text-amber-300 border-amber-700'
                           }`}
                         >
                           <option value="reported">REPORTED</option>
-                          <option value="investigating">INVESTIGATING</option>
-                          <option value="scheduled">SCHEDULED</option>
-                          <option value="repaired">REPAIRED</option>
+                          <option value="verified">VERIFIED</option>
+                          <option value="assigned">ASSIGNED</option>
+                          <option value="in_progress">IN PROGRESS</option>
+                          <option value="resolved">RESOLVED</option>
+                          <option value="closed">CLOSED</option>
+                          <option value="rejected">REJECTED</option>
                         </select>
                       </td>
 

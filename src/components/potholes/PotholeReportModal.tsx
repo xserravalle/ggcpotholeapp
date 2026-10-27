@@ -22,7 +22,7 @@ import {
 interface PotholeReportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmitReport: (newReport: Omit<PotholeReport, 'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt'>) => void;
+  onSubmitReport: (newReport: Omit<PotholeReport, 'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt' | 'priority' | 'priorityScore' | 'timeline'>) => void;
   initialTelemetry?: {
     sensorDetected: boolean;
     bumpIntensity: number;

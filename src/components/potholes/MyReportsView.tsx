@@ -53,12 +53,16 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
 
   const getStatusColor = (status: PotholeReport['status']) => {
     switch (status) {
-      case 'repaired':
+      case 'resolved':
+      case 'closed':
         return 'bg-emerald-950 text-emerald-300 border-emerald-800';
-      case 'scheduled':
+      case 'assigned':
+      case 'in_progress':
         return 'bg-blue-950 text-blue-300 border-blue-800';
-      case 'investigating':
-        return 'bg-amber-950 text-amber-300 border-amber-800';
+      case 'verified':
+        return 'bg-cyan-950 text-cyan-300 border-cyan-800';
+      case 'rejected':
+        return 'bg-rose-950 text-rose-300 border-rose-800';
       default:
         return 'bg-slate-800 text-slate-300 border-slate-700';
     }
@@ -140,15 +144,15 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
               <p className="text-[11px] text-slate-300 mt-0.5">Submitted via camera, map tap, or 3x sensor detections.</p>
             </div>
             <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800">
-              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">2. Investigating</span>
+              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">2. Verified</span>
               <p className="text-[11px] text-slate-300 mt-0.5">Municipal road agency inspects cavity depth and road risks.</p>
             </div>
             <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800">
-              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">3. Scheduled</span>
+              <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider block">3. In Progress</span>
               <p className="text-[11px] text-slate-300 mt-0.5">Assigned road crew work order queued for milling and patching.</p>
             </div>
             <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800">
-              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">4. Repaired</span>
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">4. Resolved</span>
               <p className="text-[11px] text-slate-300 mt-0.5">Pavement leveled, inspected, and confirmed safe for drivers.</p>
             </div>
           </div>

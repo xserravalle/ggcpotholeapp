@@ -38,7 +38,7 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
 
   if (!pothole) return null;
 
-  const isRepaired = pothole.status === 'repaired';
+  const isRepaired = pothole.status === 'resolved' || pothole.status === 'closed';
   const hasValidImage = Boolean(pothole.imageUrl && pothole.imageUrl.trim() !== '');
 
   // Calculate measured or estimated shock telemetry

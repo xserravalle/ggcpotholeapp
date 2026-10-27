@@ -6,7 +6,7 @@ import { ParkingLot, SimulationParams } from './types/parking';
 import { INITIAL_POTHOLES } from './data/potholesData';
 import { HIGH_RISK_ROAD_SEGMENTS } from './data/roadSegmentsData';
 import { PARKING_LOTS } from './data/parkingLotsData';
-import { loadStoredPotholes, saveStoredPotholes } from './services/storageService';
+import { loadStoredPotholes, saveStoredPotholes, migrateReport } from './services/storageService';
 import { distanceFromCampusMiles } from './services/distanceCalculator';
 import { classifyJurisdiction } from './services/jurisdictionClassifier';
 import { useAuth } from './context/AuthContext';
@@ -128,14 +128,14 @@ export function App() {
 
   // Submit New Pothole Report
   const handleSubmitNewReport = (
-    newReportData: Omit<PotholeReport, 'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt'>
+    newReportData: Omit<PotholeReport, 'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt' | 'priority' | 'priorityScore' | 'timeline'>
   ) => {
     const uuid = crypto.randomUUID();
     const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
     const newId = `GW-POT-${uuid}`;
     const dist = distanceFromCampusMiles({ lat: newReportData.latitude, lng: newReportData.longitude });
 
-    const newReport: PotholeReport = {
+    const newReport: PotholeReport = migrateReport({
       ...newReportData,
       id: newId,
       trackingCode,
@@ -146,7 +146,7 @@ export function App() {
       workOrderNumber: `REF-${trackingCode}`,
       distanceFromGgcMiles: dist,
       source: 'user'
-    };
+    });
 
     setPotholes(prev => [newReport, ...prev]);
     setSelectedPothole(newReport);
@@ -176,7 +176,7 @@ export function App() {
     const dist = distanceFromCampusMiles({ lat: spot.latitude, lng: spot.longitude });
     const classification = classifyJurisdiction(spot.latitude, spot.longitude, spot.roadName);
 
-    const newReport: PotholeReport = {
+    const newReport: PotholeReport = migrateReport({
       id: newId,
       trackingCode,
       title: `Possible Road Hazard on ${spot.roadName}`,
@@ -213,7 +213,7 @@ export function App() {
       workOrderNumber: `REF-${newId}`,
       distanceFromGgcMiles: dist,
       source: 'sensor'
-    };
+    });
 
     setPotholes(prev => [newReport, ...prev]);
   };
@@ -227,7 +227,7 @@ export function App() {
       const dist = distanceFromCampusMiles({ lat: inc.latitude, lng: inc.longitude });
       const classification = classifyJurisdiction(inc.latitude, inc.longitude, inc.roadName);
 
-      return {
+      return migrateReport({
         id: newId,
         trackingCode,
         title: `Pothole on ${inc.roadName || 'Roadway'}`,
@@ -259,7 +259,7 @@ export function App() {
         workOrderNumber: `REF-${newId}`,
         distanceFromGgcMiles: dist,
         source: 'sensor'
-      };
+      });
     });
 
     setPotholes(prev => [...newReports, ...prev]);

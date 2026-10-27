@@ -286,19 +286,19 @@ Complies with Georgia DOT Title 32 Municipal Street Repair Protocols.
             <span className="text-slate-400 text-[11px]">Update the live status of this infrastructure repair in the central GIS</span>
           </div>
           <div className="flex items-center gap-1.5">
-            {(['reported', 'investigating', 'scheduled', 'repaired'] as PotholeReport['status'][]).map(st => (
+            {(['reported', 'verified', 'assigned', 'in_progress', 'resolved', 'closed'] as PotholeReport['status'][]).map(st => (
               <button
                 key={st}
                 onClick={() => handleStatusChange(st)}
                 className={`px-2.5 py-1.5 rounded-lg text-xs font-medium capitalize transition ${
                   ticketStatus === st
-                    ? st === 'repaired'
+                    ? st === 'resolved' || st === 'closed'
                       ? 'bg-emerald-600 text-white font-bold'
                       : 'bg-blue-600 text-white font-bold'
                     : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                 }`}
               >
-                {st}
+                {st.replace('_', ' ')}
               </button>
             ))}
           </div>

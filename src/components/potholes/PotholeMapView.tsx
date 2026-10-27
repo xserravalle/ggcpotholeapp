@@ -73,7 +73,7 @@ const createTrafficLightIcon = (
   verifications: number,
   theme: ThemeKey = 'colorblind'
 ) => {
-  const isRepaired = status === 'repaired';
+  const isRepaired = status === 'resolved' || status === 'closed';
   let color = '#0072b2';
   let borderColor = '#ffffff';
   let textColor = '#ffffff';
@@ -393,7 +393,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
     return potholes.filter(p => {
       if (severityFilter === 'critical' && p.severity !== 'critical' && p.severity !== 'severe') return false;
       if (severityFilter === 'moderate' && p.severity !== 'moderate') return false;
-      if (severityFilter === 'resolved' && p.status !== 'repaired') return false;
+      if (severityFilter === 'resolved' && p.status !== 'resolved' && p.status !== 'closed') return false;
       
       // When explicitly scoped to GGC Campus, filter by 1.8 mi radius
       if (viewScope === 'campus') {
@@ -641,11 +641,11 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 border ${
                         isCritical 
                           ? 'bg-rose-950/80 text-rose-300 border-rose-700' 
-                          : pothole.status === 'repaired'
+                          : pothole.status === 'resolved' || pothole.status === 'closed'
                           ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
                           : 'bg-amber-950/80 text-amber-300 border-amber-700'
                       }`}>
-                        {isCritical ? '▲ Critical' : pothole.status === 'repaired' ? '✓ Resolved' : '◆ Moderate'}
+                        {isCritical ? '▲ Critical' : pothole.status === 'resolved' || pothole.status === 'closed' ? '✓ Resolved' : '◆ Moderate'}
                       </span>
                     </div>
 
