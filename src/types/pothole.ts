@@ -9,6 +9,7 @@ import {
   HazardType,
   Jurisdiction,
   SensorEvidence,
+  Comment,
 } from '../domain/types';
 
 export type {
@@ -21,6 +22,7 @@ export type {
   HazardType,
   Jurisdiction,
   SensorEvidence,
+  Comment,
 };
 
 export type PotholeStatus = ReportStatus;

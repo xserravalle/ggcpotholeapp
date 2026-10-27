@@ -1,0 +1,417 @@
+import { ReportRepository, ReportFilter, RecipientFilter } from './ReportRepository';
+import { PotholeReport, Comment, NotificationMessage, Actor, UserRole } from '../domain/types';
+import { CivicAction } from '../domain/permissions';
+import { ActionPayload, ApplyActionResult, applyAction } from '../domain/actions';
+import { INITIAL_POTHOLES } from '../data/potholesData';
+import { loadStoredPotholes, saveStoredPotholes, migrateReport } from '../services/storageService';
+import { generateSampleWorkflowReports } from './sampleWorkflowData';
+
+/**
+ * Storage keys:
+ * - Reports: 'ggc-pothole-patrol-reports-v2' (preserves existing storage key)
+ * - Comments: 'ggc-pothole-comments-v1'
+ * - Notifications: 'ggc-pothole-notifications-v1'
+ *
+ * STORAGE QUOTA NOTE:
+ * Web browsers enforce a synchronous localStorage quota of approximately 5MB (UTF-16 text).
+ * To prevent storage exhaustion in persistent sessions, notifications are automatically capped
+ * at a maximum of 100 entries per recipient key. Oldest notifications for each recipient
+ * are pruned whenever new events arrive.
+ */
+const STORAGE_KEY_REPORTS = 'ggc-pothole-patrol-reports-v2';
+const STORAGE_KEY_COMMENTS = 'ggc-pothole-comments-v1';
+const STORAGE_KEY_NOTIFICATIONS = 'ggc-pothole-notifications-v1';
+const MAX_NOTIFICATIONS_PER_RECIPIENT = 100;
+
+function generateId(prefix: string): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `${prefix}-${crypto.randomUUID()}`;
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+export class LocalStorageReportRepository implements ReportRepository {
+  // --- REPORTS ---
+
+  async list(filter?: ReportFilter): Promise<PotholeReport[]> {
+    const list = loadStoredPotholes(INITIAL_POTHOLES);
+    if (!filter) return list;
+
+    return list.filter(report => {
+      // 1. Status filter
+      if (filter.status && filter.status !== 'all') {
+        if (Array.isArray(filter.status)) {
+          if (!filter.status.includes(report.status)) return false;
+        } else if (report.status !== filter.status) {
+          return false;
+        }
+      }
+
+      // 2. Agency filter
+      if (filter.agencyId && filter.agencyId !== 'all') {
+        const agencyLower = filter.agencyId.toLowerCase();
+        const matchesAgency =
+          (report.authorityId && report.authorityId.toLowerCase() === agencyLower) ||
+          (report.assignedAgencyId && report.assignedAgencyId.toLowerCase() === agencyLower) ||
+          (report.jurisdiction && report.jurisdiction.toLowerCase().includes(agencyLower));
+        if (!matchesAgency) return false;
+      }
+
+      // 3. Officer filter
+      if (filter.officerId && filter.officerId !== 'all') {
+        const offLower = filter.officerId.toLowerCase();
+        const matchesOfficer =
+          (report.assignedOfficerId && report.assignedOfficerId.toLowerCase() === offLower) ||
+          (report.assignedCrew && report.assignedCrew.toLowerCase().includes(offLower));
+        if (!matchesOfficer) return false;
+      }
+
+      // 4. Reporter email/name
+      if (filter.reporterEmail) {
+        if (
+          !report.reporterEmail ||
+          report.reporterEmail.trim().toLowerCase() !== filter.reporterEmail.trim().toLowerCase()
+        ) {
+          return false;
+        }
+      }
+      if (filter.reporterName) {
+        if (
+          !report.reporterName ||
+          report.reporterName.trim().toLowerCase() !== filter.reporterName.trim().toLowerCase()
+        ) {
+          return false;
+        }
+      }
+
+      // 5. Severity filter
+      if (filter.severity && filter.severity !== 'all') {
+        if (report.severity !== filter.severity) return false;
+      }
+
+      // 6. User confirmed only
+      if (filter.onlyUserConfirmed && !report.userConfirmed && report.source !== 'user') {
+        return false;
+      }
+
+      // 7. Search query
+      if (filter.searchQuery && filter.searchQuery.trim()) {
+        const q = filter.searchQuery.trim().toLowerCase();
+        const match =
+          report.title.toLowerCase().includes(q) ||
+          report.address.toLowerCase().includes(q) ||
+          report.roadName.toLowerCase().includes(q) ||
+          report.jurisdiction.toLowerCase().includes(q) ||
+          (report.trackingCode || '').toLowerCase().includes(q);
+        if (!match) return false;
+      }
+
+      return true;
+    });
+  }
+
+  async get(id: string): Promise<PotholeReport | null> {
+    const list = loadStoredPotholes(INITIAL_POTHOLES);
+    const found = list.find(r => r.id === id);
+    return found ? migrateReport(found) : null;
+  }
+
+  async save(report: PotholeReport): Promise<PotholeReport> {
+    const migrated = migrateReport(report);
+    const list = loadStoredPotholes(INITIAL_POTHOLES);
+    const index = list.findIndex(r => r.id === migrated.id);
+
+    let updatedList: PotholeReport[];
+    if (index >= 0) {
+      updatedList = [...list];
+      updatedList[index] = migrated;
+    } else {
+      updatedList = [migrated, ...list];
+    }
+
+    saveStoredPotholes(updatedList);
+    return migrated;
+  }
+
+  async delete(id: string): Promise<void> {
+    const list = loadStoredPotholes(INITIAL_POTHOLES);
+    const updated = list.filter(r => r.id !== id);
+    saveStoredPotholes(updated);
+  }
+
+  async dispatch(
+    id: string,
+    action: CivicAction,
+    actor: Actor,
+    payload?: ActionPayload
+  ): Promise<ApplyActionResult> {
+    const report = await this.get(id);
+    if (!report) {
+      throw new Error(`Cannot dispatch action "${action}": Report with ID "${id}" was not found.`);
+    }
+
+    // Call domain event transition
+    const result = applyAction(report, action, actor, payload);
+
+    // Save report and append emitted notifications
+    await this.save(result.report);
+
+    if (result.notifications.length > 0) {
+      await this.saveNotifications(result.notifications);
+    }
+
+    return result;
+  }
+
+  // --- COMMENTS ---
+
+  async listComments(reportId: string): Promise<Comment[]> {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_COMMENTS);
+      if (!raw) return [];
+      const allComments: Comment[] = JSON.parse(raw);
+      if (!Array.isArray(allComments)) return [];
+      return allComments.filter(c => c.reportId === reportId);
+    } catch {
+      return [];
+    }
+  }
+
+  async addComment(comment: Omit<Comment, 'id' | 'timestamp'>): Promise<Comment> {
+    if (!comment.text || !comment.text.trim()) {
+      throw new Error('Comment text cannot be empty.');
+    }
+    if (comment.text.length > 1000) {
+      throw new Error(`Comment exceeds maximum limit of 1000 characters (got ${comment.text.length}).`);
+    }
+
+    const timestamp = new Date().toISOString();
+    const newComment: Comment = {
+      id: generateId('cmt'),
+      reportId: comment.reportId,
+      authorName: comment.authorName,
+      authorRole: comment.authorRole,
+      text: comment.text.trim(),
+      timestamp,
+    };
+
+    // 1. Save comment to storage
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_COMMENTS);
+      const allComments: Comment[] = raw ? JSON.parse(raw) : [];
+      allComments.push(newComment);
+      localStorage.setItem(STORAGE_KEY_COMMENTS, JSON.stringify(allComments));
+    } catch (err) {
+      console.error('Failed to save comment to localStorage', err);
+    }
+
+    // 2. Generate notifications:
+    // "Adding a comment notifies the reporter, plus the assigned officer if there is one, never the comment's author."
+    const report = await this.get(comment.reportId);
+    if (report) {
+      const pendingNotifications: NotificationMessage[] = [];
+      const authorNameLower = comment.authorName.trim().toLowerCase();
+
+      // Check reporter notification
+      const reporterNameLower = report.reporterName?.trim().toLowerCase();
+      const isAuthorReporter =
+        authorNameLower === reporterNameLower ||
+        (comment.authorRole === 'user' && comment.authorName === report.reporterName);
+
+      if (report.reporterName && !isAuthorReporter) {
+        pendingNotifications.push({
+          id: generateId('notif'),
+          recipientRole: 'user',
+          recipientName: report.reporterName,
+          recipientEmail: report.reporterEmail,
+          title: `New Comment on #${report.trackingCode || report.id}`,
+          message: `${comment.authorName} (${comment.authorRole}): "${comment.text.slice(0, 120)}${comment.text.length > 120 ? '...' : ''}"`,
+          reportId: report.id,
+          trackingCode: report.trackingCode,
+          timestamp,
+          read: false,
+        });
+      }
+
+      // Check assigned officer notification
+      if (report.assignedOfficerId) {
+        const officerLower = report.assignedOfficerId.trim().toLowerCase();
+        const isAuthorOfficer = authorNameLower === officerLower;
+
+        if (!isAuthorOfficer) {
+          pendingNotifications.push({
+            id: generateId('notif'),
+            recipientRole: 'officer',
+            recipientName: report.assignedOfficerId,
+            title: `Citizen Update on Assigned Work Order #${report.trackingCode || report.id}`,
+            message: `${comment.authorName}: "${comment.text.slice(0, 120)}${comment.text.length > 120 ? '...' : ''}"`,
+            reportId: report.id,
+            trackingCode: report.trackingCode,
+            timestamp,
+            read: false,
+          });
+        }
+      }
+
+      if (pendingNotifications.length > 0) {
+        await this.saveNotifications(pendingNotifications);
+      }
+    }
+
+    return newComment;
+  }
+
+  // --- NOTIFICATIONS & CAPPING ---
+
+  async listNotifications(recipient: RecipientFilter): Promise<NotificationMessage[]> {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
+      if (!raw) return [];
+      const all: NotificationMessage[] = JSON.parse(raw);
+      if (!Array.isArray(all)) return [];
+
+      return all.filter(n => {
+        // Admin gets all admin notifications
+        if (recipient.role === 'admin') {
+          return n.recipientRole === 'admin';
+        }
+
+        // Officer gets officer notifications matching their identity
+        if (recipient.role === 'officer') {
+          if (n.recipientRole !== 'officer') return false;
+          if (!recipient.name) return true;
+          return n.recipientName?.toLowerCase() === recipient.name.toLowerCase();
+        }
+
+        // Citizen (user / guest)
+        if (recipient.role === 'user' || recipient.role === 'guest') {
+          if (n.recipientRole !== 'user' && n.recipientRole !== 'guest') return false;
+          if (recipient.email && n.recipientEmail) {
+            return recipient.email.toLowerCase() === n.recipientEmail.toLowerCase();
+          }
+          if (recipient.name && n.recipientName) {
+            return recipient.name.toLowerCase() === n.recipientName.toLowerCase();
+          }
+          return true;
+        }
+
+        return false;
+      }).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    } catch {
+      return [];
+    }
+  }
+
+  async markRead(notificationId: string): Promise<void> {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
+      if (!raw) return;
+      const all: NotificationMessage[] = JSON.parse(raw);
+      if (!Array.isArray(all)) return;
+
+      const updated = all.map(n => n.id === notificationId ? { ...n, read: true } : n);
+      localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(updated));
+    } catch (err) {
+      console.error('Failed to mark notification as read', err);
+    }
+  }
+
+  async markAllRead(recipient: RecipientFilter): Promise<void> {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
+      if (!raw) return;
+      const all: NotificationMessage[] = JSON.parse(raw);
+      if (!Array.isArray(all)) return;
+
+      const updated = all.map(n => {
+        const matchesRole =
+          recipient.role === 'admin'
+            ? n.recipientRole === 'admin'
+            : recipient.role === 'officer'
+            ? n.recipientRole === 'officer' && (!recipient.name || n.recipientName?.toLowerCase() === recipient.name.toLowerCase())
+            : (n.recipientRole === 'user' || n.recipientRole === 'guest') &&
+              (!recipient.email || n.recipientEmail?.toLowerCase() === recipient.email.toLowerCase());
+
+        return matchesRole ? { ...n, read: true } : n;
+      });
+
+      localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(updated));
+    } catch (err) {
+      console.error('Failed to mark all notifications as read', err);
+    }
+  }
+
+  private async saveNotifications(newNotifs: NotificationMessage[]): Promise<void> {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
+      const existing: NotificationMessage[] = raw ? JSON.parse(raw) : [];
+      const combined = [...newNotifs, ...existing];
+
+      // Cap at 100 entries per recipient key to respect localStorage ~5MB limit
+      const capped = this.capNotifications(combined, MAX_NOTIFICATIONS_PER_RECIPIENT);
+      localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(capped));
+    } catch (err) {
+      console.error('Failed to persist notifications to localStorage', err);
+    }
+  }
+
+  /**
+   * Enforces the maximum notification quota per recipient identity.
+   */
+  private capNotifications(
+    list: NotificationMessage[],
+    maxPerRecipient: number
+  ): NotificationMessage[] {
+    const groups = new Map<string, NotificationMessage[]>();
+
+    for (const notif of list) {
+      const recipientKey = `${notif.recipientRole}:${notif.recipientEmail || notif.recipientName || 'all'}`;
+      if (!groups.has(recipientKey)) {
+        groups.set(recipientKey, []);
+      }
+      const group = groups.get(recipientKey)!;
+      if (group.length < maxPerRecipient) {
+        group.push(notif);
+      }
+    }
+
+    const result: NotificationMessage[] = [];
+    for (const group of groups.values()) {
+      result.push(...group);
+    }
+    return result;
+  }
+
+  // --- DEMO / ADMIN TOOLS ---
+
+  async resetDemoData(): Promise<void> {
+    try {
+      // 1. Reset reports to clean INITIAL_POTHOLES
+      saveStoredPotholes(INITIAL_POTHOLES);
+
+      // 2. Clear comments and notifications
+      localStorage.removeItem(STORAGE_KEY_COMMENTS);
+      localStorage.removeItem(STORAGE_KEY_NOTIFICATIONS);
+    } catch (err) {
+      console.error('Failed to reset demo data', err);
+    }
+  }
+
+  async loadSampleWorkflow(): Promise<PotholeReport[]> {
+    const samples = generateSampleWorkflowReports();
+    saveStoredPotholes(samples);
+
+    // Also clear notifications/comments to start fresh with sample workflow
+    try {
+      localStorage.removeItem(STORAGE_KEY_COMMENTS);
+      localStorage.removeItem(STORAGE_KEY_NOTIFICATIONS);
+    } catch (err) {
+      console.error('Failed to clear old demo logs during sample workflow seed', err);
+    }
+
+    return samples;
+  }
+}
+
+// Default singleton instance
+export const reportRepository = new LocalStorageReportRepository();

@@ -61,6 +61,12 @@ export function isAssignedOfficer(report?: PotholeReport, actor?: Actor): boolea
     }
   }
 
+  if (report.assignedOfficerId && actor.email) {
+    if (report.assignedOfficerId.trim().toLowerCase() === actor.email.trim().toLowerCase()) {
+      return true;
+    }
+  }
+
   if (report.assignedOfficerId && actor.name) {
     if (report.assignedOfficerId.trim().toLowerCase() === actor.name.trim().toLowerCase()) {
       return true;

@@ -33,6 +33,15 @@ export interface Actor {
   agencyId?: string;
 }
 
+export interface Comment {
+  id: string;
+  reportId: string;
+  authorName: string;
+  authorRole: UserRole;
+  text: string; // max 1000 characters
+  timestamp: string;
+}
+
 export interface NotificationMessage {
   id: string;
   recipientRole: UserRole;
@@ -43,6 +52,7 @@ export interface NotificationMessage {
   reportId: string;
   trackingCode?: string;
   timestamp: string;
+  read?: boolean;
 }
 
 export type SeverityLevel = 'minor' | 'moderate' | 'severe' | 'critical';
