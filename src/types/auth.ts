@@ -1,10 +1,14 @@
-export type UserRole = 'guest' | 'user' | 'admin';
+import { UserRole } from '../domain/types';
+
+export type { UserRole };
 
 export interface AuthUser {
+  id?: string;
   role: UserRole;
   email?: string;
   displayName?: string;
   agency?: string;
+  officerId?: string;
 }
 
 export interface AuthContextType {
