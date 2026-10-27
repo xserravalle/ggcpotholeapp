@@ -42,6 +42,7 @@
     "@vitest/coverage-v8": "^2.1.8",
     "@vitest/ui": "^2.1.8",
     "autoprefixer": "^10.6.0",
+    "docx": "^9.15.0",
     "jsdom": "^25.0.1",
     "oxlint": "^1.81.0",
     "postcss": "^8.5.28",
