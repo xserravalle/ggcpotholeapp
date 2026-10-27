@@ -1,6 +1,6 @@
 import { ReportStatus } from './status';
 
-export type UserRole = 'guest' | 'user' | 'admin' | 'officer';
+export type UserRole = 'guest' | 'user' | 'admin' | 'officer' | 'system';
 
 export type ReportPriority = 'low' | 'medium' | 'high' | 'critical';
 

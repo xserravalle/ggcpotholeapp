@@ -33,6 +33,21 @@ export const FEET_PER_MILE = 5280;
 export const HAZARD_WARNING_DISTANCE_MILES = 0.1; // 528 feet
 export const HAZARD_WARNING_DISTANCE_FEET = HAZARD_WARNING_DISTANCE_MILES * FEET_PER_MILE;
 
+// Duplicate cluster radius (~115 - 116 ft) for detecting already-reported hazards nearby
+export const CLUSTER_DISTANCE_MILES = 0.022;
+export const CLUSTER_DISTANCE_FEET = CLUSTER_DISTANCE_MILES * FEET_PER_MILE;
+
+/**
+ * Checks if two coordinates are within the duplicate hazard clustering distance threshold.
+ */
+export function isWithinClusterDistance(
+  a: Coordinates,
+  b: Coordinates,
+  maxDistanceMiles: number = CLUSTER_DISTANCE_MILES
+): boolean {
+  return milesBetween(a, b) <= maxDistanceMiles;
+}
+
 /**
  * Calculates compass bearing (0-360 degrees) from point A to point B
  */

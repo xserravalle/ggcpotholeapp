@@ -64,6 +64,14 @@ export function canTransition(
   return true;
 }
 
+/**
+ * Checks whether a report is currently in an open (active) lifecycle state.
+ * Reports that are 'resolved', 'closed', or 'rejected' are considered inactive/resolved.
+ */
+export function isOpenStatus(status: ReportStatus): boolean {
+  return status !== 'resolved' && status !== 'closed' && status !== 'rejected';
+}
+
 export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   reported: 'Reported',
   verified: 'Verified & Triaged',

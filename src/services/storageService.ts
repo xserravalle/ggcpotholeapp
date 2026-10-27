@@ -51,13 +51,16 @@ export function migrateReport(raw: any): PotholeReport {
   // 3. Timeline migration
   let timeline = Array.isArray(raw.timeline) ? [...raw.timeline] : [];
   if (timeline.length === 0) {
+    const isSensor = raw.source === 'sensor' || Boolean(raw.sensorDetected);
     timeline.push({
       id: `tl-init-${raw.id || 'seed'}`,
       status: 'reported',
       action: 'REPORT_CREATED',
-      message: `Hazard reported at ${raw.address || raw.roadName || 'Gwinnett County'}`,
-      actorName: raw.reporterName || 'Citizen Commuter',
-      actorRole: 'user',
+      message: isSensor
+        ? 'Auto-reported from in-vehicle accelerometer sensor telemetry.'
+        : `Hazard reported at ${raw.address || raw.roadName || 'Gwinnett County'}`,
+      actorName: isSensor ? 'Vehicle Sensor System' : raw.reporterName || 'Citizen Commuter',
+      actorRole: isSensor ? 'system' : 'user',
       timestamp: raw.reportedAt || new Date().toISOString(),
     });
 

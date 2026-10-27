@@ -93,6 +93,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: true,
     admin: true,
     officer: true,
+    system: true,
   },
 
   confirm: {
@@ -100,6 +101,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: true,
     admin: true,
     officer: true,
+    system: false,
   },
 
   comment: {
@@ -107,6 +109,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: true,
     admin: true,
     officer: (report, actor) => isAssignedOfficer(report, actor),
+    system: false,
   },
 
   rateFix: {
@@ -114,6 +117,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: (report, actor) => isOwnReport(report, actor) && (report?.status === 'resolved' || report?.status === 'closed'),
     admin: false,
     officer: false,
+    system: false,
   },
 
   reopen: {
@@ -123,6 +127,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
       isOwnReport(report, actor) && (report?.status === 'resolved' || report?.status === 'closed'),
     admin: false,
     officer: false,
+    system: false,
   },
 
   verify: {
@@ -130,6 +135,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: false,
     admin: true,
     officer: false,
+    system: false,
   },
 
   reject: {
@@ -137,6 +143,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: false,
     admin: true,
     officer: false,
+    system: false,
   },
 
   merge: {
@@ -144,6 +151,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: false,
     admin: true,
     officer: false,
+    system: false,
   },
 
   setPriority: {
@@ -151,6 +159,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: false,
     admin: true,
     officer: false,
+    system: false,
   },
 
   assign: {
@@ -158,6 +167,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: false,
     admin: true,
     officer: false,
+    system: false,
   },
 
   reassign: {
@@ -165,6 +175,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: false,
     admin: true,
     officer: false,
+    system: false,
   },
 
   close: {
@@ -172,6 +183,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: false,
     admin: true,
     officer: false,
+    system: false,
   },
 
   exportData: {
@@ -179,6 +191,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: false,
     admin: true,
     officer: false,
+    system: false,
   },
 
   dispatchEmail: {
@@ -186,6 +199,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: false,
     admin: true,
     officer: false,
+    system: false,
   },
 
   startWork: {
@@ -193,6 +207,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: false,
     admin: false,
     officer: (report, actor) => isAssignedOfficer(report, actor) && report?.status === 'assigned',
+    system: false,
   },
 
   resolve: {
@@ -200,6 +215,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: false,
     admin: false,
     officer: (report, actor) => isAssignedOfficer(report, actor) && report?.status === 'in_progress',
+    system: false,
   },
 
   viewAssignments: {
@@ -207,6 +223,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     user: false,
     admin: false,
     officer: true,
+    system: false,
   },
 };
 
@@ -249,6 +266,10 @@ export const TAB_ACTION_MAP: Record<string, CivicAction> = {
  * Evaluates whether a role is permitted to access a given workspace tab.
  */
 export function canAccessTab(tab: string, role: UserRole): boolean {
+  if (role === 'system') {
+    return false;
+  }
+
   if (role === 'officer') {
     if (tab === 'my-assignments') return can(role, 'viewAssignments');
     if (tab === 'potholes') return can(role, 'confirm');

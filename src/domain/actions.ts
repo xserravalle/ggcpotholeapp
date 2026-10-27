@@ -86,7 +86,7 @@ export function applyAction(
       updatedReport.priority = suggestPriority(newScore);
 
       timelineAction = 'CONFIRMED';
-      timelineMessage = `Community confirmation (+1) logged by ${actor.name}. Total: ${newCount}`;
+      timelineMessage = payload?.message || `Community confirmation (+1) logged by ${actor.name}. Total: ${newCount}`;
       break;
     }
 

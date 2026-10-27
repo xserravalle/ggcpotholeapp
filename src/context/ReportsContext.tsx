@@ -26,7 +26,7 @@ export interface ReportsContextType {
       'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt' | 'priority' | 'priorityScore' | 'timeline'
     >
   ) => Promise<PotholeReport>;
-  confirmReport: (id: string, actor?: Actor) => Promise<PotholeReport>;
+  confirmReport: (id: string, actor?: Actor, message?: string) => Promise<PotholeReport>;
   updateReportStatus: (id: string, newStatus: ReportStatus, actor?: Actor) => Promise<PotholeReport>;
   dispatchAction: (
     id: string,
@@ -53,7 +53,7 @@ export interface ReportsContextType {
   loadSampleWorkflow: () => Promise<void>;
 }
 
-const ReportsContext = createContext<ReportsContextType | null>(null);
+export const ReportsContext = createContext<ReportsContextType | null>(null);
 
 export interface ReportsProviderProps {
   children: ReactNode;
@@ -154,13 +154,13 @@ export const ReportsProvider: React.FC<ReportsProviderProps> = ({
     return saved;
   };
 
-  const confirmReport = async (id: string, actor?: Actor): Promise<PotholeReport> => {
+  const confirmReport = async (id: string, actor?: Actor, message?: string): Promise<PotholeReport> => {
     const effectiveActor: Actor = actor || {
       name: 'Citizen Commuter',
       role: 'user',
     };
 
-    const res = await repository.dispatch(id, 'confirm', effectiveActor);
+    const res = await repository.dispatch(id, 'confirm', effectiveActor, message ? { message } : undefined);
     setPotholes(prev => prev.map(p => p.id === id ? res.report : p));
     return res.report;
   };
@@ -264,6 +264,17 @@ export const ReportsProvider: React.FC<ReportsProviderProps> = ({
       workOrderNumber: `REF-${newId}`,
       distanceFromGgcMiles: dist,
       source: 'sensor',
+      timeline: [
+        {
+          id: `tl-sensor-${uuid}`,
+          status: 'reported',
+          action: 'SENSOR_DETECTED',
+          message: 'Auto-reported from in-vehicle accelerometer sensor (3-hit threshold reached)',
+          actorName: 'Vehicle Sensor System',
+          actorRole: 'system',
+          timestamp: new Date().toISOString(),
+        },
+      ],
     });
 
     const saved = await repository.save(reportObj);
@@ -312,6 +323,17 @@ export const ReportsProvider: React.FC<ReportsProviderProps> = ({
         workOrderNumber: `REF-${newId}`,
         distanceFromGgcMiles: dist,
         source: 'sensor',
+        timeline: [
+          {
+            id: `tl-sensor-inc-${uuid}`,
+            status: 'reported',
+            action: 'SENSOR_DETECTED',
+            message: 'Auto-reported from in-vehicle accelerometer drive incident',
+            actorName: 'Vehicle Sensor System',
+            actorRole: 'system',
+            timestamp: new Date(inc.timestamp).toISOString(),
+          },
+        ],
       });
 
       const saved = await repository.save(reportObj);

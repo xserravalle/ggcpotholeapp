@@ -8,6 +8,7 @@ import { PARKING_LOTS } from './data/parkingLotsData';
 import { useAuth } from './context/AuthContext';
 import { ReportsProvider, useReports } from './context/ReportsContext';
 import { canAccessTab } from './domain/permissions';
+import { Actor } from './domain/types';
 
 // Common Components
 import { Header, ActiveTab } from './components/Header';
@@ -195,6 +196,8 @@ function AppContent() {
         {/* Tab 1: Campus Parking Availability */}
         {activeTab === 'dashboard' && (
           <UnifiedDashboard
+            potholes={potholes}
+            onSelectPothole={(p) => setSelectedPothole(p)}
             parkingLots={parkingLots}
             simulationParams={simulationParams}
             onChangeSimulationParams={setSimulationParams}
@@ -319,6 +322,22 @@ function AppContent() {
         onSubmitReport={handleSubmitNewReport}
         initialTelemetry={sensorTriggeredTelemetry}
         initialCoords={droppedPinCoords}
+        existingReports={potholes}
+        onConfirmExistingReport={async (id, customMsg) => {
+          const actor: Actor = {
+            name: user.displayName || 'Citizen Commuter',
+            email: user.email,
+            role: (user.role as any) || 'user',
+          };
+          const updated = await confirmReport(id, actor, customMsg);
+          setSelectedPothole(updated);
+          setIsReportModalOpen(false);
+          setSensorTriggeredTelemetry(undefined);
+          setDroppedPinCoords(undefined);
+          if (activeTab === 'report') {
+            setActiveTab('dashboard');
+          }
+        }}
       />
 
       {/* Incident Docket Success Modal */}
