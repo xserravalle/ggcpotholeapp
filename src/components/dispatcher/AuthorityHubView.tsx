@@ -19,6 +19,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { useReports } from '../../context/ReportsContext';
+import { StatCard } from '../kit/StatCard';
 
 interface AuthorityHubViewProps {
   potholes: PotholeReport[];
@@ -155,49 +156,60 @@ export const AuthorityHubView: React.FC<AuthorityHubViewProps> = ({
 
       {/* KPI Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-md">
-          <span className="text-slate-400 text-[11px] block">Total Hazards</span>
-          <span className="text-xl font-extrabold text-white font-mono mt-0.5 block">{totalCount}</span>
-          <span className="text-[10px] text-slate-500">Across Gwinnett</span>
-        </div>
+        <StatCard
+          label="Total Hazards"
+          value={totalCount}
+          subtext="Across Gwinnett"
+          variant="default"
+        />
 
-        <div className="bg-slate-900 border border-emerald-800/60 rounded-xl p-3 shadow-md bg-emerald-950/20">
-          <span className="text-emerald-400 text-[11px] font-semibold block flex items-center gap-1">
-            <GraduationCap className="w-3 h-3" /> GGC Campus
-          </span>
-          <span className="text-xl font-extrabold text-emerald-300 font-mono mt-0.5 block">{ggcCampusCount}</span>
-          <span className="text-[10px] text-slate-400">Facilities Queue</span>
-        </div>
+        <StatCard
+          label="GGC Campus"
+          value={ggcCampusCount}
+          subtext="Facilities Queue"
+          variant="emerald"
+          icon={GraduationCap}
+        />
 
-        <div className="bg-slate-900 border border-rose-800/60 rounded-xl p-3 shadow-md bg-rose-950/20">
-          <span className="text-rose-400 text-[11px] font-semibold block">Axle-Risk Critical</span>
-          <span className="text-xl font-extrabold text-rose-300 font-mono mt-0.5 block">{criticalCount}</span>
-          <span className="text-[10px] text-rose-400/80">Immediate Hazard</span>
-        </div>
+        <StatCard
+          label="Axle-Risk Critical"
+          value={criticalCount}
+          subtext="Immediate Hazard"
+          variant="rose"
+          icon={AlertTriangle}
+        />
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-md">
-          <span className="text-amber-400 text-[11px] font-semibold block">Pending Triage</span>
-          <span className="text-xl font-extrabold text-amber-300 font-mono mt-0.5 block">{pendingCount}</span>
-          <span className="text-[10px] text-slate-500">Awaiting Crew</span>
-        </div>
+        <StatCard
+          label="Pending Triage"
+          value={pendingCount}
+          subtext="Awaiting Crew"
+          variant="amber"
+          icon={Clock}
+        />
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-md">
-          <span className="text-blue-400 text-[11px] font-semibold block">Dispatched</span>
-          <span className="text-xl font-extrabold text-blue-300 font-mono mt-0.5 block">{dispatchedCount}</span>
-          <span className="text-[10px] text-slate-500">Field En Route</span>
-        </div>
+        <StatCard
+          label="Dispatched"
+          value={dispatchedCount}
+          subtext="Field En Route"
+          variant="blue"
+          icon={Send}
+        />
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-md">
-          <span className="text-purple-400 text-[11px] font-semibold block">Scheduled</span>
-          <span className="text-xl font-extrabold text-purple-300 font-mono mt-0.5 block">{scheduledCount}</span>
-          <span className="text-[10px] text-slate-500">Asphalt Slotted</span>
-        </div>
+        <StatCard
+          label="Scheduled"
+          value={scheduledCount}
+          subtext="Asphalt Slotted"
+          variant="purple"
+          icon={Building2}
+        />
 
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-3 shadow-md">
-          <span className="text-emerald-400 text-[11px] font-semibold block">Repaired</span>
-          <span className="text-xl font-extrabold text-emerald-400 font-mono mt-0.5 block">{repairedCount}</span>
-          <span className="text-[10px] text-slate-500">Closed & Verified</span>
-        </div>
+        <StatCard
+          label="Repaired"
+          value={repairedCount}
+          subtext="Closed & Verified"
+          variant="emerald"
+          icon={CheckCircle2}
+        />
       </div>
 
       {/* Filter and Search Bar */}

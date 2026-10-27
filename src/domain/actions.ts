@@ -434,8 +434,14 @@ export function applyAction(
     }
 
     case 'exportData':
-    case 'dispatchEmail': {
-      timelineAction = action === 'exportData' ? 'AUDIT_EXPORT_CSV' : 'DISPATCH_EMAIL_SENT';
+    case 'dispatchEmail':
+    case 'viewAssignments': {
+      timelineAction =
+        action === 'exportData'
+          ? 'AUDIT_EXPORT_CSV'
+          : action === 'dispatchEmail'
+          ? 'DISPATCH_EMAIL_SENT'
+          : 'VIEW_ASSIGNMENTS';
       timelineMessage = payload?.message || `Operational audit: ${action} executed by ${actor.name}.`;
       break;
     }

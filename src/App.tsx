@@ -7,6 +7,7 @@ import { HIGH_RISK_ROAD_SEGMENTS } from './data/roadSegmentsData';
 import { PARKING_LOTS } from './data/parkingLotsData';
 import { useAuth } from './context/AuthContext';
 import { ReportsProvider, useReports } from './context/ReportsContext';
+import { canAccessTab } from './domain/permissions';
 
 // Common Components
 import { Header, ActiveTab } from './components/Header';
@@ -22,6 +23,11 @@ import { MyReportsView } from './components/potholes/MyReportsView';
 import { AboutHelpView } from './components/about/AboutHelpView';
 import { AuthorityHubView } from './components/dispatcher/AuthorityHubView';
 import { PotholeAnalyticsView } from './components/potholes/PotholeAnalyticsView';
+import { 
+  TriageWorkspaceView, 
+  PerformanceWorkspaceView, 
+  OfficerAssignmentsView 
+} from './components/workspaces';
 
 // Modals & Drawers
 import { PotholeDetailDrawer } from './components/potholes/PotholeDetailDrawer';
@@ -31,7 +37,7 @@ import { MunicipalDispatcherModal } from './components/potholes/MunicipalDispatc
 import { LotDetailModal } from './components/parking/LotDetailModal';
 
 function AppContent() {
-  const { isAdmin, isAuthModalOpen, closeAuthModal, openAuthModal } = useAuth();
+  const { user, isAdmin, isOfficer, isAuthModalOpen, closeAuthModal, openAuthModal } = useAuth();
   const {
     potholes,
     submitReport,
@@ -55,12 +61,25 @@ function AppContent() {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [activeTab]);
 
-  // Route security: if a non-admin is currently on an admin-only tab, redirect safely to Map
+  // Route security: verify tab access against user role permissions using canAccessTab(tab, role)
   useEffect(() => {
-    if (!isAdmin && (activeTab === 'dispatcher' || activeTab === 'analytics')) {
-      setActiveTab('potholes');
+    if (!canAccessTab(activeTab, user.role)) {
+      if (user.role === 'admin') {
+        setActiveTab('admin-overview');
+      } else if (user.role === 'officer') {
+        setActiveTab('my-assignments');
+      } else {
+        setActiveTab('dashboard');
+      }
     }
-  }, [isAdmin, activeTab]);
+  }, [activeTab, user.role]);
+
+  // Open report modal when report tab is selected
+  useEffect(() => {
+    if (activeTab === 'report') {
+      setIsReportModalOpen(true);
+    }
+  }, [activeTab]);
 
   // Interactive Selection State
   const [selectedPothole, setSelectedPothole] = useState<PotholeReport | null>(null);
@@ -184,7 +203,7 @@ function AppContent() {
         )}
 
         {/* Tab 2: Interactive OpenStreetMap Hazard Map */}
-        {activeTab === 'potholes' && (
+        {(activeTab === 'potholes' || activeTab === 'report') && (
           <PotholeMapView
             potholes={potholes}
             roadSegments={roadSegments}
@@ -223,8 +242,8 @@ function AppContent() {
           />
         )}
 
-        {/* Secondary Tab: Municipal Dispatcher Hub (accessible ONLY by Admins) */}
-        {isAdmin && activeTab === 'dispatcher' && (
+        {/* Admin Workspaces: Overview & Dispatch Hub */}
+        {(activeTab === 'admin-overview' || activeTab === 'dispatcher' || activeTab === 'dispatch-board') && (
           <AuthorityHubView
             potholes={potholes}
             onUpdateStatus={handleUpdateStatus}
@@ -236,11 +255,32 @@ function AppContent() {
           />
         )}
 
-        {/* Secondary Tab: Pavement Corridor Analytics (accessible ONLY by Admins) */}
-        {isAdmin && activeTab === 'analytics' && (
+        {/* Admin Workspaces: Triage Queue */}
+        {activeTab === 'triage' && (
+          <TriageWorkspaceView />
+        )}
+
+        {/* Admin Workspaces: Performance & SLA Dashboard */}
+        {activeTab === 'performance' && (
+          <PerformanceWorkspaceView />
+        )}
+
+        {/* Admin Workspaces: Pavement Corridor Analytics */}
+        {activeTab === 'analytics' && (
           <PotholeAnalyticsView
             potholes={potholes}
             roadSegments={roadSegments}
+          />
+        )}
+
+        {/* Officer Workspaces: My Field Assignments */}
+        {activeTab === 'my-assignments' && (
+          <OfficerAssignmentsView
+            potholes={potholes}
+            onSelectPothole={(p) => {
+              setSelectedPothole(p);
+            }}
+            onNavigateToMap={() => setActiveTab('potholes')}
           />
         )}
 
@@ -272,6 +312,9 @@ function AppContent() {
           setIsReportModalOpen(false);
           setSensorTriggeredTelemetry(undefined);
           setDroppedPinCoords(undefined);
+          if (activeTab === 'report') {
+            setActiveTab('dashboard');
+          }
         }}
         onSubmitReport={handleSubmitNewReport}
         initialTelemetry={sensorTriggeredTelemetry}
@@ -354,6 +397,13 @@ function AppContent() {
             {isAdmin ? (
               <>
                 <button
+                  onClick={() => setActiveTab('admin-overview')}
+                  className="hover:text-blue-400 transition"
+                >
+                  Admin Overview
+                </button>
+                <span>&bull;</span>
+                <button
                   onClick={() => setActiveTab('dispatcher')}
                   className="hover:text-blue-400 transition"
                 >
@@ -369,6 +419,26 @@ function AppContent() {
                 <span>&bull;</span>
                 <span className="text-blue-400 font-semibold font-mono text-[11px]">
                   Admin Portal Active
+                </span>
+              </>
+            ) : isOfficer ? (
+              <>
+                <button
+                  onClick={() => setActiveTab('my-assignments')}
+                  className="hover:text-purple-400 transition"
+                >
+                  My Assignments
+                </button>
+                <span>&bull;</span>
+                <button
+                  onClick={() => setActiveTab('potholes')}
+                  className="hover:text-emerald-400 transition"
+                >
+                  Hazard Map
+                </button>
+                <span>&bull;</span>
+                <span className="text-purple-400 font-semibold font-mono text-[11px]">
+                  Officer Crew Active ({user.agencyId || 'Field'})
                 </span>
               </>
             ) : (

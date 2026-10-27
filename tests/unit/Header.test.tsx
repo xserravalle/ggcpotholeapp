@@ -28,8 +28,9 @@ describe('Header Component', () => {
 
   it('should render primary navigation tabs', () => {
     render(<Header {...mockProps} />);
+    expect(screen.getByText('Home')).toBeTruthy();
     expect(screen.getByText('Map')).toBeTruthy();
-    expect(screen.getByText('Parking')).toBeTruthy();
+    expect(screen.getByText('Report')).toBeTruthy();
     expect(screen.getByText('My Reports')).toBeTruthy();
   });
 });

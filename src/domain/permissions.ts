@@ -17,7 +17,8 @@ export type CivicAction =
   | 'exportData'
   | 'dispatchEmail'
   | 'startWork'
-  | 'resolve';
+  | 'resolve'
+  | 'viewAssignments';
 
 type PermissionRule = boolean | ((report?: PotholeReport, actor?: Actor) => boolean);
 
@@ -200,6 +201,13 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     admin: false,
     officer: (report, actor) => isAssignedOfficer(report, actor) && report?.status === 'in_progress',
   },
+
+  viewAssignments: {
+    guest: false,
+    user: false,
+    admin: false,
+    officer: true,
+  },
 };
 
 /**
@@ -216,4 +224,69 @@ export function can(
     return rule(report, actor);
   }
   return Boolean(rule);
+}
+
+/**
+ * Maps each navigation tab to its authorizing civic action for route-level protection.
+ */
+export const TAB_ACTION_MAP: Record<string, CivicAction> = {
+  dashboard: 'confirm',
+  potholes: 'confirm',
+  report: 'create',
+  'my-reports': 'create',
+  'admin-overview': 'assign',
+  triage: 'verify',
+  'dispatch-board': 'assign',
+  performance: 'exportData',
+  analytics: 'exportData',
+  'my-assignments': 'viewAssignments',
+  dispatcher: 'assign',
+  sensor: 'confirm',
+  about: 'confirm',
+};
+
+/**
+ * Evaluates whether a role is permitted to access a given workspace tab.
+ */
+export function canAccessTab(tab: string, role: UserRole): boolean {
+  if (role === 'officer') {
+    if (tab === 'my-assignments') return can(role, 'viewAssignments');
+    if (tab === 'potholes') return can(role, 'confirm');
+    return false;
+  }
+
+  if (role === 'admin') {
+    if (tab === 'admin-overview' || tab === 'dispatch-board' || tab === 'dispatcher') {
+      return can(role, 'assign');
+    }
+    if (tab === 'triage') {
+      return can(role, 'verify');
+    }
+    if (tab === 'performance' || tab === 'analytics') {
+      return can(role, 'exportData');
+    }
+    if (tab === 'potholes') {
+      return can(role, 'confirm');
+    }
+    return false;
+  }
+
+  // Citizen (guest / user)
+  if (
+    tab === 'admin-overview' ||
+    tab === 'dispatch-board' ||
+    tab === 'dispatcher' ||
+    tab === 'triage' ||
+    tab === 'performance' ||
+    tab === 'analytics'
+  ) {
+    return false;
+  }
+  if (tab === 'my-assignments') {
+    return can(role, 'viewAssignments');
+  }
+
+  const action = TAB_ACTION_MAP[tab];
+  if (!action) return false;
+  return can(role, action);
 }
