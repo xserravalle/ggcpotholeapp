@@ -15,8 +15,10 @@ import {
   ExternalLink,
   GraduationCap,
   Sparkles,
-  MapPin
+  MapPin,
+  RotateCcw
 } from 'lucide-react';
+import { useReports } from '../../context/ReportsContext';
 
 interface AuthorityHubViewProps {
   potholes: PotholeReport[];
@@ -34,6 +36,37 @@ export const AuthorityHubView: React.FC<AuthorityHubViewProps> = ({
   const [agencyFilter, setAgencyFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const { resetDemoData, loadSampleWorkflow } = useReports();
+  const [isActionPending, setIsActionPending] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+  const handleResetDemoData = async () => {
+    try {
+      setIsActionPending(true);
+      await resetDemoData();
+      setFeedbackMessage('Demo data reset to initial baseline.');
+      setTimeout(() => setFeedbackMessage(null), 4000);
+    } catch (err: any) {
+      setFeedbackMessage(`Error resetting demo: ${err?.message || 'Unknown error'}`);
+      setTimeout(() => setFeedbackMessage(null), 4000);
+    } finally {
+      setIsActionPending(false);
+    }
+  };
+
+  const handleLoadSampleWorkflow = async () => {
+    try {
+      setIsActionPending(true);
+      await loadSampleWorkflow();
+      setFeedbackMessage('Sample workflow loaded: 10 reports across all 7 statuses with realistic timelines.');
+      setTimeout(() => setFeedbackMessage(null), 4000);
+    } catch (err: any) {
+      setFeedbackMessage(`Error loading sample workflow: ${err?.message || 'Unknown error'}`);
+      setTimeout(() => setFeedbackMessage(null), 4000);
+    } finally {
+      setIsActionPending(false);
+    }
+  };
 
   // KPI Metrics
   const totalCount = potholes.length;
@@ -82,7 +115,27 @@ export const AuthorityHubView: React.FC<AuthorityHubViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleResetDemoData}
+            disabled={isActionPending}
+            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition shadow disabled:opacity-50"
+            title="Reset reports to initial baseline data and clear comments/notifications"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-amber-400" />
+            <span>Reset demo data</span>
+          </button>
+
+          <button
+            onClick={handleLoadSampleWorkflow}
+            disabled={isActionPending}
+            className="px-3.5 py-2 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 border border-emerald-700 text-xs font-semibold flex items-center gap-1.5 transition shadow disabled:opacity-50"
+            title="Seed 10 reports spanning all 7 workflow statuses with realistic timelines"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Load sample workflow</span>
+          </button>
+
           <button
             onClick={() => exportPotholesToCsv(potholes)}
             className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition shadow"
@@ -92,6 +145,13 @@ export const AuthorityHubView: React.FC<AuthorityHubViewProps> = ({
           </button>
         </div>
       </div>
+
+      {feedbackMessage && (
+        <div className="bg-emerald-950/80 border border-emerald-600/50 text-emerald-200 text-xs px-3.5 py-2 rounded-xl flex items-center gap-2 shadow-md">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{feedbackMessage}</span>
+        </div>
+      )}
 
       {/* KPI Metric Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 text-xs">

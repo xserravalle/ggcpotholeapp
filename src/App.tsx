@@ -3,13 +3,10 @@ import { PotholeReport, SeverityLevel } from './types/pothole';
 import { TrackedHazardSpot } from './types/sensorQueue';
 import { DriveShockIncident } from './types/driveSession';
 import { ParkingLot, SimulationParams } from './types/parking';
-import { INITIAL_POTHOLES } from './data/potholesData';
 import { HIGH_RISK_ROAD_SEGMENTS } from './data/roadSegmentsData';
 import { PARKING_LOTS } from './data/parkingLotsData';
-import { loadStoredPotholes, saveStoredPotholes, migrateReport } from './services/storageService';
-import { distanceFromCampusMiles } from './services/distanceCalculator';
-import { classifyJurisdiction } from './services/jurisdictionClassifier';
 import { useAuth } from './context/AuthContext';
+import { ReportsProvider, useReports } from './context/ReportsContext';
 
 // Common Components
 import { Header, ActiveTab } from './components/Header';
@@ -33,21 +30,25 @@ import { DocketSuccessModal } from './components/potholes/DocketSuccessModal';
 import { MunicipalDispatcherModal } from './components/potholes/MunicipalDispatcherModal';
 import { LotDetailModal } from './components/parking/LotDetailModal';
 
-export function App() {
+function AppContent() {
   const { isAdmin, isAuthModalOpen, closeAuthModal, openAuthModal } = useAuth();
+  const {
+    potholes,
+    submitReport,
+    confirmReport,
+    updateReportStatus,
+    promoteSensorSpot,
+    promoteDriveIncidents,
+    updateReport,
+    deleteReport
+  } = useReports();
 
   // Navigation: Default to Map & Hazards
   const [activeTab, setActiveTab] = useState<ActiveTab>('potholes');
 
-  // Core Data State with Local Persistence
-  const [potholes, setPotholes] = useState<PotholeReport[]>(() => loadStoredPotholes(INITIAL_POTHOLES));
+  // Core Data State
   const [roadSegments] = useState(HIGH_RISK_ROAD_SEGMENTS);
   const [parkingLots] = useState<ParkingLot[]>(PARKING_LOTS);
-
-  // Auto-save whenever potholes state changes
-  useEffect(() => {
-    saveStoredPotholes(potholes);
-  }, [potholes]);
 
   // Always reset window scroll position to top on tab change
   useEffect(() => {
@@ -103,179 +104,52 @@ export function App() {
   };
 
   // Verification Handler (Upvote)
-  const handleVerifyPothole = (id: string) => {
-    setPotholes(prev => prev.map(p => {
-      if (p.id === id) {
-        const newCount = p.verificationsCount + 1;
-        return {
-          ...p,
-          verificationsCount: newCount,
-          userConfirmed: true,
-          lastVerifiedAt: new Date().toISOString()
-        };
-      }
-      return p;
-    }));
-
+  const handleVerifyPothole = async (id: string) => {
+    const updated = await confirmReport(id);
     if (selectedPothole && selectedPothole.id === id) {
-      setSelectedPothole(prev => prev ? {
-        ...prev,
-        verificationsCount: prev.verificationsCount + 1,
-        userConfirmed: true
-      } : null);
+      setSelectedPothole(updated);
     }
   };
 
   // Submit New Pothole Report
-  const handleSubmitNewReport = (
+  const handleSubmitNewReport = async (
     newReportData: Omit<PotholeReport, 'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt' | 'priority' | 'priorityScore' | 'timeline'>
   ) => {
-    const uuid = crypto.randomUUID();
-    const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
-    const newId = `GW-POT-${uuid}`;
-    const dist = distanceFromCampusMiles({ lat: newReportData.latitude, lng: newReportData.longitude });
-
-    const newReport: PotholeReport = migrateReport({
-      ...newReportData,
-      id: newId,
-      trackingCode,
-      verificationsCount: 1,
-      userConfirmed: true,
-      reportedAt: new Date().toISOString(),
-      lastVerifiedAt: new Date().toISOString(),
-      workOrderNumber: `REF-${trackingCode}`,
-      distanceFromGgcMiles: dist,
-      source: 'user'
-    });
-
-    setPotholes(prev => [newReport, ...prev]);
+    const newReport = await submitReport(newReportData);
     setSelectedPothole(newReport);
     setDocketSuccessReport(newReport);
     setSensorTriggeredTelemetry(undefined);
   };
 
   // Update Status Lifecycle
-  const handleUpdateStatus = (id: string, newStatus: PotholeReport['status']) => {
-    setPotholes(prev => prev.map(p => {
-      if (p.id === id) {
-        return { ...p, status: newStatus };
-      }
-      return p;
-    }));
-
+  const handleUpdateStatus = async (id: string, newStatus: PotholeReport['status']) => {
+    const updated = await updateReportStatus(id, newStatus);
     if (selectedPothole && selectedPothole.id === id) {
-      setSelectedPothole(prev => prev ? { ...prev, status: newStatus } : null);
+      setSelectedPothole(updated);
     }
   };
 
   // Promote a spot that hit 3x into an official confirmed PotholeReport
-  const handlePromoteSpotToReport = (spot: TrackedHazardSpot) => {
-    const uuid = crypto.randomUUID();
-    const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
-    const newId = `GW-POT-${uuid}`;
-    const dist = distanceFromCampusMiles({ lat: spot.latitude, lng: spot.longitude });
-    const classification = classifyJurisdiction(spot.latitude, spot.longitude, spot.roadName);
-
-    const newReport: PotholeReport = migrateReport({
-      id: newId,
-      trackingCode,
-      title: `Possible Road Hazard on ${spot.roadName}`,
-      roadName: spot.roadName || 'Detected Road Hazard',
-      address: `${spot.latitude.toFixed(5)}, ${spot.longitude.toFixed(5)}`,
-      city: spot.city || 'Lawrenceville',
-      jurisdiction: classification.authority.name,
-      authorityId: classification.authority.id,
-      authorityName: classification.authority.name,
-      authorityEmail: classification.authority.contactEmail,
-      latitude: spot.latitude,
-      longitude: spot.longitude,
-      severity: spot.severity,
-      hazardType: 'POTHOLE',
-      status: 'reported',
-      verificationsCount: 0,
-      userConfirmed: false,
-      reportedAt: new Date().toISOString(),
-      lastVerifiedAt: new Date().toISOString(),
-      description: `Sensor recorded ${spot.hitCount} impacts near this location. Review the road condition before treating this as a confirmed pothole.`,
-      estimatedDepthInches: spot.maxGForce >= 6.0 ? 3.5 : 2.5,
-      estimatedWidthInches: spot.maxGForce >= 6.0 ? 20 : 14,
-      surfaceType: 'Asphalt',
-      damageRisk: spot.maxGForce >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
-      detectedBy: 'Vehicle Accelerometer Telemetry',
-      sensorDetected: true,
-      sensorEvidence: {
-        hitCount: spot.hitCount,
-        maxGForce: spot.maxGForce,
-        firstDetectedAt: spot.createdAt,
-        lastDetectedAt: spot.lastHitAt
-      },
-      bumpIntensity: spot.maxGForce,
-      workOrderNumber: `REF-${newId}`,
-      distanceFromGgcMiles: dist,
-      source: 'sensor'
-    });
-
-    setPotholes(prev => [newReport, ...prev]);
+  const handlePromoteSpotToReport = async (spot: TrackedHazardSpot) => {
+    await promoteSensorSpot(spot);
   };
 
   // Promote all incidents from a completed Drive Session to official reports
-  const handlePromoteDriveIncidents = (incidents: DriveShockIncident[]) => {
-    const newReports: PotholeReport[] = incidents.map(inc => {
-      const uuid = crypto.randomUUID();
-      const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
-      const newId = `GW-POT-${uuid}`;
-      const dist = distanceFromCampusMiles({ lat: inc.latitude, lng: inc.longitude });
-      const classification = classifyJurisdiction(inc.latitude, inc.longitude, inc.roadName);
-
-      return migrateReport({
-        id: newId,
-        trackingCode,
-        title: `Pothole on ${inc.roadName || 'Roadway'}`,
-        roadName: inc.roadName || 'Corridor',
-        address: inc.address || `${inc.latitude.toFixed(5)}, ${inc.longitude.toFixed(5)}`,
-        city: inc.city || 'Lawrenceville',
-        jurisdiction: classification.authority.name,
-        authorityId: classification.authority.id,
-        authorityName: classification.authority.name,
-        authorityEmail: classification.authority.contactEmail,
-        latitude: inc.latitude,
-        longitude: inc.longitude,
-        severity: inc.severity,
-        hazardType: 'POTHOLE',
-        status: 'reported',
-        verificationsCount: 1,
-        userConfirmed: true,
-        reportedAt: new Date(inc.timestamp).toISOString(),
-        lastVerifiedAt: new Date(inc.timestamp).toISOString(),
-        description: `Logged during Drive-Time Patrol (${inc.peakG.toFixed(2)}G Shock). Nearest address: ${inc.address}.`,
-        estimatedDepthInches: inc.peakG >= 6.0 ? 3.5 : 2.5,
-        estimatedWidthInches: inc.peakG >= 6.0 ? 20 : 14,
-        surfaceType: 'Asphalt',
-        damageRisk: inc.peakG >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
-        detectedBy: 'Vehicle Accelerometer Telemetry',
-        sensorDetected: true,
-        bumpIntensity: inc.peakG,
-        imageUrl: inc.imageUrl,
-        workOrderNumber: `REF-${newId}`,
-        distanceFromGgcMiles: dist,
-        source: 'sensor'
-      });
-    });
-
-    setPotholes(prev => [...newReports, ...prev]);
+  const handlePromoteDriveIncidents = async (incidents: DriveShockIncident[]) => {
+    await promoteDriveIncidents(incidents);
   };
 
   // Update report details (from My Reports edit modal)
-  const handleUpdateReport = (updatedReport: PotholeReport) => {
-    setPotholes(prev => prev.map(p => p.id === updatedReport.id ? updatedReport : p));
+  const handleUpdateReport = async (updatedReport: PotholeReport) => {
+    const saved = await updateReport(updatedReport);
     if (selectedPothole && selectedPothole.id === updatedReport.id) {
-      setSelectedPothole(updatedReport);
+      setSelectedPothole(saved);
     }
   };
 
   // Delete report (from My Reports edit modal)
-  const handleDeleteReport = (id: string) => {
-    setPotholes(prev => prev.filter(p => p.id !== id));
+  const handleDeleteReport = async (id: string) => {
+    await deleteReport(id);
     if (selectedPothole && selectedPothole.id === id) {
       setSelectedPothole(null);
     }
@@ -510,6 +384,14 @@ export function App() {
       </footer>
 
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <ReportsProvider>
+      <AppContent />
+    </ReportsProvider>
   );
 }
 
