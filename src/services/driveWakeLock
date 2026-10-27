@@ -1,0 +1,100 @@
+
+/** Optional screen wake lock for foreground driving sessions. */
+
+type LockSentinel = {
+  released: boolean;
+  release(): Promise<void>;
+  addEventListener(
+    type: 'release',
+    listener: () => void
+  ): void;
+};
+
+type LockProvider = {
+  request(type: 'screen'): Promise<LockSentinel>;
+};
+
+export class DriveWakeLock {
+  private lock: LockSentinel | null = null;
+  private active = false;
+  private pending: Promise<boolean> | null = null;
+  private provider: LockProvider | undefined;
+
+  constructor(provider?: LockProvider) {
+    this.provider =
+      provider ??
+      (typeof navigator !== 'undefined'
+        ? (navigator as Navigator & {
+            wakeLock?: LockProvider;
+          }).wakeLock
+        : undefined);
+  }
+
+  async start(): Promise<boolean> {
+    this.active = true;
+    return this.acquire();
+  }
+
+  private acquire(): Promise<boolean> {
+    if (
+      !this.active ||
+      !this.provider ||
+      (typeof document !== 'undefined' &&
+        document.visibilityState === 'hidden')
+    ) {
+      return Promise.resolve(false);
+    }
+
+    if (this.lock && !this.lock.released) {
+      return Promise.resolve(true);
+    }
+
+    if (this.pending) {
+      return this.pending;
+    }
+
+    this.pending = this.provider
+      .request('screen')
+      .then(async lock => {
+        if (!this.active) {
+          await lock.release();
+          return false;
+        }
+
+        this.lock = lock;
+
+        lock.addEventListener('release', () => {
+          if (this.lock === lock) {
+            this.lock = null;
+          }
+        });
+
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => {
+        this.pending = null;
+      });
+
+    return this.pending;
+  }
+
+  /** Call when the page becomes visible again. */
+  onVisible(): Promise<boolean> {
+    return this.acquire();
+  }
+
+  async stop(): Promise<void> {
+    this.active = false;
+
+    const pending = this.pending;
+    if (pending) await pending;
+
+    const lock = this.lock;
+    this.lock = null;
+
+    if (lock && !lock.released) {
+      await lock.release();
+    }
+  }
+}
