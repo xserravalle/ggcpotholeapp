@@ -1,4 +1,5 @@
 import { ReportStatus } from './status';
+export type { ReportStatus };
 
 export type UserRole = 'guest' | 'user' | 'admin' | 'officer' | 'system';
 

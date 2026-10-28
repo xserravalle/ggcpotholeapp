@@ -276,6 +276,7 @@ export const TAB_ACTION_MAP: Record<string, CivicAction> = {
   dispatcher: 'assign',
   sensor: 'confirm',
   about: 'confirm',
+  scoreboard: 'confirm',
 };
 
 /**
@@ -289,6 +290,7 @@ export function canAccessTab(tab: string, role: UserRole): boolean {
   if (role === 'officer') {
     if (tab === 'my-assignments') return can(role, 'viewAssignments');
     if (tab === 'potholes') return can(role, 'confirm');
+    if (tab === 'scoreboard' || tab === 'about') return true;
     return false;
   }
 
@@ -302,8 +304,8 @@ export function canAccessTab(tab: string, role: UserRole): boolean {
     if (tab === 'performance' || tab === 'analytics') {
       return can(role, 'exportData');
     }
-    if (tab === 'potholes') {
-      return can(role, 'confirm');
+    if (tab === 'potholes' || tab === 'scoreboard' || tab === 'about') {
+      return true;
     }
     return false;
   }

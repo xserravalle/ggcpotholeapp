@@ -154,9 +154,14 @@ export function saveTrackedSpots(spots: TrackedHazardSpot[]): void {
 
 function sanitizeCsvCell(value: string | number | boolean | null | undefined): string {
   if (value === null || value === undefined) return '""';
-  let str = String(value).trim();
+  let str = String(value);
   if (/^[=+\-@\t\r]/.test(str)) {
     str = `'${str}`;
+  } else {
+    str = str.trim();
+    if (/^[=+\-@\t\r]/.test(str)) {
+      str = `'${str}`;
+    }
   }
   return `"${str.replace(/"/g, '""')}"`;
 }

@@ -28,7 +28,8 @@ import {
   CheckCircle2,
   HardHat,
   ArrowRight,
-  Compass
+  Compass,
+  Trophy
 } from 'lucide-react';
 
 interface UnifiedDashboardProps {
@@ -200,6 +201,17 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
             <Search className="w-4 h-4 text-emerald-400" />
             <span>Track a Report</span>
           </button>
+
+          {onNavigateTab && (
+            <button
+              onClick={() => onNavigateTab('scoreboard')}
+              className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 hover:text-white border border-amber-500/40 text-xs font-semibold rounded-2xl transition flex items-center gap-1.5 active:scale-95 cursor-pointer"
+              title="View Public Community Scoreboard"
+            >
+              <Trophy className="w-4 h-4 text-amber-400" />
+              <span>Scoreboard</span>
+            </button>
+          )}
         </div>
       </div>
 

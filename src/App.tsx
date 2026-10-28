@@ -30,6 +30,7 @@ import {
   PerformanceWorkspaceView, 
   OfficerAssignmentsView 
 } from './components/workspaces';
+import { CommunityScoreboardView } from './components/scoreboard/CommunityScoreboardView';
 
 // Modals & Drawers
 import { PotholeDetailDrawer } from './components/potholes/PotholeDetailDrawer';
@@ -281,7 +282,10 @@ function AppContent() {
 
         {/* Admin Workspaces: Performance & SLA Dashboard */}
         {activeTab === 'performance' && (
-          <PerformanceWorkspaceView />
+          <PerformanceWorkspaceView
+            potholes={potholes}
+            onSelectPothole={(p) => setSelectedPothole(p)}
+          />
         )}
 
         {/* Admin Workspaces: Pavement Corridor Analytics */}
@@ -306,6 +310,16 @@ function AppContent() {
         {/* Tab 6: About & Help Documentation */}
         {activeTab === 'about' && (
           <AboutHelpView
+            onNavigateTab={setActiveTab}
+            onOpenReportModal={() => setIsReportModalOpen(true)}
+          />
+        )}
+
+        {/* Tab: Public Community Scoreboard */}
+        {activeTab === 'scoreboard' && (
+          <CommunityScoreboardView
+            potholes={potholes}
+            onSelectPothole={(p) => setSelectedPothole(p)}
             onNavigateTab={setActiveTab}
             onOpenReportModal={() => setIsReportModalOpen(true)}
           />

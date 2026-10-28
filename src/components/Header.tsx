@@ -22,7 +22,8 @@ import {
   Activity,
   PlusCircle,
   Home,
-  Bell
+  Bell,
+  Trophy
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useReports } from '../context/ReportsContext';
@@ -41,6 +42,7 @@ export type ActiveTab =
   | 'my-assignments'
   | 'sensor'
   | 'about'
+  | 'scoreboard'
   | 'dispatcher';
 
 interface HeaderProps {
@@ -477,6 +479,17 @@ export const Header: React.FC<HeaderProps> = ({
                   </a>
 
                   <div className="my-1 border-t border-slate-800"></div>
+
+                  {/* Public Community Scoreboard */}
+                  <button
+                    onClick={() => handleSelectTab('scoreboard')}
+                    className={`w-full px-3.5 py-2 text-left flex items-center space-x-2 transition ${
+                      activeTab === 'scoreboard' ? 'text-amber-400 font-bold bg-slate-800/60' : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    <Trophy className="w-4 h-4 text-amber-400" />
+                    <span>Community Scoreboard</span>
+                  </button>
 
                   {/* About GGC SansPotholes */}
                   <button

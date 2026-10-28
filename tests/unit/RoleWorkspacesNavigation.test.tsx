@@ -217,10 +217,10 @@ describe('Task 3: Role Workspaces, Shell Navigation & Auth', () => {
       expect(screen.getByText(/coming in a later task/i)).toBeTruthy();
     });
 
-    it('renders PerformanceWorkspaceView with coming in a later task notice', () => {
+    it('renders PerformanceWorkspaceView with dashboard title', () => {
       render(<PerformanceWorkspaceView />);
       expect(screen.getByText('Agency Performance & SLA Dashboard')).toBeTruthy();
-      expect(screen.getByText(/coming in a later task/i)).toBeTruthy();
+      expect(screen.getByText(/Agency Benchmarks & Charts/i)).toBeTruthy();
     });
 
     it('renders OfficerAssignmentsView with empty state notice when no tickets', () => {
