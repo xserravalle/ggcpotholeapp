@@ -131,6 +131,9 @@ export function applyAction(
         throw new Error(`Cannot verify report with current status "${report.status}".`);
       }
       updatedReport.status = 'verified';
+      if (payload?.priority) {
+        updatedReport.priority = payload.priority;
+      }
       timelineAction = 'STATUS_VERIFIED';
       timelineMessage = payload?.message || `Report verified and accepted into triage by ${actor.name}.`;
 

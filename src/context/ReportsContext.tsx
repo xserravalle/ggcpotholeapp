@@ -213,7 +213,16 @@ export const ReportsProvider: React.FC<ReportsProviderProps> = ({
     payload?: ActionPayload
   ): Promise<ApplyActionResult> => {
     const result = await repository.dispatch(id, action, actor, payload);
-    setPotholes(prev => prev.map(p => p.id === id ? result.report : p));
+    if (action === 'merge' && payload?.mergedIntoId) {
+      const target = await repository.get(payload.mergedIntoId);
+      setPotholes(prev => prev.map(p => {
+        if (p.id === id) return result.report;
+        if (target && p.id === payload.mergedIntoId) return target;
+        return p;
+      }));
+    } else {
+      setPotholes(prev => prev.map(p => p.id === id ? result.report : p));
+    }
     if (activeRecipient) {
       await refreshNotifications(activeRecipient);
     }

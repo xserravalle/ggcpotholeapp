@@ -256,18 +256,27 @@ function AppContent() {
         {(activeTab === 'admin-overview' || activeTab === 'dispatcher' || activeTab === 'dispatch-board') && (
           <AuthorityHubView
             potholes={potholes}
+            activeSubTab={activeTab === 'dispatch-board' || activeTab === 'dispatcher' ? 'dispatch' : 'overview'}
             onUpdateStatus={handleUpdateStatus}
             onOpenDispatcherModal={handleOpenDispatcher}
             onSelectPotholeForMap={(p) => {
               setSelectedPothole(p);
               setActiveTab('potholes');
             }}
+            onNavigateTab={setActiveTab}
           />
         )}
 
         {/* Admin Workspaces: Triage Queue */}
         {activeTab === 'triage' && (
-          <TriageWorkspaceView />
+          <TriageWorkspaceView
+            potholes={potholes}
+            onSelectPotholeForMap={(p) => {
+              setSelectedPothole(p);
+              setActiveTab('potholes');
+            }}
+            onNavigateTab={setActiveTab}
+          />
         )}
 
         {/* Admin Workspaces: Performance & SLA Dashboard */}

@@ -1,7 +1,8 @@
 import { ReportRepository, ReportFilter, RecipientFilter } from './ReportRepository';
-import { PotholeReport, Comment, NotificationMessage, Actor, UserRole } from '../domain/types';
+import { PotholeReport, Comment, NotificationMessage, Actor, UserRole, TimelineEntry } from '../domain/types';
 import { CivicAction } from '../domain/permissions';
 import { ActionPayload, ApplyActionResult, applyAction } from '../domain/actions';
+import { priorityScore, suggestPriority } from '../domain/priority';
 import { INITIAL_POTHOLES } from '../data/potholesData';
 import { loadStoredPotholes, saveStoredPotholes, migrateReport } from '../services/storageService';
 import { generateSampleWorkflowReports } from './sampleWorkflowData';
@@ -158,6 +159,33 @@ export class LocalStorageReportRepository implements ReportRepository {
 
     if (result.notifications.length > 0) {
       await this.saveNotifications(result.notifications);
+    }
+
+    // If this is a merge, also update target master report with added confirmations
+    if (action === 'merge' && payload?.mergedIntoId) {
+      const target = await this.get(payload.mergedIntoId);
+      if (target) {
+        const addedCount = report.verificationsCount || 1;
+        const newTargetCount = (target.verificationsCount || 0) + addedCount;
+        target.verificationsCount = newTargetCount;
+        const nowIso = new Date().toISOString();
+        target.lastVerifiedAt = nowIso;
+        target.priorityScore = priorityScore(target);
+        target.priority = suggestPriority(target.priorityScore);
+
+        const mergeTimelineEntry: TimelineEntry = {
+          id: generateId('tle'),
+          status: target.status,
+          action: 'MERGED_CONFIRMATION',
+          message: `Merged duplicate report #${report.trackingCode || report.id}. Added +${addedCount} community confirmations (Total: ${newTargetCount}).`,
+          actorName: actor.name,
+          actorRole: actor.role,
+          timestamp: nowIso,
+        };
+        target.timeline = [mergeTimelineEntry, ...(target.timeline || [])];
+
+        await this.save(target);
+      }
     }
 
     return result;
