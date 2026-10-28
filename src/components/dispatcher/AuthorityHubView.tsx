@@ -4,6 +4,7 @@ import { useReports } from '../../context/ReportsContext';
 import { ActiveTab } from '../Header';
 import { AdminOverviewView } from '../admin/AdminOverviewView';
 import { TriageQueueView } from '../admin/TriageQueueView';
+import { DispatchBoardView } from './DispatchBoardView';
 import { generatePotholePdf } from '../../services/pdfGenerator';
 import { exportPotholesToCsv } from '../../services/storageService';
 import { 
@@ -41,9 +42,6 @@ export const AuthorityHubView: React.FC<AuthorityHubViewProps> = ({
   const potholes = propPotholes || contextPotholes;
 
   const [activeTab, setActiveTab] = useState<'overview' | 'triage' | 'dispatch'>(initialSubTab);
-  const [agencyFilter, setAgencyFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
   const [isActionPending, setIsActionPending] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
@@ -93,26 +91,6 @@ export const AuthorityHubView: React.FC<AuthorityHubViewProps> = ({
     }
   };
 
-  // Filtered List for Dispatch Operations
-  const filteredList = potholes.filter((p) => {
-    if (agencyFilter !== 'all') {
-      if (agencyFilter === 'GGC' && p.authorityId !== 'GGC' && !p.jurisdiction?.includes('GGC')) return false;
-      if (agencyFilter === 'GCDOT' && p.authorityId !== 'GWINNETT_COUNTY' && !p.jurisdiction?.includes('Gwinnett County')) return false;
-      if (agencyFilter === 'GDOT' && p.authorityId !== 'GDOT' && !p.jurisdiction?.includes('GDOT')) return false;
-      if (agencyFilter === 'MUNICIPAL' && (p.authorityId === 'GGC' || p.authorityId === 'GWINNETT_COUNTY' || p.authorityId === 'GDOT')) return false;
-    }
-    if (statusFilter !== 'all' && p.status !== statusFilter) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const match =
-        p.title.toLowerCase().includes(q) ||
-        p.address.toLowerCase().includes(q) ||
-        p.jurisdiction.toLowerCase().includes(q) ||
-        (p.trackingCode || '').toLowerCase().includes(q);
-      if (!match) return false;
-    }
-    return true;
-  });
 
   return (
     <div className="space-y-6">
@@ -258,113 +236,11 @@ export const AuthorityHubView: React.FC<AuthorityHubViewProps> = ({
             </div>
           )}
 
-          {/* Filtering Toolbar */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row gap-3">
-            <input
-              type="text"
-              placeholder="Search by roadway, docket code, city..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
-            />
-
-            <select
-              value={agencyFilter}
-              onChange={(e) => setAgencyFilter(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
-            >
-              <option value="all">All Jurisdictions</option>
-              <option value="GGC">GGC Facilities Only</option>
-              <option value="GCDOT">Gwinnett County DOT</option>
-              <option value="GDOT">GDOT State Routes</option>
-              <option value="MUNICIPAL">Municipalities</option>
-            </select>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
-            >
-              <option value="all">All Statuses</option>
-              <option value="reported">Reported</option>
-              <option value="verified">Verified</option>
-              <option value="assigned">Assigned</option>
-              <option value="in_progress">In Progress</option>
-              <option value="resolved">Resolved</option>
-              <option value="closed">Closed</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
-
-          {/* Work Orders Table */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-[11px] uppercase font-bold tracking-wider text-slate-400">
-                  <th className="py-3 px-4">Docket & Roadway</th>
-                  <th className="py-3 px-4">Agency</th>
-                  <th className="py-3 px-4">Assigned Crew</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {filteredList.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-800/40 transition">
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-white">{item.roadName || item.address}</div>
-                      <div className="font-mono text-[11px] text-emerald-400">{item.trackingCode || item.id}</div>
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-300">
-                      {item.authorityName || item.jurisdiction || 'Gwinnett County'}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-300">
-                      {item.assignedOfficerId || item.assignedCrew || 'Unassigned'}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="capitalize px-2 py-0.5 rounded-full text-[10px] font-bold border border-slate-700 bg-slate-800 text-slate-300">
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {/* PDF Work Order */}
-                        <button
-                          onClick={() => generatePotholePdf(item)}
-                          className="p-1.5 rounded-lg bg-slate-800 hover:bg-purple-800 text-slate-300 hover:text-white transition cursor-pointer"
-                          title="Download Certified PDF Work Order"
-                        >
-                          <FileDown className="w-4 h-4" />
-                        </button>
-
-                        {/* Open Dispatcher Modal */}
-                        {onOpenDispatcherModal && (
-                          <button
-                            onClick={() => onOpenDispatcherModal(item)}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white transition cursor-pointer"
-                            title="Assign Crew / Dispatch"
-                          >
-                            <Send className="w-4 h-4" />
-                          </button>
-                        )}
-
-                        {/* Inspect on Map */}
-                        {onSelectPotholeForMap && (
-                          <button
-                            onClick={() => onSelectPotholeForMap(item)}
-                            className="p-1.5 rounded-lg bg-slate-800 hover:bg-teal-600 text-slate-300 hover:text-white transition cursor-pointer"
-                            title="Inspect on Map"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DispatchBoardView
+            potholes={potholes}
+            onSelectPotholeForMap={onSelectPotholeForMap}
+            onOpenDispatcherModal={onOpenDispatcherModal}
+          />
         </div>
       )}
 
@@ -372,4 +248,4 @@ export const AuthorityHubView: React.FC<AuthorityHubViewProps> = ({
   );
 };
 
-export { AdminOverviewView, TriageQueueView };
+export { AdminOverviewView, TriageQueueView, DispatchBoardView };

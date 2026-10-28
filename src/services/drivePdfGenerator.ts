@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import { DriveSession } from '../types/driveSession';
 import { formatDuration } from './driveSessionService';
+import { DEMO_DISPATCH_EMAIL } from '../config/dispatch';
 
 export async function generateDrivePdf(session: DriveSession): Promise<void> {
   const doc = new jsPDF({
@@ -14,7 +15,7 @@ export async function generateDrivePdf(session: DriveSession): Promise<void> {
   const contentWidth = pageWidth - (margin * 2);
   let y = 38;
 
-  const targetEmail = 'peyton.holland@gmail.com';
+  const targetEmail = DEMO_DISPATCH_EMAIL;
   const trackingCode = session.trackingCode || `DRIVE-2026-${session.id.slice(0, 4).toUpperCase()}`;
 
   // 1. Header Banner

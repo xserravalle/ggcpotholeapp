@@ -14,6 +14,7 @@ import {
   Copy
 } from 'lucide-react';
 import { AUTHORITIES_DIRECTORY } from '../../data/jurisdictionsData';
+import { formatDispatchMailto, isDemoDispatch, DEMO_DISPATCH_EMAIL, getEffectiveDispatchEmail } from '../../config/dispatch';
 
 interface DocketSuccessModalProps {
   isOpen: boolean;
@@ -34,7 +35,6 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
   if (!isOpen || !report) return null;
 
   const trackingCode = report.trackingCode || `GAP-2026-${report.id.replace(/[^0-9]/g, '').slice(-4) || '1042'}`;
-  const targetEmail = 'peyton.holland@gmail.com';
 
   const authority = (report.authorityId && AUTHORITIES_DIRECTORY[report.authorityId]) ||
     Object.values(AUTHORITIES_DIRECTORY).find(
@@ -43,6 +43,7 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
 
   const agencyName = report.authorityName || report.jurisdiction || authority?.name || 'Gwinnett County DOT';
   const targetDays = authority?.slaTargetDays ?? 5;
+  const targetEmail = getEffectiveDispatchEmail(authority?.contactEmail);
 
   const handleCopyTrackingCode = async () => {
     try {
@@ -57,28 +58,30 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
     }
   };
 
-  const emailSubject = encodeURIComponent(`[GGC SansPotholes] Road Hazard Report - ${trackingCode} (${report.severity.toUpperCase()})`);
-  const emailBody = encodeURIComponent(
-    `GGC SANSPOTHOLES ROAD HAZARD DOCKET\n` +
-    `========================================\n\n` +
-    `Incident Tracking Code: ${trackingCode}\n` +
-    `Severity Rating:        ${report.severity.toUpperCase()}\n` +
-    `Hazard Type:            ${report.hazardType || 'POTHOLE'}\n` +
-    `Nearest Street Address: ${report.address}\n` +
-    `Landmark / Specifics:   ${report.landmark || 'None provided'}\n` +
-    `Potential Damage Risk:  ${report.damageRisk || 'Tire / Rim Damage'}\n` +
-    `Detection Source:       ${report.sensorDetected ? `In-Vehicle Accelerometer (${report.bumpIntensity}G Shock Spike)` : report.detectedBy}\n` +
-    `Driver Notes:           ${report.description || 'No additional details.'}\n` +
-    `Submitted Date & Time:  ${new Date().toLocaleString()}\n` +
-    `Reporter:               ${report.reporterName || 'Anonymous Citizen'}${report.reporterEmail ? ` <${report.reporterEmail}>` : ''}\n\n` +
-    `Centralized Map Location:\n` +
-    `https://www.google.com/maps?q=${report.latitude},${report.longitude}\n` +
-    `Location Snapshot:      Generated & attached to incident PDF docket\n\n` +
-    `========================================\n` +
-    `Dispatched via GGC SansPotholes (Academic Prototype)`
-  );
-
-  const mailtoUrl = `mailto:${targetEmail}?subject=${emailSubject}&body=${emailBody}`;
+  const mailtoUrl = formatDispatchMailto({
+    to: authority?.contactEmail || 'dotcustomerservice@gwinnettcounty.com',
+    agencyName,
+    subject: `[GGC SansPotholes] Road Hazard Report - ${trackingCode} (${report.severity.toUpperCase()})`,
+    body: (
+      `GGC SANSPOTHOLES ROAD HAZARD DOCKET\n` +
+      `========================================\n\n` +
+      `Incident Tracking Code: ${trackingCode}\n` +
+      `Severity Rating:        ${report.severity.toUpperCase()}\n` +
+      `Hazard Type:            ${report.hazardType || 'POTHOLE'}\n` +
+      `Nearest Street Address: ${report.address}\n` +
+      `Landmark / Specifics:   ${report.landmark || 'None provided'}\n` +
+      `Potential Damage Risk:  ${report.damageRisk || 'Tire / Rim Damage'}\n` +
+      `Detection Source:       ${report.sensorDetected ? `In-Vehicle Accelerometer (${report.bumpIntensity}G Shock Spike)` : report.detectedBy}\n` +
+      `Driver Notes:           ${report.description || 'No additional details.'}\n` +
+      `Submitted Date & Time:  ${new Date().toLocaleString()}\n` +
+      `Reporter:               ${report.reporterName || 'Anonymous Citizen'}${report.reporterEmail ? ` <${report.reporterEmail}>` : ''}\n\n` +
+      `Centralized Map Location:\n` +
+      `https://www.google.com/maps?q=${report.latitude},${report.longitude}\n` +
+      `Location Snapshot:      Generated & attached to incident PDF docket\n\n` +
+      `========================================\n` +
+      `Dispatched via GGC SansPotholes (Academic Prototype)`
+    ),
+  });
 
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
@@ -226,12 +229,17 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
           {/* Actions */}
           <div className="space-y-2 pt-1">
             <a
-              href={mailtoUrl}
+              href={mailtoUrl.url}
               className="w-full py-2.5 px-4 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl shadow-lg shadow-teal-600/25 transition flex items-center justify-center gap-2 active:scale-98"
             >
               <Mail className="w-4 h-4" />
-              <span>Send Report to {targetEmail}</span>
+              <span>Send Report Email ({agencyName})</span>
             </a>
+            {isDemoDispatch() && (
+              <span className="text-[11px] text-amber-400 font-medium block text-center">
+                Demo mode: email routes to {DEMO_DISPATCH_EMAIL}
+              </span>
+            )}
 
             <button
               onClick={handleDownloadPdf}

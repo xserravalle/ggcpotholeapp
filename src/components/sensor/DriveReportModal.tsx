@@ -19,6 +19,8 @@ import {
   RefreshCw
 } from 'lucide-react';
 
+import { formatDispatchMailto, DEMO_DISPATCH_EMAIL } from '../../config/dispatch';
+
 interface DriveReportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -37,7 +39,6 @@ export const DriveReportModal: React.FC<DriveReportModalProps> = ({
 
   if (!isOpen || !session) return null;
 
-  const targetEmail = 'peyton.holland@gmail.com';
   const trackingCode = session.trackingCode;
 
   // Build formatted email body
@@ -49,11 +50,9 @@ export const DriveReportModal: React.FC<DriveReportModalProps> = ({
     `  • Google Maps: https://www.google.com/maps?q=${inc.latitude},${inc.longitude}\n`
   )).join('\n');
 
-  const emailSubject = encodeURIComponent(
-    `[GGC SansPotholes] Drive Patrol Report - ${trackingCode} (${session.totalDistanceMiles.toFixed(2)} mi, ${session.incidents.length} Hazards)`
-  );
+  const rawEmailSubject = `[GGC SansPotholes] Drive Patrol Report - ${trackingCode} (${session.totalDistanceMiles.toFixed(2)} mi, ${session.incidents.length} Hazards)`;
 
-  const emailBody = encodeURIComponent(
+  const rawEmailBody = 
     `GGC SANSPOTHOLES DRIVE-TIME PATROL READOUT\n` +
     `==============================================\n\n` +
     `Drive Tracking ID:    ${trackingCode}\n` +
@@ -67,10 +66,14 @@ export const DriveReportModal: React.FC<DriveReportModalProps> = ({
     `POTHOLE INCIDENCE READOUT:\n\n` +
     (incidentRows || 'No significant shocks recorded during this drive.\n\n') +
     `==============================================\n` +
-    `Dispatched via GGC SansPotholes Drive Patrol (Academic Prototype)`
-  );
+    `Dispatched via GGC SansPotholes Drive Patrol (Academic Prototype)`;
 
-  const mailtoUrl = `mailto:${targetEmail}?subject=${emailSubject}&body=${emailBody}`;
+  const dispatchMail = formatDispatchMailto({
+    realEmail: 'operations@sanspotholes.local',
+    agencyName: 'Municipal Operations',
+    subject: rawEmailSubject,
+    body: rawEmailBody,
+  });
 
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
@@ -272,11 +275,11 @@ export const DriveReportModal: React.FC<DriveReportModalProps> = ({
           <div className="space-y-2 pt-2 border-t border-slate-800">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <a
-                href={mailtoUrl}
+                href={dispatchMail.url}
                 className="py-2.5 px-3 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl shadow-lg shadow-teal-600/20 transition flex items-center justify-center gap-2 active:scale-98"
               >
                 <Mail className="w-4 h-4" />
-                <span>Send Readout to {targetEmail}</span>
+                <span>Send Readout ({dispatchMail.recipient})</span>
               </a>
 
               <button
@@ -298,6 +301,12 @@ export const DriveReportModal: React.FC<DriveReportModalProps> = ({
                 )}
               </button>
             </div>
+
+            {dispatchMail.isDemo && (
+              <p className="text-[11px] text-amber-400/90 bg-amber-950/40 border border-amber-800/50 rounded-lg p-2 text-center">
+                Demo Mode Active: Email will be sent to the test address <span className="font-mono text-amber-300 font-bold">{dispatchMail.recipient}</span> instead of live municipal dispatch.
+              </p>
+            )}
 
             <button
               type="button"

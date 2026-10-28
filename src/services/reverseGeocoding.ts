@@ -14,8 +14,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<GeocodeR
     const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
     const resp = await fetch(url, {
       headers: { 
-        'Accept-Language': 'en',
-        'User-Agent': 'GGCSansPotholes/1.0 (academic prototype; peyton.holland@gmail.com)'
+        'Accept-Language': 'en'
       },
       signal: controller.signal
     });

@@ -22,6 +22,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { ActiveTab } from '../Header';
+import { DEMO_DISPATCH_EMAIL, DISPATCH_MODE } from '../../config/dispatch';
 
 interface AboutHelpViewProps {
   onNavigateTab: (tab: ActiveTab) => void;
@@ -228,7 +229,7 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({
                   <strong>Automated Map Snapshot</strong>: Stitches canvas tiles and exports a certified screenshot image with pulsing radar pin and GPS overlay.
                 </li>
                 <li>
-                  <strong>Direct Testing Dispatch</strong>: Dispatches reports directly to <code className="text-teal-300 font-mono">peyton.holland@gmail.com</code>.
+                  <strong>Direct Testing Dispatch</strong>: Dispatches reports directly to <code className="text-teal-300 font-mono">{DEMO_DISPATCH_EMAIL}</code> ({DISPATCH_MODE} mode).
                 </li>
               </ul>
             </div>

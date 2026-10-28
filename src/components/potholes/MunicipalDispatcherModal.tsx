@@ -15,6 +15,7 @@ import {
   X,
   AlertCircle
 } from 'lucide-react';
+import { formatDispatchMailto } from '../../config/dispatch';
 
 interface MunicipalDispatcherModalProps {
   isOpen: boolean;
@@ -110,9 +111,13 @@ Complies with Georgia DOT Title 32 Municipal Street Repair Protocols.
   };
 
   // Mailto link generator
-  const emailSubject = encodeURIComponent(`URGENT ROAD HAZARD: Pothole Work Order on ${activePothole?.roadName} (${activePothole?.severity?.toUpperCase()})`);
-  const emailBody = encodeURIComponent(workOrderText);
-  const mailtoLink = `mailto:${contact.email}?subject=${emailSubject}&body=${emailBody}`;
+  const rawEmailSubject = `URGENT ROAD HAZARD: Pothole Work Order on ${activePothole?.roadName || 'Road'} (${activePothole?.severity?.toUpperCase() || 'MODERATE'})`;
+  const dispatchMail = formatDispatchMailto({
+    realEmail: contact.email,
+    agencyName: contact.jurisdiction,
+    subject: rawEmailSubject,
+    body: workOrderText,
+  });
 
   const handleStatusChange = (newStatus: PotholeReport['status']) => {
     setTicketStatus(newStatus);
@@ -133,7 +138,7 @@ Complies with Georgia DOT Title 32 Municipal Street Repair Protocols.
             </div>
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                Municipal Dispatcher & Structured Work Order Router
+                Send Work Order Email
               </h2>
               <p className="text-xs text-slate-400">
                 Direct municipal interface for Gwinnett County DOT and 6 constituent cities
@@ -188,7 +193,7 @@ Complies with Georgia DOT Title 32 Municipal Street Repair Protocols.
               <a href={`tel:${contact.potholeHotline}`} className="text-blue-300 hover:text-blue-200 flex items-center gap-1">
                 <Phone className="w-3.5 h-3.5" /> Hotline: {contact.potholeHotline}
               </a>
-              <a href={`mailto:${contact.email}`} className="text-slate-300 hover:text-white flex items-center gap-1">
+              <a href={dispatchMail.url} className="text-slate-300 hover:text-white flex items-center gap-1">
                 <Mail className="w-3.5 h-3.5" /> {contact.email}
               </a>
             </div>
@@ -283,7 +288,7 @@ Complies with Georgia DOT Title 32 Municipal Street Repair Protocols.
         <div className="bg-slate-800/50 border border-slate-700/60 rounded-xl p-3.5 mb-5 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div>
             <span className="font-semibold text-slate-200 block">Municipal Work Order Lifecycle:</span>
-            <span className="text-slate-400 text-[11px]">Update the live status of this infrastructure repair in the central GIS</span>
+            <span className="text-slate-400 text-[11px]">Manage the operational repair lifecycle for this road hazard</span>
           </div>
           <div className="flex items-center gap-1.5">
             {(['reported', 'verified', 'assigned', 'in_progress', 'resolved', 'closed'] as PotholeReport['status'][]).map(st => (
@@ -311,15 +316,20 @@ Complies with Georgia DOT Title 32 Municipal Street Repair Protocols.
             <span>Sends verified GPS and citizen damage reports directly to municipal public works inbox</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={onClose}
               className="px-4 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 text-xs transition"
             >
               Close
             </button>
+            {dispatchMail.isDemo && (
+              <span className="text-[11px] text-amber-400 font-medium bg-amber-950/40 border border-amber-800/40 px-2.5 py-1.5 rounded-xl">
+                Demo Mode: sends to <span className="font-mono text-amber-300 font-bold">{dispatchMail.recipient}</span>
+              </span>
+            )}
             <a
-              href={mailtoLink}
+              href={dispatchMail.url}
               className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-blue-600/20 transition active:scale-95"
             >
               <Send className="w-3.5 h-3.5" />

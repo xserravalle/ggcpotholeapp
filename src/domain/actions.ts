@@ -14,6 +14,7 @@ export interface ActionPayload {
   priority?: ReportPriority;
   rating?: number; // 1 to 5
   imageUrl?: string;
+  slaDueAt?: string;
   now?: Date | string;
 }
 
@@ -227,6 +228,7 @@ export function applyAction(
       if (payload.assignedOfficerId) updatedReport.assignedOfficerId = payload.assignedOfficerId;
       if (payload.assignedCrew) updatedReport.assignedCrew = payload.assignedCrew;
       else if (payload.assignedOfficerId) updatedReport.assignedCrew = payload.assignedOfficerId;
+      if (payload.slaDueAt) updatedReport.slaDueAt = payload.slaDueAt;
 
       timelineAction = 'STATUS_ASSIGNED';
       const target = updatedReport.assignedOfficerId || updatedReport.assignedCrew || 'Field Crew';
@@ -270,6 +272,7 @@ export function applyAction(
       if (payload.assignedAgencyId) updatedReport.assignedAgencyId = payload.assignedAgencyId;
       if (payload.assignedOfficerId) updatedReport.assignedOfficerId = payload.assignedOfficerId;
       if (payload.assignedCrew) updatedReport.assignedCrew = payload.assignedCrew;
+      if (payload.slaDueAt) updatedReport.slaDueAt = payload.slaDueAt;
 
       timelineAction = 'STATUS_REASSIGNED';
       const newTarget = updatedReport.assignedOfficerId || updatedReport.assignedCrew || 'Field Crew';
