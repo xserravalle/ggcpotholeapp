@@ -222,7 +222,7 @@ export const PERMISSIONS_TABLE: PermissionMatrix = {
     guest: false,
     user: false,
     admin: false,
-    officer: true,
+    officer: (report, actor) => (report ? isAssignedOfficer(report, actor) : true),
     system: false,
   },
 };
@@ -241,6 +241,22 @@ export function can(
     return rule(report, actor);
   }
   return Boolean(rule);
+}
+
+/**
+ * Scopes a list of reports to only those an officer is authorized to view.
+ * Backed by the domain permissions can() check.
+ */
+export function getReportsForOfficer(
+  reports: PotholeReport[],
+  actor: Actor | string
+): PotholeReport[] {
+  const normActor: Actor =
+    typeof actor === 'string'
+      ? { id: actor, name: actor, role: 'officer' }
+      : actor;
+
+  return reports.filter((report) => can(normActor.role, 'viewAssignments', report, normActor));
 }
 
 /**

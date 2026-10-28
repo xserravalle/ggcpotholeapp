@@ -14,6 +14,7 @@ export interface ActionPayload {
   priority?: ReportPriority;
   rating?: number; // 1 to 5
   imageUrl?: string;
+  afterImageUrl?: string;
   slaDueAt?: string;
   now?: Date | string;
 }
@@ -319,14 +320,20 @@ export function applyAction(
       if (!canTransition(report.status, 'resolved')) {
         throw new Error(`Cannot resolve report with status "${report.status}". Must be "in_progress".`);
       }
+      const note = payload?.message || payload?.comment || (payload as any)?.notes;
+      if (!note || !note.trim()) {
+        throw new Error('A resolution note describing what was done is required to resolve this report.');
+      }
       updatedReport.status = 'resolved';
       updatedReport.resolvedAt = timestamp;
-      if (payload?.imageUrl) {
-        updatedReport.imageUrl = payload.imageUrl;
+      if (payload?.afterImageUrl || payload?.imageUrl) {
+        const afterImg = payload.afterImageUrl || payload.imageUrl;
+        updatedReport.afterImageUrl = afterImg;
+        updatedReport.imageUrl = payload.imageUrl || afterImg;
       }
 
       timelineAction = 'WORK_RESOLVED';
-      timelineMessage = payload?.message || `Pothole cavity repaired and roadway restored by ${actor.name}.`;
+      timelineMessage = note.trim();
 
       notifications.push({
         id: generateId('notif'),

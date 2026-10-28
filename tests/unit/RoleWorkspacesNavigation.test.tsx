@@ -230,7 +230,7 @@ describe('Task 3: Role Workspaces, Shell Navigation & Auth', () => {
         </AuthProvider>
       );
       expect(screen.getByText('My Field Assignments')).toBeTruthy();
-      expect(screen.getByText(/coming in a later task/i)).toBeTruthy();
+      expect(screen.getByText(/No Field Assignments Found/i)).toBeTruthy();
     });
 
     it('renders Kit components: StatusBadge, PriorityBadge, StatCard, SectionHeader, InfoRow', () => {

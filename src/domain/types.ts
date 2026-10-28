@@ -125,6 +125,7 @@ export interface PotholeReport {
   sensorEvidence?: SensorEvidence;
   bumpIntensity?: number;
   imageUrl?: string;
+  afterImageUrl?: string;
   workOrderNumber?: string;
   assignedCrew?: string;
   targetRepairDate?: string;
