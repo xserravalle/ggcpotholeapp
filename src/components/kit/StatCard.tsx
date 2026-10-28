@@ -108,6 +108,7 @@ export const StatCard: React.FC<StatCardProps> = ({
             }
           : undefined
       }
+      data-testid={`stat-card-${label.toLowerCase().replace(/\s+/g, '-')}`}
       className={`border rounded-xl p-3 shadow-md transition ${styles.border} ${styles.bg} ${
         isClickable ? 'cursor-pointer hover:border-slate-600 active:scale-[0.98]' : ''
       } ${className}`}

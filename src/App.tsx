@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PotholeReport, SeverityLevel } from './types/pothole';
 import { TrackedHazardSpot } from './types/sensorQueue';
 import { DriveShockIncident } from './types/driveSession';
@@ -9,6 +9,7 @@ import { useAuth } from './context/AuthContext';
 import { ReportsProvider, useReports } from './context/ReportsContext';
 import { canAccessTab } from './domain/permissions';
 import { Actor } from './domain/types';
+import { RecipientFilter } from './repository/ReportRepository';
 
 // Common Components
 import { Header, ActiveTab } from './components/Header';
@@ -188,6 +189,11 @@ function AppContent() {
         setActiveTab={setActiveTab}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenAuthModal={openAuthModal}
+        onOpenReportModal={() => setIsReportModalOpen(true)}
+        onSelectReport={(reportId) => {
+          const found = potholes.find((p) => p.id === reportId);
+          if (found) setSelectedPothole(found);
+        }}
         potholeCount={potholes.length}
       />
 
@@ -202,6 +208,7 @@ function AppContent() {
             simulationParams={simulationParams}
             onChangeSimulationParams={setSimulationParams}
             onSelectLot={setSelectedLot}
+            onOpenReportModal={() => setIsReportModalOpen(true)}
           />
         )}
 
@@ -477,8 +484,15 @@ function AppContent() {
 }
 
 export function App() {
+  const { user } = useAuth();
+  const recipient = useMemo<RecipientFilter>(() => ({
+    role: (user?.role as any) || 'user',
+    name: user?.displayName,
+    email: user?.email,
+  }), [user?.role, user?.displayName, user?.email]);
+
   return (
-    <ReportsProvider>
+    <ReportsProvider activeRecipient={recipient}>
       <AppContent />
     </ReportsProvider>
   );

@@ -67,6 +67,17 @@ const createUserLocationBeaconIcon = () => {
 };
 
 // Dynamic Marker Icon Generator with Theme Awareness (Colorblind, High Contrast, Standard GGC, Dark)
+const STATUS_PIN_COLORS: Record<string, string> = {
+  reported: '#f59e0b',    // Amber
+  verified: '#3b82f6',    // Blue/Sky
+  assigned: '#a855f7',    // Purple
+  in_progress: '#06b6d4', // Cyan
+  resolved: '#10b981',    // Emerald
+  closed: '#64748b',      // Slate
+  rejected: '#f43f5e',    // Rose
+};
+
+// Dynamic Marker Icon Generator with Status Color Coding & Theme Awareness
 const createTrafficLightIcon = (
   severity: SeverityLevel,
   status: PotholeStatus,
@@ -74,85 +85,50 @@ const createTrafficLightIcon = (
   theme: ThemeKey = 'colorblind'
 ) => {
   const isRepaired = status === 'resolved' || status === 'closed';
-  let color = '#0072b2';
+  const statusColor = STATUS_PIN_COLORS[status] || '#f59e0b';
+  let color = statusColor;
   let borderColor = '#ffffff';
   let textColor = '#ffffff';
-  let pulseColor = '#0072b2';
-  let symbol = '◆';
+  let pulseColor = statusColor;
+  let symbol = '▲';
 
-  if (isRepaired) {
+  if (status === 'resolved' || status === 'closed') {
     symbol = '✓';
-    if (theme === 'high-contrast') {
+  } else if (status === 'in_progress') {
+    symbol = '⚙';
+  } else if (status === 'assigned') {
+    symbol = '👤';
+  } else if (status === 'verified') {
+    symbol = '●';
+  } else if (status === 'rejected') {
+    symbol = '✕';
+  } else {
+    symbol = '▲';
+  }
+
+  // Theme overrides for High Contrast accessibility
+  if (theme === 'high-contrast') {
+    if (isRepaired) {
       color = '#00ffff';
       textColor = '#000000';
       borderColor = '#ffffff';
-    } else if (theme === 'colorblind') {
-      color = '#009e73';
-      borderColor = '#ffffff';
-    } else if (theme === 'standard') {
-      color = '#006747';
-      borderColor = '#c4a35a';
-    } else {
-      color = '#10b981';
-      borderColor = '#059669';
-    }
-  } else if (severity === 'severe' || severity === 'critical') {
-    symbol = '▲';
-    if (theme === 'high-contrast') {
+    } else if (severity === 'severe' || severity === 'critical') {
       color = '#ff0000';
       textColor = '#ffffff';
       borderColor = '#ffffff';
       pulseColor = '#ff0000';
-    } else if (theme === 'colorblind') {
-      color = '#d55e00'; // Okabe-Ito Vermilion
-      borderColor = '#ffffff';
-      pulseColor = '#d55e00';
-    } else if (theme === 'standard') {
-      color = '#dc2626';
-      borderColor = '#ffffff';
-      pulseColor = '#dc2626';
-    } else {
-      color = '#ef4444';
-      borderColor = '#b91c1c';
-      pulseColor = '#ef4444';
-    }
-  } else if (severity === 'moderate') {
-    symbol = '◆';
-    if (theme === 'high-contrast') {
+    } else if (severity === 'moderate') {
       color = '#ffff00';
       textColor = '#000000';
       borderColor = '#ffffff';
-    } else if (theme === 'colorblind') {
-      color = '#0072b2'; // Okabe-Ito Sky Blue
-      borderColor = '#ffffff';
-    } else if (theme === 'standard') {
-      color = '#c4a35a'; // GGC Gold
-      textColor = '#1a1f1c';
-      borderColor = '#ffffff';
     } else {
-      color = '#f59e0b';
-      borderColor = '#d97706';
-    }
-  } else {
-    // Minor
-    symbol = '●';
-    if (theme === 'high-contrast') {
       color = '#00ffff';
       textColor = '#000000';
       borderColor = '#ffffff';
-    } else if (theme === 'colorblind') {
-      color = '#009e73'; // Okabe-Ito Bluish Green
-      borderColor = '#ffffff';
-    } else if (theme === 'standard') {
-      color = '#006747'; // GGC Green
-      borderColor = '#ffffff';
-    } else {
-      color = '#10b981';
-      borderColor = '#059669';
     }
   }
 
-  const isSevere = severity === 'severe' || severity === 'critical';
+  const isSevere = severity === 'severe' || severity === 'critical' || status === 'in_progress';
   const pulseHtml = isSevere && !isRepaired ? `
     <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background-color: ${pulseColor}; opacity: 0.35; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
   ` : '';
@@ -273,6 +249,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   });
 
   const [severityFilter, setSeverityFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [droppedPin, setDroppedPin] = useState<{ lat: number; lng: number; address: string } | null>(null);
 
   // Default to User's GPS Location on Component Mount
@@ -391,6 +368,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   // Filtered potholes
   const filteredPotholes = useMemo(() => {
     return potholes.filter(p => {
+      if (statusFilter !== 'all' && p.status !== statusFilter) return false;
       if (severityFilter === 'critical' && p.severity !== 'critical' && p.severity !== 'severe') return false;
       if (severityFilter === 'moderate' && p.severity !== 'moderate') return false;
       if (severityFilter === 'resolved' && p.status !== 'resolved' && p.status !== 'closed') return false;
@@ -402,7 +380,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
       }
       return true;
     });
-  }, [potholes, severityFilter, viewScope]);
+  }, [potholes, statusFilter, severityFilter, viewScope]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-125px)] relative select-none">
@@ -482,19 +460,37 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
 
         </div>
 
-        {/* Right: Consolidated Traffic Light Filter */}
-        <div className="flex items-center space-x-2 ml-auto">
+        {/* Right: Consolidated Traffic Light & Status Filter */}
+        <div className="flex items-center space-x-2 ml-auto flex-wrap">
           <div className="flex items-center text-slate-400 font-medium">
             <Filter className="w-3.5 h-3.5 mr-1 text-teal-400" />
             <span className="hidden sm:inline">Filter:</span>
           </div>
 
+          {/* Status Filter */}
+          <select
+            aria-label="Filter by status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 outline-none text-xs font-semibold focus:ring-1 focus:ring-teal-500 cursor-pointer"
+          >
+            <option value="all">All Statuses ({potholes.length})</option>
+            <option value="reported">Reported</option>
+            <option value="verified">Verified & Triaged</option>
+            <option value="assigned">Assigned to Crew</option>
+            <option value="in_progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+            <option value="rejected">Rejected</option>
+          </select>
+
+          {/* Severity Filter */}
           <select 
             value={severityFilter}
             onChange={(e) => setSeverityFilter(e.target.value)}
-            className="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 outline-none text-xs font-semibold focus:ring-1 focus:ring-teal-500"
+            className="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 outline-none text-xs font-semibold focus:ring-1 focus:ring-teal-500 cursor-pointer"
           >
-            <option value="all">All Hazards ({potholes.length})</option>
+            <option value="all">All Severities</option>
             <option value="critical">🔴 Critical / Action Needed</option>
             <option value="moderate">🟡 Moderate / Watch</option>
             <option value="resolved">🟢 Resolved / Repaired</option>

@@ -21,9 +21,12 @@ import {
   ClipboardList,
   Activity,
   PlusCircle,
-  Home
+  Home,
+  Bell
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useReports } from '../context/ReportsContext';
+import { NotificationMessage } from '../domain/types';
 
 export type ActiveTab = 
   | 'dashboard'
@@ -46,6 +49,7 @@ interface HeaderProps {
   onOpenReportModal?: () => void;
   onOpenSettings?: () => void;
   onOpenAuthModal?: () => void;
+  onSelectReport?: (reportId: string) => void;
   potholeCount: number;
 }
 
@@ -55,24 +59,50 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenReportModal,
   onOpenSettings,
   onOpenAuthModal,
+  onSelectReport,
   potholeCount: _potholeCount
 }) => {
   const { user, isAdmin, isOfficer, isLoggedIn, openAuthModal: contextOpenAuthModal, logout } = useAuth();
   const handleOpenAuth = onOpenAuthModal || contextOpenAuthModal;
+  const { notifications, unreadCount, markNotificationRead, markAllNotificationsRead } = useReports();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
-  // Close menu when clicking outside
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const notifRef = useRef<HTMLDivElement | null>(null);
+
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setIsMenuOpen(false);
       }
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setIsNotifOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleMarkAllRead = async () => {
+    await markAllNotificationsRead({
+      role: (user.role as any) || 'user',
+      name: user.displayName,
+      email: user.email,
+    });
+  };
+
+  const handleNotificationClick = async (n: NotificationMessage) => {
+    if (!n.read) {
+      await markNotificationRead(n.id);
+    }
+    setIsNotifOpen(false);
+    if (onSelectReport && n.reportId) {
+      onSelectReport(n.reportId);
+    }
+  };
 
   const handleSelectTab = (tab: ActiveTab) => {
     setActiveTab(tab);
@@ -148,6 +178,104 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="hidden sm:inline">Sign In</span>
               </button>
             )}
+
+            {/* Notification Bell */}
+            <div className="relative" ref={notifRef}>
+              <button
+                onClick={() => setIsNotifOpen(!isNotifOpen)}
+                aria-label={`Notifications (${unreadCount} unread)`}
+                title="Notifications"
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 transition relative flex items-center justify-center active:scale-95 cursor-pointer"
+              >
+                <Bell className="w-4 h-4 text-emerald-400" />
+                {unreadCount > 0 && (
+                  <span
+                    data-testid="unread-notification-badge"
+                    className="absolute -top-1 -right-1 bg-rose-500 text-white font-bold text-[10px] w-4 h-4 rounded-full flex items-center justify-center animate-pulse shadow"
+                  >
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notification Dropdown Popover */}
+              {isNotifOpen && (
+                <div
+                  data-testid="notifications-popover"
+                  className="absolute right-0 mt-2 w-80 sm:w-96 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-50 text-xs overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+                >
+                  <div className="p-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+                    <div className="flex items-center space-x-2">
+                      <Bell className="w-4 h-4 text-emerald-400" />
+                      <span className="font-bold text-white text-xs">Notifications</span>
+                      {unreadCount > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-rose-950 text-rose-300 border border-rose-800 font-mono font-bold">
+                          {unreadCount} new
+                        </span>
+                      )}
+                    </div>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={handleMarkAllRead}
+                        className="text-[11px] text-teal-400 hover:text-teal-300 font-semibold transition cursor-pointer"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto divide-y divide-slate-800/60">
+                    {notifications.length === 0 ? (
+                      <div className="p-6 text-center text-slate-400 space-y-1">
+                        <p className="font-semibold text-white">No notifications</p>
+                        <p className="text-[11px] text-slate-500">You're all caught up!</p>
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => handleNotificationClick(n)}
+                          className={`p-3 transition cursor-pointer hover:bg-slate-800/80 flex items-start gap-2.5 ${
+                            !n.read ? 'bg-slate-800/40' : ''
+                          }`}
+                        >
+                          <span
+                            className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${
+                              !n.read ? 'bg-teal-400 animate-pulse' : 'bg-transparent'
+                            }`}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <h4
+                                className={`text-xs truncate ${
+                                  !n.read ? 'font-bold text-white' : 'font-medium text-slate-300'
+                                }`}
+                              >
+                                {n.title}
+                              </h4>
+                              <span className="text-[10px] text-slate-500 shrink-0 font-mono">
+                                {new Date(n.timestamp).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 line-clamp-2 mt-0.5">
+                              {n.message}
+                            </p>
+                            {n.trackingCode && (
+                              <span className="inline-block mt-1 text-[10px] font-mono text-emerald-400/90 font-semibold">
+                                {n.trackingCode}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Settings / Accessibility Button */}
             {onOpenSettings && (

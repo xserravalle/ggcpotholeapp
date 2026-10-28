@@ -442,7 +442,30 @@ export const ReportsProvider: React.FC<ReportsProviderProps> = ({
 export const useReports = (): ReportsContextType => {
   const context = useContext(ReportsContext);
   if (!context) {
-    throw new Error('useReports must be used within a ReportsProvider');
+    return {
+      potholes: [],
+      isLoading: false,
+      error: null,
+      notifications: [],
+      unreadCount: 0,
+      refreshReports: async () => {},
+      getReport: async () => null,
+      submitReport: async () => ({} as any),
+      confirmReport: async () => ({} as any),
+      updateReportStatus: async () => ({} as any),
+      dispatchAction: async () => ({} as any),
+      promoteSensorSpot: async () => ({} as any),
+      promoteDriveIncidents: async () => [],
+      updateReport: async () => ({} as any),
+      deleteReport: async () => {},
+      getComments: async () => [],
+      addComment: async () => ({} as any),
+      refreshNotifications: async () => {},
+      markNotificationRead: async () => {},
+      markAllNotificationsRead: async () => {},
+      resetDemoData: async () => {},
+      loadSampleWorkflow: async () => {},
+    };
   }
   return context;
 };

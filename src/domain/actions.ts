@@ -345,6 +345,7 @@ export function applyAction(
         throw new Error('Rating must be a numeric score between 1 and 5 stars.');
       }
 
+      updatedReport.status = 'closed';
       updatedReport.feedback = {
         rating,
         comment: payload?.comment?.trim() || undefined,
@@ -380,11 +381,16 @@ export function applyAction(
         );
       }
 
+      const reason = payload?.message || payload?.comment;
+      if (!reason || !reason.trim()) {
+        throw new Error('A reason is required to reopen this hazard report.');
+      }
+
       updatedReport.status = 'verified';
       updatedReport.reopenCount = (report.reopenCount || 0) + 1;
 
       timelineAction = 'STATUS_REOPENED';
-      timelineMessage = `Report reopened by reporting citizen: ${payload?.message || payload?.comment || 'Defect unresolved or resurfaced.'}`;
+      timelineMessage = `Report reopened by reporting citizen: ${reason.trim()}`;
 
       notifications.push({
         id: generateId('notif'),

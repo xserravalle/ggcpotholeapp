@@ -47,18 +47,20 @@ export function canTransition(
     return false;
   }
 
-  // Dynamic rule: Reopening a closed report requires resolvedAt and must be within 14 days
-  if (from === 'closed' && to === 'verified') {
-    if (!context?.resolvedAt) {
+  // Dynamic rule: Reopening a closed or resolved report requires being within 14 days of resolvedAt
+  if ((from === 'closed' || (from === 'resolved' && context?.resolvedAt)) && to === 'verified') {
+    if (from === 'closed' && !context?.resolvedAt) {
       return false;
     }
-    const resolvedTime = new Date(context.resolvedAt).getTime();
-    if (Number.isNaN(resolvedTime)) {
-      return false;
+    if (context?.resolvedAt) {
+      const resolvedTime = new Date(context.resolvedAt).getTime();
+      if (Number.isNaN(resolvedTime)) {
+        return false;
+      }
+      const currentTime = context.now ? new Date(context.now).getTime() : Date.now();
+      const daysElapsed = (currentTime - resolvedTime) / MS_PER_DAY;
+      return daysElapsed >= 0 && daysElapsed <= MAX_REOPEN_WINDOW_DAYS;
     }
-    const currentTime = context.now ? new Date(context.now).getTime() : Date.now();
-    const daysElapsed = (currentTime - resolvedTime) / MS_PER_DAY;
-    return daysElapsed >= 0 && daysElapsed <= MAX_REOPEN_WINDOW_DAYS;
   }
 
   return true;
