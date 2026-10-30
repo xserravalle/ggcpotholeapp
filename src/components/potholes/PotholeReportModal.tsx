@@ -8,8 +8,9 @@ import { generateMapSnapshot } from '../../services/mapSnapshotService';
 import { compressImageFile } from '../../utils/imageCompressor';
 import { CLUSTER_DISTANCE_MILES, milesBetween } from '../../services/distanceCalculator';
 import { isOpenStatus } from '../../domain/status';
-import { StatusBadge } from '../kit/StatusBadge';
 import { ReportsContext } from '../../context/ReportsContext';
+import { validatePotholeReport } from '../../services/reportValidator';
+import { StatusBadge } from '../kit/StatusBadge';
 import { 
   X, 
   MapPin, 
@@ -138,6 +139,8 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   const [reporterName, setReporterName] = useState('');
   const [reporterEmail, setReporterEmail] = useState('');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -223,11 +226,13 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setPhotoError(null);
       try {
         const compressedDataUrl = await compressImageFile(file);
         setPhotoPreview(compressedDataUrl);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to compress image:', err);
+        setPhotoError(err.message || 'Failed to process image. Please try another file.');
       }
     }
   };
@@ -293,7 +298,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
 
     const finalTitle = title.trim() || `Road Hazard on ${roadName || address.split(',')[0] || 'Corridor'}`;
 
-    onSubmitReport({
+    const reportData = {
       title: finalTitle,
       address: address || 'Lawrenceville, GA',
       roadName: roadName || 'Local Roadway',
@@ -306,12 +311,12 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
       longitude,
       severity,
       hazardType,
-      status: 'reported',
+      status: 'reported' as const,
       estimatedDepthInches,
       estimatedWidthInches,
       surfaceType,
       damageRisk,
-      detectedBy: initialTelemetry?.sensorDetected ? 'Vehicle Accelerometer Telemetry' : 'User Mobile Report',
+      detectedBy: (initialTelemetry?.sensorDetected ? 'Vehicle Accelerometer Telemetry' : 'User Mobile Report') as PotholeReport['detectedBy'],
       sensorDetected: initialTelemetry?.sensorDetected || false,
       bumpIntensity: initialTelemetry?.bumpIntensity || 0,
       description: description || `Reported ${severity} hazard on ${address}.`,
@@ -319,8 +324,18 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
       reporterName: reporterName || 'Anonymous Reporter',
       reporterEmail,
       imageUrl: finalImageUrl,
-      source: initialTelemetry?.sensorDetected ? 'sensor' : 'user'
-    });
+      source: (initialTelemetry?.sensorDetected ? 'sensor' : 'user') as 'sensor' | 'user'
+    };
+
+    const validation = validatePotholeReport(reportData);
+    if (!validation.isValid) {
+      setValidationErrors(validation.errors);
+      setIsSubmitting(false);
+      return;
+    }
+    setValidationErrors([]);
+
+    onSubmitReport(reportData);
 
     setIsSubmitting(false);
     onClose();
@@ -472,7 +487,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
             <div className="border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl p-2.5 bg-slate-950/60 transition text-center relative group">
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 capture="environment"
                 onChange={handlePhotoChange}
                 className="hidden"
@@ -486,7 +501,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
                     Tap to Launch Camera or Upload Image (Optional)
                   </span>
                   <span className="text-[10px] text-slate-400">
-                    If omitted, verified OpenStreetMap incident snapshot will be attached
+                    JPG, PNG, WebP up to 150KB. If omitted, verified OpenStreetMap incident snapshot will be attached
                   </span>
                 </label>
               ) : (
@@ -498,7 +513,10 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
                   />
                   <button
                     type="button"
-                    onClick={() => setPhotoPreview(null)}
+                    onClick={() => {
+                      setPhotoPreview(null);
+                      setPhotoError(null);
+                    }}
                     className="absolute top-2 right-2 bg-red-600 hover:bg-red-500 text-white p-1 rounded-full text-xs shadow"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -506,6 +524,12 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
                 </div>
               )}
             </div>
+            {photoError && (
+              <p className="text-rose-400 text-[11px] mt-1 flex items-center gap-1 font-medium">
+                <AlertTriangle className="w-3 h-3 shrink-0" />
+                <span>{photoError}</span>
+              </p>
+            )}
           </div>
 
           {/* Street Address (Auto-Populated with Closest Specific Address) */}
@@ -659,6 +683,21 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
               />
             </div>
           </div>
+
+          {/* Validation Errors */}
+          {validationErrors.length > 0 && (
+            <div className="bg-rose-950/60 border border-rose-800 rounded-xl p-2.5 space-y-1">
+              <div className="flex items-center gap-1.5 text-rose-300 font-bold text-[11px]">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span>Please fix the following issues:</span>
+              </div>
+              <ul className="list-disc list-inside text-rose-200 text-[10px] space-y-0.5">
+                {validationErrors.map((err, idx) => (
+                  <li key={idx}>{err}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Fixed Action Buttons */}
           <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-slate-800 shrink-0 mt-2">

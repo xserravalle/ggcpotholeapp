@@ -207,11 +207,13 @@ export const OfficerAssignmentsView: React.FC<OfficerAssignmentsViewProps> = ({
     if (!file) return;
 
     setIsCompressingPhoto(true);
+    setResolveNoteError('');
     try {
       const dataUrl = await compressImageFile(file, 640, 0.7);
       setResolvePhoto(dataUrl);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to compress resolution photo:', err);
+      setResolveNoteError(err.message || 'Failed to compress resolution photo.');
     } finally {
       setIsCompressingPhoto(false);
     }
@@ -414,7 +416,7 @@ export const OfficerAssignmentsView: React.FC<OfficerAssignmentsViewProps> = ({
           {sortedReports.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {sortedReports.map((report) => {
-                const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${report.latitude},${report.longitude}`;
+                const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(report.latitude)},${encodeURIComponent(report.longitude)}`;
 
                 return (
                   <ReportCard
@@ -560,7 +562,7 @@ export const OfficerAssignmentsView: React.FC<OfficerAssignmentsViewProps> = ({
                               Status: {report.status.replace('_', ' ')} • Priority: {report.priority}
                             </div>
                             <a
-                              href={`https://www.google.com/maps/dir/?api=1&destination=${report.latitude},${report.longitude}`}
+                              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(report.latitude)},${encodeURIComponent(report.longitude)}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 underline mt-1"
@@ -579,7 +581,7 @@ export const OfficerAssignmentsView: React.FC<OfficerAssignmentsViewProps> = ({
                 <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
                   {routeStops.map((report, idx) => {
                     const overdue = isOverdue(report);
-                    const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${report.latitude},${report.longitude}`;
+                    const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(report.latitude)},${encodeURIComponent(report.longitude)}`;
 
                     return (
                       <div
@@ -832,11 +834,11 @@ export const OfficerAssignmentsView: React.FC<OfficerAssignmentsViewProps> = ({
                     {isCompressingPhoto ? 'Compressing photo...' : 'Click to take or attach "After" photo'}
                   </span>
                   <span className="text-[10px] text-slate-500">
-                    JPEG / PNG compressed to &lt;50KB
+                    JPEG / PNG / WebP compressed to &lt;150KB
                   </span>
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     onChange={handlePhotoUpload}
                     disabled={isCompressingPhoto}
                     className="hidden"

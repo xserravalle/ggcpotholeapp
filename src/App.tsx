@@ -10,6 +10,7 @@ import { ReportsProvider, useReports } from './context/ReportsContext';
 import { canAccessTab } from './domain/permissions';
 import { Actor } from './domain/types';
 import { RecipientFilter } from './repository/ReportRepository';
+import { AlertTriangle, X } from 'lucide-react';
 
 // Common Components
 import { Header, ActiveTab } from './components/Header';
@@ -49,7 +50,9 @@ function AppContent() {
     promoteSensorSpot,
     promoteDriveIncidents,
     updateReport,
-    deleteReport
+    deleteReport,
+    storageWarning,
+    dismissStorageWarning,
   } = useReports();
 
   // Navigation: Default to Map & Hazards
@@ -197,6 +200,24 @@ function AppContent() {
         }}
         potholeCount={potholes.length}
       />
+
+      {/* Storage Quota Warning Banner */}
+      {storageWarning && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2.5 flex items-center justify-between text-amber-200 text-xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="font-medium">{storageWarning}</span>
+          </div>
+          <button
+            type="button"
+            onClick={dismissStorageWarning}
+            aria-label="Dismiss storage warning"
+            className="text-amber-400 hover:text-amber-200 p-1 rounded-lg hover:bg-amber-500/20 transition cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Main Tab Content */}
       <main className={`flex-1 ${activeTab === 'my-reports' ? 'min-h-0 overflow-hidden flex flex-col' : ''}`}>

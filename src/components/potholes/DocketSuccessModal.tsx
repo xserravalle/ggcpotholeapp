@@ -76,7 +76,7 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
       `Submitted Date & Time:  ${new Date().toLocaleString()}\n` +
       `Reporter:               ${report.reporterName || 'Anonymous Citizen'}${report.reporterEmail ? ` <${report.reporterEmail}>` : ''}\n\n` +
       `Centralized Map Location:\n` +
-      `https://www.google.com/maps?q=${report.latitude},${report.longitude}\n` +
+      `https://www.google.com/maps?q=${encodeURIComponent(report.latitude)},${encodeURIComponent(report.longitude)}\n` +
       `Location Snapshot:      Generated & attached to incident PDF docket\n\n` +
       `========================================\n` +
       `Dispatched via GGC SansPotholes (Academic Prototype)`

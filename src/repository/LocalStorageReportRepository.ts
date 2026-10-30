@@ -6,6 +6,7 @@ import { priorityScore, suggestPriority } from '../domain/priority';
 import { INITIAL_POTHOLES } from '../data/potholesData';
 import { loadStoredPotholes, saveStoredPotholes, migrateReport } from '../services/storageService';
 import { generateSampleWorkflowReports } from './sampleWorkflowData';
+import { validatePotholeReport, validateActionPayload, validateComment } from '../services/reportValidator';
 
 /**
  * Storage keys:
@@ -118,6 +119,11 @@ export class LocalStorageReportRepository implements ReportRepository {
   }
 
   async save(report: PotholeReport): Promise<PotholeReport> {
+    const validation = validatePotholeReport(report);
+    if (!validation.valid) {
+      throw new Error(`Report validation failed: ${validation.errors.join('; ')}`);
+    }
+
     const migrated = migrateReport(report);
     const list = loadStoredPotholes(INITIAL_POTHOLES);
     const index = list.findIndex(r => r.id === migrated.id);
@@ -149,6 +155,12 @@ export class LocalStorageReportRepository implements ReportRepository {
     const report = await this.get(id);
     if (!report) {
       throw new Error(`Cannot dispatch action "${action}": Report with ID "${id}" was not found.`);
+    }
+
+    // Validate payload against civic limits so UI cannot bypass
+    const actionValidation = validateActionPayload(action, payload);
+    if (!actionValidation.valid) {
+      throw new Error(`Action payload validation failed: ${actionValidation.errors.join('; ')}`);
     }
 
     // Call domain event transition
@@ -197,27 +209,32 @@ export class LocalStorageReportRepository implements ReportRepository {
     try {
       const raw = localStorage.getItem(STORAGE_KEY_COMMENTS);
       if (!raw) return [];
-      const allComments: Comment[] = JSON.parse(raw);
+      let allComments: unknown;
+      try {
+        allComments = JSON.parse(raw);
+      } catch {
+        return [];
+      }
       if (!Array.isArray(allComments)) return [];
-      return allComments.filter(c => c.reportId === reportId);
+      return allComments
+        .filter((c): c is Comment => Boolean(c && typeof c === 'object' && typeof c.id === 'string' && typeof c.text === 'string' && typeof c.reportId === 'string'))
+        .filter(c => c.reportId === reportId);
     } catch {
       return [];
     }
   }
 
   async addComment(comment: Omit<Comment, 'id' | 'timestamp'>): Promise<Comment> {
-    if (!comment.text || !comment.text.trim()) {
-      throw new Error('Comment text cannot be empty.');
-    }
-    if (comment.text.length > 1000) {
-      throw new Error(`Comment exceeds maximum limit of 1000 characters (got ${comment.text.length}).`);
+    const commentValidation = validateComment(comment.text, comment.authorName);
+    if (!commentValidation.valid) {
+      throw new Error(`Comment validation failed: ${commentValidation.errors.join('; ')}`);
     }
 
     const timestamp = new Date().toISOString();
     const newComment: Comment = {
       id: generateId('cmt'),
       reportId: comment.reportId,
-      authorName: comment.authorName,
+      authorName: comment.authorName.trim(),
       authorRole: comment.authorRole,
       text: comment.text.trim(),
       timestamp,
@@ -226,15 +243,30 @@ export class LocalStorageReportRepository implements ReportRepository {
     // 1. Save comment to storage
     try {
       const raw = localStorage.getItem(STORAGE_KEY_COMMENTS);
-      const allComments: Comment[] = raw ? JSON.parse(raw) : [];
+      let allComments: Comment[] = [];
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            allComments = parsed.filter(c => c && typeof c === 'object' && typeof c.id === 'string');
+          }
+        } catch {
+          allComments = [];
+        }
+      }
       allComments.push(newComment);
       localStorage.setItem(STORAGE_KEY_COMMENTS, JSON.stringify(allComments));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save comment to localStorage', err);
+      const isQuota = err?.name === 'QuotaExceededError' || err?.code === 22;
+      if (isQuota && typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(
+          new CustomEvent('storage-quota-warning', { detail: { message: 'Storage quota exceeded while saving comment.', isQuota: true } })
+        );
+      }
     }
 
-    // 2. Generate notifications:
-    // "Adding a comment notifies the reporter, plus the assigned officer if there is one, never the comment's author."
+    // 2. Generate notifications
     const report = await this.get(comment.reportId);
     if (report) {
       const pendingNotifications: NotificationMessage[] = [];
@@ -295,10 +327,17 @@ export class LocalStorageReportRepository implements ReportRepository {
     try {
       const raw = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
       if (!raw) return [];
-      const all: NotificationMessage[] = JSON.parse(raw);
+      let all: unknown;
+      try {
+        all = JSON.parse(raw);
+      } catch {
+        return [];
+      }
       if (!Array.isArray(all)) return [];
 
-      return all.filter(n => {
+      const sanitized = all.filter((n): n is NotificationMessage => Boolean(n && typeof n === 'object' && typeof n.id === 'string' && typeof n.recipientRole === 'string'));
+
+      return sanitized.filter(n => {
         // Admin gets all admin notifications
         if (recipient.role === 'admin') {
           return n.recipientRole === 'admin';
@@ -334,10 +373,17 @@ export class LocalStorageReportRepository implements ReportRepository {
     try {
       const raw = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
       if (!raw) return;
-      const all: NotificationMessage[] = JSON.parse(raw);
+      let all: unknown;
+      try {
+        all = JSON.parse(raw);
+      } catch {
+        return;
+      }
       if (!Array.isArray(all)) return;
 
-      const updated = all.map(n => n.id === notificationId ? { ...n, read: true } : n);
+      const updated = all
+        .filter((n): n is NotificationMessage => Boolean(n && typeof n === 'object' && typeof n.id === 'string'))
+        .map(n => n.id === notificationId ? { ...n, read: true } : n);
       localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(updated));
     } catch (err) {
       console.error('Failed to mark notification as read', err);
@@ -348,20 +394,27 @@ export class LocalStorageReportRepository implements ReportRepository {
     try {
       const raw = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
       if (!raw) return;
-      const all: NotificationMessage[] = JSON.parse(raw);
+      let all: unknown;
+      try {
+        all = JSON.parse(raw);
+      } catch {
+        return;
+      }
       if (!Array.isArray(all)) return;
 
-      const updated = all.map(n => {
-        const matchesRole =
-          recipient.role === 'admin'
-            ? n.recipientRole === 'admin'
-            : recipient.role === 'officer'
-            ? n.recipientRole === 'officer' && (!recipient.name || n.recipientName?.toLowerCase() === recipient.name.toLowerCase())
-            : (n.recipientRole === 'user' || n.recipientRole === 'guest') &&
-              (!recipient.email || n.recipientEmail?.toLowerCase() === recipient.email.toLowerCase());
+      const updated = all
+        .filter((n): n is NotificationMessage => Boolean(n && typeof n === 'object' && typeof n.id === 'string'))
+        .map(n => {
+          const matchesRole =
+            recipient.role === 'admin'
+              ? n.recipientRole === 'admin'
+              : recipient.role === 'officer'
+              ? n.recipientRole === 'officer' && (!recipient.name || n.recipientName?.toLowerCase() === recipient.name.toLowerCase())
+              : (n.recipientRole === 'user' || n.recipientRole === 'guest') &&
+                (!recipient.email || n.recipientEmail?.toLowerCase() === recipient.email.toLowerCase());
 
-        return matchesRole ? { ...n, read: true } : n;
-      });
+          return matchesRole ? { ...n, read: true } : n;
+        });
 
       localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(updated));
     } catch (err) {
@@ -372,14 +425,30 @@ export class LocalStorageReportRepository implements ReportRepository {
   private async saveNotifications(newNotifs: NotificationMessage[]): Promise<void> {
     try {
       const raw = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
-      const existing: NotificationMessage[] = raw ? JSON.parse(raw) : [];
+      let existing: NotificationMessage[] = [];
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            existing = parsed.filter(n => n && typeof n === 'object' && typeof n.id === 'string');
+          }
+        } catch {
+          existing = [];
+        }
+      }
       const combined = [...newNotifs, ...existing];
 
       // Cap at 100 entries per recipient key to respect localStorage ~5MB limit
       const capped = this.capNotifications(combined, MAX_NOTIFICATIONS_PER_RECIPIENT);
       localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(capped));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to persist notifications to localStorage', err);
+      const isQuota = err?.name === 'QuotaExceededError' || err?.code === 22;
+      if (isQuota && typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(
+          new CustomEvent('storage-quota-warning', { detail: { message: 'Storage quota exceeded while saving notifications.', isQuota: true } })
+        );
+      }
     }
   }
 
@@ -410,36 +479,24 @@ export class LocalStorageReportRepository implements ReportRepository {
     return result;
   }
 
-  // --- DEMO / ADMIN TOOLS ---
+  // --- DEMO TOOLS ---
 
   async resetDemoData(): Promise<void> {
-    try {
-      // 1. Reset reports to clean INITIAL_POTHOLES
-      saveStoredPotholes(INITIAL_POTHOLES);
+    localStorage.removeItem(STORAGE_KEY_REPORTS);
+    localStorage.removeItem(STORAGE_KEY_COMMENTS);
+    localStorage.removeItem(STORAGE_KEY_NOTIFICATIONS);
+    loadStoredPotholes(INITIAL_POTHOLES);
+  }
 
-      // 2. Clear comments and notifications
-      localStorage.removeItem(STORAGE_KEY_COMMENTS);
-      localStorage.removeItem(STORAGE_KEY_NOTIFICATIONS);
-    } catch (err) {
-      console.error('Failed to reset demo data', err);
-    }
+  async resetDemo(): Promise<void> {
+    return this.resetDemoData();
   }
 
   async loadSampleWorkflow(): Promise<PotholeReport[]> {
-    const samples = generateSampleWorkflowReports();
-    saveStoredPotholes(samples);
-
-    // Also clear notifications/comments to start fresh with sample workflow
-    try {
-      localStorage.removeItem(STORAGE_KEY_COMMENTS);
-      localStorage.removeItem(STORAGE_KEY_NOTIFICATIONS);
-    } catch (err) {
-      console.error('Failed to clear old demo logs during sample workflow seed', err);
-    }
-
-    return samples;
+    const sampleReports = generateSampleWorkflowReports();
+    saveStoredPotholes(sampleReports);
+    return sampleReports;
   }
 }
 
-// Default singleton instance
 export const reportRepository = new LocalStorageReportRepository();

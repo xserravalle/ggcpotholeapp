@@ -47,7 +47,7 @@ export const DriveReportModal: React.FC<DriveReportModalProps> = ({
     `  • Elapsed Time: +${formatDuration(inc.elapsedSeconds)} into drive\n` +
     `  • Closest Address: ${inc.address || inc.roadName}\n` +
     `  • GPS Coordinates: ${inc.latitude.toFixed(5)}, ${inc.longitude.toFixed(5)}\n` +
-    `  • Google Maps: https://www.google.com/maps?q=${inc.latitude},${inc.longitude}\n`
+    `  • Google Maps: https://www.google.com/maps?q=${encodeURIComponent(inc.latitude)},${encodeURIComponent(inc.longitude)}\n`
   )).join('\n');
 
   const rawEmailSubject = `[GGC SansPotholes] Drive Patrol Report - ${trackingCode} (${session.totalDistanceMiles.toFixed(2)} mi, ${session.incidents.length} Hazards)`;
@@ -255,7 +255,7 @@ export const DriveReportModal: React.FC<DriveReportModalProps> = ({
                         </div>
 
                         <a
-                          href={`https://www.google.com/maps?q=${inc.latitude},${inc.longitude}`}
+                          href={`https://www.google.com/maps?q=${encodeURIComponent(inc.latitude)},${encodeURIComponent(inc.longitude)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-teal-300 border border-slate-800 transition"

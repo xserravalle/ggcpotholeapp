@@ -362,7 +362,7 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
             </span>
 
             <a
-              href={`https://www.google.com/maps?q=${activeReport.latitude},${activeReport.longitude}`}
+              href={`https://www.google.com/maps?q=${encodeURIComponent(activeReport.latitude)},${encodeURIComponent(activeReport.longitude)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs font-semibold text-teal-400 hover:text-teal-300 flex items-center gap-1 transition"

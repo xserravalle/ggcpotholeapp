@@ -9,7 +9,7 @@ import { ReportRepository, RecipientFilter } from '../repository/ReportRepositor
 import { reportRepository as defaultRepo } from '../repository/LocalStorageReportRepository';
 import { distanceFromCampusMiles } from '../services/distanceCalculator';
 import { classifyJurisdiction } from '../services/jurisdictionClassifier';
-import { migrateReport } from '../services/storageService';
+import { migrateReport, checkStorageQuota } from '../services/storageService';
 
 export interface ReportsContextType {
   potholes: PotholeReport[];
@@ -51,6 +51,10 @@ export interface ReportsContextType {
   // Admin Demo Tools
   resetDemoData: () => Promise<void>;
   loadSampleWorkflow: () => Promise<void>;
+
+  // Storage Quota Warning
+  storageWarning: string | null;
+  dismissStorageWarning: () => void;
 }
 
 export const ReportsContext = createContext<ReportsContextType | null>(null);
@@ -70,6 +74,39 @@ export const ReportsProvider: React.FC<ReportsProviderProps> = ({
   const [notifications, setNotifications] = useState<NotificationMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
+
+  const evaluateQuota = useCallback(() => {
+    const quota = checkStorageQuota();
+    if (quota.isOverQuota) {
+      setStorageWarning('Browser local storage is full. Some recent changes may not be saved.');
+    } else if (quota.isNearQuota) {
+      setStorageWarning(
+        `Browser local storage is almost full (${quota.percentageUsed.toFixed(0)}% used). Please consider cleaning up old reports or data.`
+      );
+    }
+  }, []);
+
+  const dismissStorageWarning = useCallback(() => {
+    setStorageWarning(null);
+  }, []);
+
+  useEffect(() => {
+    evaluateQuota();
+    const handleStorageQuotaWarning = (e: Event) => {
+      const customEvent = e as CustomEvent<{ message?: string }>;
+      if (customEvent.detail?.message) {
+        setStorageWarning(customEvent.detail.message);
+      } else {
+        evaluateQuota();
+      }
+    };
+
+    window.addEventListener('storage-quota-warning', handleStorageQuotaWarning);
+    return () => {
+      window.removeEventListener('storage-quota-warning', handleStorageQuotaWarning);
+    };
+  }, [evaluateQuota]);
 
   const refreshReports = useCallback(async () => {
     try {
@@ -441,6 +478,8 @@ export const ReportsProvider: React.FC<ReportsProviderProps> = ({
         markAllNotificationsRead,
         resetDemoData,
         loadSampleWorkflow,
+        storageWarning,
+        dismissStorageWarning,
       }}
     >
       {children}
@@ -474,6 +513,8 @@ export const useReports = (): ReportsContextType => {
       markAllNotificationsRead: async () => {},
       resetDemoData: async () => {},
       loadSampleWorkflow: async () => {},
+      storageWarning: null,
+      dismissStorageWarning: () => {},
     };
   }
   return context;
