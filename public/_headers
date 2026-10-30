@@ -1,0 +1,13 @@
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com https://unpkg.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://images.unsplash.com https://unpkg.com; connect-src 'self' https://nominatim.openstreetmap.org https://photon.komoot.io; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(self), camera=(self), accelerometer=(self), gyroscope=(self), magnetometer=(self), screen-wake-lock=(self), microphone=(), payment=(), usb=(), serial=(), bluetooth=(), hid=(), midi=(), display-capture=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+  ! Access-Control-Allow-Origin
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
