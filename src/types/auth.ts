@@ -17,12 +17,10 @@ export interface AuthContextType {
   isAdmin: boolean;
   isOfficer: boolean;
   isLoggedIn: boolean;
-  isBackendConnected: boolean;
-  loginAsAdmin: (credentialsOrPasscode: string, password?: string) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string };
-  loginAsUser: (email: string, displayName?: string, password?: string) => Promise<{ success: boolean; error?: string }> | void;
-  loginAsOfficer: (officerIdOrEmail: string, password?: string) => Promise<{ success: boolean; error?: string }> | { success: boolean; error?: string };
+  loginAsAdmin: (passcode: string) => { success: boolean; error?: string };
+  loginAsUser: (email: string, displayName?: string) => void;
+  loginAsOfficer: (officerId: string) => { success: boolean; error?: string };
   logout: () => void;
-  deleteAccount: () => Promise<{ success: boolean; error?: string }>;
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
   closeAuthModal: () => void;
