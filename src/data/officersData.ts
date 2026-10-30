@@ -196,17 +196,17 @@ export const DEMO_OFFICERS: Officer[] = [
     title: 'Municipal Infrastructure Specialist',
   },
 
-  // Town of Braselton
+  // City of Dacula
   {
-    id: 'bras-off-1',
+    id: 'dac-off-1',
     name: 'Cameron Hayes',
-    agencyId: 'BRASENTON',
-    title: 'Town Public Works Field Tech',
+    agencyId: 'DACULA',
+    title: 'City Public Works Field Tech',
   },
   {
-    id: 'bras-off-2',
+    id: 'dac-off-2',
     name: 'Kelsey Mitchell',
-    agencyId: 'BRASENTON',
+    agencyId: 'DACULA',
     title: 'Maintenance Operator',
   },
 ];
@@ -224,7 +224,7 @@ export const AGENCY_LABELS: Record<string, string> = {
   BUFORD: '🏙️ City of Buford',
   LILBURN: '🏙️ City of Lilburn',
   SUGAR_HILL: '🏙️ City of Sugar Hill',
-  BRASENTON: '🏙️ Town of Braselton',
+  DACULA: '🏙️ City of Dacula',
 };
 
 /**

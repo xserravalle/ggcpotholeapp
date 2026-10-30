@@ -93,7 +93,7 @@ export function resolveAgencyKey(report: PotholeReport): string {
   if (jur.includes('buford')) return 'BUFORD';
   if (jur.includes('lilburn')) return 'LILBURN';
   if (jur.includes('sugar hill')) return 'SUGAR_HILL';
-  if (jur.includes('braselton') || jur.includes('brasenton')) return 'BRASENTON';
+  if (jur.includes('dacula')) return 'DACULA';
 
   return 'GWINNETT_COUNTY';
 }

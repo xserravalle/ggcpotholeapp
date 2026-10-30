@@ -60,7 +60,7 @@ export function matchAgencyId(report: PotholeReport): string {
   if (j.includes('buford')) return 'BUFORD';
   if (j.includes('lilburn')) return 'LILBURN';
   if (j.includes('sugar hill')) return 'SUGAR_HILL';
-  if (j.includes('braselton')) return 'BRASENTON';
+  if (j.includes('dacula')) return 'DACULA';
   return 'GWINNETT_COUNTY';
 }
 
