@@ -1,7 +1,8 @@
 import { PotholeReport } from '../types/pothole';
 import { distanceFromCampusMiles } from '../services/distanceCalculator';
+import { migrateReport } from '../services/storageService';
 
-const RAW_POTHOLES: Omit<PotholeReport, 'distanceFromGgcMiles'>[] = [
+const RAW_POTHOLES: Omit<PotholeReport, 'distanceFromGgcMiles' | 'priority' | 'priorityScore' | 'timeline'>[] = [
   // --- GGC CAMPUS IMMEDIATE RADIUS (from ggcpotholeprototype & GGC pilot) ---
   {
     id: 'GGC-SEED-101',
@@ -18,7 +19,7 @@ const RAW_POTHOLES: Omit<PotholeReport, 'distanceFromGgcMiles'>[] = [
     longitude: -84.0048,
     severity: 'severe',
     hazardType: 'POTHOLE',
-    status: 'investigating',
+    status: 'verified',
     verificationsCount: 38,
     userConfirmed: true,
     reportedAt: '2026-09-12T08:30:00',
@@ -53,7 +54,7 @@ const RAW_POTHOLES: Omit<PotholeReport, 'distanceFromGgcMiles'>[] = [
     longitude: -84.0002,
     severity: 'moderate',
     hazardType: 'POTHOLE',
-    status: 'scheduled',
+    status: 'assigned',
     verificationsCount: 24,
     userConfirmed: true,
     reportedAt: '2026-09-13T10:15:00',
@@ -121,7 +122,7 @@ const RAW_POTHOLES: Omit<PotholeReport, 'distanceFromGgcMiles'>[] = [
     longitude: -84.1338,
     severity: 'critical',
     hazardType: 'POTHOLE',
-    status: 'investigating',
+    status: 'verified',
     verificationsCount: 52,
     userConfirmed: true,
     reportedAt: '2026-09-10T08:14:00',
@@ -155,7 +156,7 @@ const RAW_POTHOLES: Omit<PotholeReport, 'distanceFromGgcMiles'>[] = [
     longitude: -83.9892,
     severity: 'minor',
     hazardType: 'POTHOLE',
-    status: 'repaired',
+    status: 'resolved',
     verificationsCount: 31,
     userConfirmed: true,
     reportedAt: '2026-09-01T15:20:00',
@@ -187,7 +188,7 @@ const RAW_POTHOLES: Omit<PotholeReport, 'distanceFromGgcMiles'>[] = [
     longitude: -84.0320,
     severity: 'critical',
     hazardType: 'POTHOLE',
-    status: 'investigating',
+    status: 'verified',
     verificationsCount: 64,
     userConfirmed: true,
     reportedAt: '2026-09-06T07:10:00',
@@ -219,7 +220,7 @@ const RAW_POTHOLES: Omit<PotholeReport, 'distanceFromGgcMiles'>[] = [
     longitude: -84.2238,
     severity: 'minor',
     hazardType: 'ROAD_CRACK',
-    status: 'repaired',
+    status: 'resolved',
     verificationsCount: 19,
     userConfirmed: true,
     reportedAt: '2026-09-02T11:12:00',
@@ -250,7 +251,7 @@ const RAW_POTHOLES: Omit<PotholeReport, 'distanceFromGgcMiles'>[] = [
     longitude: -84.0722,
     severity: 'minor',
     hazardType: 'POTHOLE',
-    status: 'scheduled',
+    status: 'assigned',
     verificationsCount: 8,
     userConfirmed: true,
     reportedAt: '2026-09-09T10:05:00',
@@ -281,7 +282,7 @@ const RAW_POTHOLES: Omit<PotholeReport, 'distanceFromGgcMiles'>[] = [
     longitude: -84.0152,
     severity: 'severe',
     hazardType: 'POTHOLE',
-    status: 'investigating',
+    status: 'verified',
     verificationsCount: 44,
     userConfirmed: false,
     reportedAt: '2026-09-07T18:22:00',
@@ -342,7 +343,7 @@ const RAW_POTHOLES: Omit<PotholeReport, 'distanceFromGgcMiles'>[] = [
     longitude: -84.0645,
     severity: 'moderate',
     hazardType: 'POTHOLE',
-    status: 'scheduled',
+    status: 'assigned',
     verificationsCount: 27,
     userConfirmed: false,
     reportedAt: '2026-09-10T12:45:00',
@@ -362,8 +363,11 @@ const RAW_POTHOLES: Omit<PotholeReport, 'distanceFromGgcMiles'>[] = [
   }
 ];
 
-// Calculate distance from GGC campus center for every record
-export const INITIAL_POTHOLES: PotholeReport[] = RAW_POTHOLES.map(p => ({
-  ...p,
-  distanceFromGgcMiles: distanceFromCampusMiles({ lat: p.latitude, lng: p.longitude })
-}));
+// Calculate distance from GGC campus center and migrate to 4-layer civic domain schema
+export const INITIAL_POTHOLES: PotholeReport[] = RAW_POTHOLES.map(p => {
+  const withDistance = {
+    ...p,
+    distanceFromGgcMiles: distanceFromCampusMiles({ lat: p.latitude, lng: p.longitude })
+  };
+  return migrateReport(withDistance);
+});

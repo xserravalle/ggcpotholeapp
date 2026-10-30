@@ -70,11 +70,12 @@ describe('AuthContext and AuthModal', () => {
     );
 
     expect(screen.getByText('Sign In / Role Access')).toBeTruthy();
-    expect(screen.getByText('Admin Staff')).toBeTruthy();
-    expect(screen.getByText('Commuter Sign In')).toBeTruthy();
+    expect(screen.getByText('Admin')).toBeTruthy();
+    expect(screen.getByText('Citizen')).toBeTruthy();
+    expect(screen.getByText('Agency Crew (Demo)')).toBeTruthy();
 
-    // Switch to Commuter Tab
-    fireEvent.click(screen.getByText('Commuter Sign In'));
+    // Switch to Citizen Tab
+    fireEvent.click(screen.getByText('Citizen'));
     expect(screen.getByPlaceholderText('student@ggc.edu')).toBeTruthy();
   });
 });

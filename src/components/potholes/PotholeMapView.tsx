@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { PotholeReport, RoadSegment, SeverityLevel, PotholeStatus } from '../../types/pothole';
 import { CAMPUS_CENTER } from '../../data/jurisdictionsData';
 import { MunicipalQuickJump } from '../map/MunicipalQuickJump';
+import { PermissionRationaleModal } from '../common/PermissionRationaleModal';
 import { reverseGeocode } from '../../services/reverseGeocoding';
 import { distanceFromCampusMiles, formatCoords } from '../../services/distanceCalculator';
 import { useAccessibility, ThemeKey } from '../../context/AccessibilityContext';
@@ -67,92 +68,68 @@ const createUserLocationBeaconIcon = () => {
 };
 
 // Dynamic Marker Icon Generator with Theme Awareness (Colorblind, High Contrast, Standard GGC, Dark)
+const STATUS_PIN_COLORS: Record<string, string> = {
+  reported: '#f59e0b',    // Amber
+  verified: '#3b82f6',    // Blue/Sky
+  assigned: '#a855f7',    // Purple
+  in_progress: '#06b6d4', // Cyan
+  resolved: '#10b981',    // Emerald
+  closed: '#64748b',      // Slate
+  rejected: '#f43f5e',    // Rose
+};
+
+// Dynamic Marker Icon Generator with Status Color Coding & Theme Awareness
 const createTrafficLightIcon = (
   severity: SeverityLevel,
   status: PotholeStatus,
   verifications: number,
   theme: ThemeKey = 'colorblind'
 ) => {
-  const isRepaired = status === 'repaired';
-  let color = '#0072b2';
+  const isRepaired = status === 'resolved' || status === 'closed';
+  const statusColor = STATUS_PIN_COLORS[status] || '#f59e0b';
+  let color = statusColor;
   let borderColor = '#ffffff';
   let textColor = '#ffffff';
-  let pulseColor = '#0072b2';
-  let symbol = '◆';
+  let pulseColor = statusColor;
+  let symbol = '▲';
 
-  if (isRepaired) {
+  if (status === 'resolved' || status === 'closed') {
     symbol = '✓';
-    if (theme === 'high-contrast') {
+  } else if (status === 'in_progress') {
+    symbol = '⚙';
+  } else if (status === 'assigned') {
+    symbol = '👤';
+  } else if (status === 'verified') {
+    symbol = '●';
+  } else if (status === 'rejected') {
+    symbol = '✕';
+  } else {
+    symbol = '▲';
+  }
+
+  // Theme overrides for High Contrast accessibility
+  if (theme === 'high-contrast') {
+    if (isRepaired) {
       color = '#00ffff';
       textColor = '#000000';
       borderColor = '#ffffff';
-    } else if (theme === 'colorblind') {
-      color = '#009e73';
-      borderColor = '#ffffff';
-    } else if (theme === 'standard') {
-      color = '#006747';
-      borderColor = '#c4a35a';
-    } else {
-      color = '#10b981';
-      borderColor = '#059669';
-    }
-  } else if (severity === 'severe' || severity === 'critical') {
-    symbol = '▲';
-    if (theme === 'high-contrast') {
+    } else if (severity === 'severe' || severity === 'critical') {
       color = '#ff0000';
       textColor = '#ffffff';
       borderColor = '#ffffff';
       pulseColor = '#ff0000';
-    } else if (theme === 'colorblind') {
-      color = '#d55e00'; // Okabe-Ito Vermilion
-      borderColor = '#ffffff';
-      pulseColor = '#d55e00';
-    } else if (theme === 'standard') {
-      color = '#dc2626';
-      borderColor = '#ffffff';
-      pulseColor = '#dc2626';
-    } else {
-      color = '#ef4444';
-      borderColor = '#b91c1c';
-      pulseColor = '#ef4444';
-    }
-  } else if (severity === 'moderate') {
-    symbol = '◆';
-    if (theme === 'high-contrast') {
+    } else if (severity === 'moderate') {
       color = '#ffff00';
       textColor = '#000000';
       borderColor = '#ffffff';
-    } else if (theme === 'colorblind') {
-      color = '#0072b2'; // Okabe-Ito Sky Blue
-      borderColor = '#ffffff';
-    } else if (theme === 'standard') {
-      color = '#c4a35a'; // GGC Gold
-      textColor = '#1a1f1c';
-      borderColor = '#ffffff';
     } else {
-      color = '#f59e0b';
-      borderColor = '#d97706';
-    }
-  } else {
-    // Minor
-    symbol = '●';
-    if (theme === 'high-contrast') {
       color = '#00ffff';
       textColor = '#000000';
       borderColor = '#ffffff';
-    } else if (theme === 'colorblind') {
-      color = '#009e73'; // Okabe-Ito Bluish Green
-      borderColor = '#ffffff';
-    } else if (theme === 'standard') {
-      color = '#006747'; // GGC Green
-      borderColor = '#ffffff';
-    } else {
-      color = '#10b981';
-      borderColor = '#059669';
     }
   }
 
-  const isSevere = severity === 'severe' || severity === 'critical';
+  const isSevere = severity === 'severe' || severity === 'critical' || status === 'in_progress';
   const pulseHtml = isSevere && !isRepaired ? `
     <div style="position: absolute; width: 100%; height: 100%; border-radius: 50%; background-color: ${pulseColor}; opacity: 0.35; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
   ` : '';
@@ -262,51 +239,24 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [locationStatusText, setLocationStatusText] = useState<string>('Acquiring GPS...');
 
-  // Map View Scopes: Defaults to 'my-location' as requested
-  const [viewScope, setViewScope] = useState<ViewScope>('my-location');
-  const [activePresetId, setActivePresetId] = useState<string>('my-location');
+  // Map View Scopes: Defaults to 'campus' on mount without auto-prompting GPS
+  const [viewScope, setViewScope] = useState<ViewScope>('campus');
+  const [activePresetId, setActivePresetId] = useState<string>('ggc');
 
-  // Initial map target: defaults to user location on mount, with GGC fallback
+  // Initial map target: defaults to GGC campus
   const [mapTarget, setMapTarget] = useState<{ center: [number, number]; zoom: number }>({
     center: [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng],
-    zoom: 15
+    zoom: 14
   });
 
   const [severityFilter, setSeverityFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [droppedPin, setDroppedPin] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const [showLocationRationale, setShowLocationRationale] = useState(false);
 
-  // Default to User's GPS Location on Component Mount
+  // Set initial status text without auto-requesting GPS
   useEffect(() => {
-    if ('geolocation' in navigator) {
-      setIsLocating(true);
-      setLocationStatusText('Acquiring GPS location...');
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          const accuracy = pos.coords.accuracy;
-          setUserLocation({ lat, lng, accuracy });
-          setMapTarget({ center: [lat, lng], zoom: 16 });
-          setViewScope('my-location');
-          setActivePresetId('my-location');
-          setIsLocating(false);
-          setLocationStatusText('GPS Locked');
-        },
-        err => {
-          console.warn('Initial GPS positioning denied or unavailable; falling back to GGC campus:', err.message);
-          setViewScope('campus');
-          setActivePresetId('ggc');
-          setMapTarget({ center: [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng], zoom: 14 });
-          setIsLocating(false);
-          setLocationStatusText('GGC Campus (GPS Offline)');
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
-      );
-    } else {
-      setViewScope('campus');
-      setActivePresetId('ggc');
-      setLocationStatusText('GGC Campus');
-    }
+    setLocationStatusText('GGC Campus (Tap GPS to locate)');
   }, []);
 
   // Automatically center map around selected pothole shock location
@@ -340,6 +290,10 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
 
   // Quick Preset Click from Municipal bar
   const handlePresetSelect = (lat: number, lng: number, zoom: number, id: string) => {
+    if (id === 'my-location' && !userLocation) {
+      setShowLocationRationale(true);
+      return;
+    }
     setActivePresetId(id);
     setMapTarget({ center: [lat, lng], zoom });
     if (id === 'my-location') {
@@ -353,6 +307,11 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
 
   // Explicit User Re-locate Button Click
   const handleGpsLocate = () => {
+    setShowLocationRationale(true);
+  };
+
+  const executeGpsLocate = () => {
+    setShowLocationRationale(false);
     if ('geolocation' in navigator) {
       setIsLocating(true);
       setLocationStatusText('Locating...');
@@ -370,12 +329,13 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
         },
         err => {
           setIsLocating(false);
-          alert('GPS location access denied or unavailable: ' + err.message);
+          console.warn('GPS location access denied or unavailable:', err.message);
+          setLocationStatusText('GPS Unavailable');
         },
         { enableHighAccuracy: true, timeout: 10000 }
       );
     } else {
-      alert('Geolocation is not supported by your browser.');
+      setLocationStatusText('Geolocation unsupported');
     }
   };
 
@@ -391,9 +351,10 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   // Filtered potholes
   const filteredPotholes = useMemo(() => {
     return potholes.filter(p => {
+      if (statusFilter !== 'all' && p.status !== statusFilter) return false;
       if (severityFilter === 'critical' && p.severity !== 'critical' && p.severity !== 'severe') return false;
       if (severityFilter === 'moderate' && p.severity !== 'moderate') return false;
-      if (severityFilter === 'resolved' && p.status !== 'repaired') return false;
+      if (severityFilter === 'resolved' && p.status !== 'resolved' && p.status !== 'closed') return false;
       
       // When explicitly scoped to GGC Campus, filter by 1.8 mi radius
       if (viewScope === 'campus') {
@@ -402,7 +363,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
       }
       return true;
     });
-  }, [potholes, severityFilter, viewScope]);
+  }, [potholes, statusFilter, severityFilter, viewScope]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-125px)] relative select-none">
@@ -482,19 +443,37 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
 
         </div>
 
-        {/* Right: Consolidated Traffic Light Filter */}
-        <div className="flex items-center space-x-2 ml-auto">
+        {/* Right: Consolidated Traffic Light & Status Filter */}
+        <div className="flex items-center space-x-2 ml-auto flex-wrap">
           <div className="flex items-center text-slate-400 font-medium">
             <Filter className="w-3.5 h-3.5 mr-1 text-teal-400" />
             <span className="hidden sm:inline">Filter:</span>
           </div>
 
+          {/* Status Filter */}
+          <select
+            aria-label="Filter by status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 outline-none text-xs font-semibold focus:ring-1 focus:ring-teal-500 cursor-pointer"
+          >
+            <option value="all">All Statuses ({potholes.length})</option>
+            <option value="reported">Reported</option>
+            <option value="verified">Verified & Triaged</option>
+            <option value="assigned">Assigned to Crew</option>
+            <option value="in_progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+            <option value="rejected">Rejected</option>
+          </select>
+
+          {/* Severity Filter */}
           <select 
             value={severityFilter}
             onChange={(e) => setSeverityFilter(e.target.value)}
-            className="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 outline-none text-xs font-semibold focus:ring-1 focus:ring-teal-500"
+            className="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 outline-none text-xs font-semibold focus:ring-1 focus:ring-teal-500 cursor-pointer"
           >
-            <option value="all">All Hazards ({potholes.length})</option>
+            <option value="all">All Severities</option>
             <option value="critical">🔴 Critical / Action Needed</option>
             <option value="moderate">🟡 Moderate / Watch</option>
             <option value="resolved">🟢 Resolved / Repaired</option>
@@ -641,11 +620,11 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 border ${
                         isCritical 
                           ? 'bg-rose-950/80 text-rose-300 border-rose-700' 
-                          : pothole.status === 'repaired'
+                          : pothole.status === 'resolved' || pothole.status === 'closed'
                           ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
                           : 'bg-amber-950/80 text-amber-300 border-amber-700'
                       }`}>
-                        {isCritical ? '▲ Critical' : pothole.status === 'repaired' ? '✓ Resolved' : '◆ Moderate'}
+                        {isCritical ? '▲ Critical' : pothole.status === 'resolved' || pothole.status === 'closed' ? '✓ Resolved' : '◆ Moderate'}
                       </span>
                     </div>
 
@@ -730,6 +709,15 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
 
       </div>
 
+      <PermissionRationaleModal
+        isOpen={showLocationRationale}
+        type="location"
+        title="Location Access"
+        rationale="SansPotholes needs your device GPS coordinates to center the map on your position and display road hazards near you."
+        confirmLabel="Allow Location"
+        onConfirm={executeGpsLocate}
+        onCancel={() => setShowLocationRationale(false)}
+      />
     </div>
   );
 };

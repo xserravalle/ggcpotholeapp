@@ -38,6 +38,7 @@ export const EditReportModal: React.FC<EditReportModalProps> = ({
   const [estimatedDepthInches, setEstimatedDepthInches] = useState(report?.estimatedDepthInches || 3.0);
   const [estimatedWidthInches, setEstimatedWidthInches] = useState(report?.estimatedWidthInches || 18);
   const [photoPreview, setPhotoPreview] = useState<string | null>(report?.imageUrl || null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Sync with prop when selected report changes
@@ -51,6 +52,7 @@ export const EditReportModal: React.FC<EditReportModalProps> = ({
       setEstimatedDepthInches(report.estimatedDepthInches || 3.0);
       setEstimatedWidthInches(report.estimatedWidthInches || 18);
       setPhotoPreview(report.imageUrl || null);
+      setPhotoError(null);
       setShowDeleteConfirm(false);
     }
   }, [report]);
@@ -60,11 +62,13 @@ export const EditReportModal: React.FC<EditReportModalProps> = ({
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setPhotoError(null);
       try {
         const compressedDataUrl = await compressImageFile(file);
         setPhotoPreview(compressedDataUrl);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to compress image:', err);
+        setPhotoError(err.message || 'Failed to process image');
       }
     }
   };
@@ -278,14 +282,20 @@ export const EditReportModal: React.FC<EditReportModalProps> = ({
                 <label className="w-20 h-20 rounded-xl border border-dashed border-slate-700 hover:border-emerald-500 bg-slate-950 flex flex-col items-center justify-center cursor-pointer text-slate-300 hover:text-emerald-400 transition shrink-0">
                   <Camera className="w-5 h-5 mb-1" />
                   <span className="text-[10px]">Add Photo</span>
-                  <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                  <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhotoUpload} className="hidden" />
                 </label>
               )}
               <div className="text-[11px] text-slate-300">
                 <span className="block font-medium text-white">Attach or update site photo</span>
-                <span>Optional photo for public works dispatchers to confirm road surface breakdown.</span>
+                <span>Optional photo (JPG, PNG, WebP up to 150KB) for public works dispatchers to confirm road surface breakdown.</span>
               </div>
             </div>
+            {photoError && (
+              <p className="text-rose-400 text-[11px] flex items-center gap-1 font-medium">
+                <AlertTriangle className="w-3 h-3 shrink-0" />
+                <span>{photoError}</span>
+              </p>
+            )}
           </div>
 
           {/* Delete confirmation alert if triggered */}

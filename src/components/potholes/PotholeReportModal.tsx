@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { PotholeReport, SeverityLevel, HazardType } from '../../types/pothole';
@@ -6,23 +6,29 @@ import { classifyJurisdiction } from '../../services/jurisdictionClassifier';
 import { reverseGeocode } from '../../services/reverseGeocoding';
 import { generateMapSnapshot } from '../../services/mapSnapshotService';
 import { compressImageFile } from '../../utils/imageCompressor';
+import { CLUSTER_DISTANCE_MILES, milesBetween } from '../../services/distanceCalculator';
+import { isOpenStatus } from '../../domain/status';
+import { ReportsContext } from '../../context/ReportsContext';
+import { validatePotholeReport } from '../../services/reportValidator';
+import { StatusBadge } from '../kit/StatusBadge';
+import { PermissionRationaleModal } from '../common/PermissionRationaleModal';
 import { 
   X, 
   MapPin, 
   Activity, 
   CheckCircle2, 
-  Mail,
-  AlertTriangle,
-  RefreshCw,
-  Camera,
-  Building2,
-  GraduationCap
+  Mail, 
+  AlertTriangle, 
+  RefreshCw, 
+  Camera, 
+  Building2, 
+  GraduationCap 
 } from 'lucide-react';
 
 interface PotholeReportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmitReport: (newReport: Omit<PotholeReport, 'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt'>) => void;
+  onSubmitReport: (newReport: Omit<PotholeReport, 'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt' | 'priority' | 'priorityScore' | 'timeline'>) => void;
   initialTelemetry?: {
     sensorDetected: boolean;
     bumpIntensity: number;
@@ -33,6 +39,8 @@ interface PotholeReportModalProps {
     lng: number;
     address?: string;
   };
+  existingReports?: PotholeReport[];
+  onConfirmExistingReport?: (reportId: string, customMessage?: string) => Promise<void> | void;
 }
 
 // Controller to keep mini map centered when GPS coordinates change
@@ -80,6 +88,22 @@ const createReportMarkerIcon = (severity: SeverityLevel) => {
   });
 };
 
+function formatReportAge(isoDateString?: string): string {
+  if (!isoDateString) return 'recently';
+  const time = new Date(isoDateString).getTime();
+  if (isNaN(time)) return 'recently';
+  const diffMs = Date.now() - time;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return '1d ago';
+  return `${diffDays}d ago`;
+}
+
 export const PotholeReportModal: React.FC<PotholeReportModalProps> = (props) =>
   props.isOpen ? <PotholeReportDialogBody {...props} /> : null;
 
@@ -87,8 +111,14 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   onClose,
   onSubmitReport,
   initialTelemetry,
-  initialCoords
+  initialCoords,
+  existingReports,
+  onConfirmExistingReport
 }) => {
+  const reportsContext = useContext(ReportsContext);
+  const reportsList = existingReports || reportsContext?.potholes || [];
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
   const [title, setTitle] = useState('');
   const [address, setAddress] = useState(initialCoords?.address || 'Locating nearest street address...');
   const [roadName, setRoadName] = useState('');
@@ -110,14 +140,50 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   const [reporterName, setReporterName] = useState('');
   const [reporterEmail, setReporterEmail] = useState('');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Dynamic duplicate detection: find open reports within CLUSTER_DISTANCE_MILES (~115 ft)
+  const nearbyDuplicates = useMemo(() => {
+    if (!reportsList || reportsList.length === 0) return [];
+    return reportsList.filter(report => {
+      if (!isOpenStatus(report.status)) return false;
+      const dist = milesBetween(
+        { lat: latitude, lng: longitude },
+        { lat: report.latitude, lng: report.longitude }
+      );
+      return dist <= CLUSTER_DISTANCE_MILES;
+    });
+  }, [reportsList, latitude, longitude]);
+
+  const handleConfirmInstead = async (duplicateId: string) => {
+    setConfirmingId(duplicateId);
+    try {
+      const confirmMessage = 'Confirmed via duplicate check (+1) instead of filing a new report.';
+      if (onConfirmExistingReport) {
+        await onConfirmExistingReport(duplicateId, confirmMessage);
+      } else if (reportsContext) {
+        await reportsContext.confirmReport(duplicateId, undefined, confirmMessage);
+      }
+      onClose();
+    } catch (err) {
+      console.error('Failed to confirm existing duplicate:', err);
+    } finally {
+      setConfirmingId(null);
+    }
+  };
+
+  const [showLocationRationale, setShowLocationRationale] = useState(false);
+  const [showCameraRationale, setShowCameraRationale] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Dynamic jurisdiction classification
   const classification = classifyJurisdiction(latitude, longitude, `${roadName} ${address}`);
   const assignedAuth = classification.authority;
 
-  // Auto-populate nearest closest address on open
+  // Auto-populate nearest closest address on open without triggering GPS prompt
   useEffect(() => {
     if (initialCoords?.lat && initialCoords?.lng) {
       setIsResolvingAddress(true);
@@ -127,36 +193,13 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
         setCity(geo.city);
         setIsResolvingAddress(false);
       });
-    } else if ('geolocation' in navigator) {
-      setIsResolvingAddress(true);
-      navigator.geolocation.getCurrentPosition(
-        async pos => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          setLatitude(lat);
-          setLongitude(lng);
-          const geo = await reverseGeocode(lat, lng);
-          if (geo && geo.address) {
-            setAddress(geo.address);
-            setRoadName(geo.road);
-            setCity(geo.city);
-          }
-          setIsResolvingAddress(false);
-        },
-        async () => {
-          const geo = await reverseGeocode(latitude, longitude);
-          setAddress(geo.address);
-          setRoadName(geo.road);
-          setCity(geo.city);
-          setIsResolvingAddress(false);
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-      );
     } else {
+      setIsResolvingAddress(true);
       reverseGeocode(latitude, longitude).then(geo => {
         setAddress(geo.address);
         setRoadName(geo.road);
         setCity(geo.city);
+        setIsResolvingAddress(false);
       });
     }
   }, []);
@@ -165,17 +208,24 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setPhotoError(null);
       try {
         const compressedDataUrl = await compressImageFile(file);
         setPhotoPreview(compressedDataUrl);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to compress image:', err);
+        setPhotoError(err.message || 'Failed to process image. Please try another file.');
       }
     }
   };
 
-  // Manual trigger to re-pinpoint via GPS if desired
+  // Manual trigger to re-pinpoint via GPS if desired (shows rationale prompt first)
   const handleRefreshLocation = () => {
+    setShowLocationRationale(true);
+  };
+
+  const executeRefreshLocation = () => {
+    setShowLocationRationale(false);
     if ('geolocation' in navigator) {
       setIsResolvingAddress(true);
       navigator.geolocation.getCurrentPosition(
@@ -194,11 +244,21 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
         },
         () => {
           setIsResolvingAddress(false);
-          alert('Could not update GPS location. Please check browser location permissions.');
+          console.warn('Could not update GPS location.');
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
       );
     }
+  };
+
+  const handleLaunchCameraClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setShowCameraRationale(true);
+  };
+
+  const executeLaunchCamera = () => {
+    setShowCameraRationale(false);
+    fileInputRef.current?.click();
   };
 
   // Re-position when user clicks on the mini map
@@ -235,7 +295,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
 
     const finalTitle = title.trim() || `Road Hazard on ${roadName || address.split(',')[0] || 'Corridor'}`;
 
-    onSubmitReport({
+    const reportData = {
       title: finalTitle,
       address: address || 'Lawrenceville, GA',
       roadName: roadName || 'Local Roadway',
@@ -248,12 +308,12 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
       longitude,
       severity,
       hazardType,
-      status: 'reported',
+      status: 'reported' as const,
       estimatedDepthInches,
       estimatedWidthInches,
       surfaceType,
       damageRisk,
-      detectedBy: initialTelemetry?.sensorDetected ? 'Vehicle Accelerometer Telemetry' : 'User Mobile Report',
+      detectedBy: (initialTelemetry?.sensorDetected ? 'Vehicle Accelerometer Telemetry' : 'User Mobile Report') as PotholeReport['detectedBy'],
       sensorDetected: initialTelemetry?.sensorDetected || false,
       bumpIntensity: initialTelemetry?.bumpIntensity || 0,
       description: description || `Reported ${severity} hazard on ${address}.`,
@@ -261,8 +321,18 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
       reporterName: reporterName || 'Anonymous Reporter',
       reporterEmail,
       imageUrl: finalImageUrl,
-      source: initialTelemetry?.sensorDetected ? 'sensor' : 'user'
-    });
+      source: (initialTelemetry?.sensorDetected ? 'sensor' : 'user') as 'sensor' | 'user'
+    };
+
+    const validation = validatePotholeReport(reportData);
+    if (!validation.isValid) {
+      setValidationErrors(validation.errors);
+      setIsSubmitting(false);
+      return;
+    }
+    setValidationErrors([]);
+
+    onSubmitReport(reportData);
 
     setIsSubmitting(false);
     onClose();
@@ -348,6 +418,64 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
             </div>
           </div>
 
+          {/* Nearby Duplicate Reports Alert */}
+          {nearbyDuplicates.length > 0 && (
+            <div className="bg-amber-950/40 border border-amber-800/80 rounded-2xl p-3.5 space-y-2.5 animate-in fade-in">
+              <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Already reported nearby ({nearbyDuplicates.length} open hazard{nearbyDuplicates.length > 1 ? 's' : ''})</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                A hazard has already been reported within 115 ft of this location. To help crews prioritize faster, you can add your confirmation instead of creating a duplicate ticket.
+              </p>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {nearbyDuplicates.map((dup) => (
+                  <div
+                    key={dup.id}
+                    className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-white text-xs truncate max-w-[180px]">
+                          {dup.title || dup.roadName}
+                        </span>
+                        <StatusBadge status={dup.status} size="sm" />
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                        <span className="font-mono text-emerald-400 font-semibold">
+                          {dup.verificationsCount || 0} confirmation{(dup.verificationsCount || 0) === 1 ? '' : 's'}
+                        </span>
+                        <span>&bull;</span>
+                        <span>{formatReportAge(dup.reportedAt)}</span>
+                        {dup.trackingCode && (
+                          <>
+                            <span>&bull;</span>
+                            <span className="font-mono text-slate-300">{dup.trackingCode}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmInstead(dup.id)}
+                      disabled={confirmingId === dup.id}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs transition shadow flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{confirmingId === dup.id ? 'Confirming...' : 'Confirm this one instead'}</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="text-[10px] text-slate-400 italic pt-1 border-t border-amber-900/40">
+                Or continue filling out the details below if you are reporting a different pothole.
+              </div>
+            </div>
+          )}
+
           {/* Photo Evidence (Mobile Camera Shutter / Upload) */}
           <div>
             <label className="block text-slate-300 font-bold uppercase tracking-wider text-[11px] mb-1">
@@ -355,8 +483,9 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
             </label>
             <div className="border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl p-2.5 bg-slate-950/60 transition text-center relative group">
               <input
+                ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 capture="environment"
                 onChange={handlePhotoChange}
                 className="hidden"
@@ -364,15 +493,19 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
               />
               
               {!photoPreview ? (
-                <label htmlFor="camera-photo-input" className="cursor-pointer py-2 block">
+                <button
+                  type="button"
+                  onClick={handleLaunchCameraClick}
+                  className="w-full cursor-pointer py-2 block text-center bg-transparent border-0"
+                >
                   <Camera className="w-6 h-6 mx-auto text-slate-400 group-hover:text-emerald-400 transition" />
                   <span className="text-xs font-semibold text-slate-200 block mt-1">
                     Tap to Launch Camera or Upload Image (Optional)
                   </span>
-                  <span className="text-[10px] text-slate-400">
-                    If omitted, verified OpenStreetMap incident snapshot will be attached
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
+                    JPG, PNG, WebP up to 150KB. If omitted, verified OpenStreetMap incident snapshot will be attached
                   </span>
-                </label>
+                </button>
               ) : (
                 <div className="relative">
                   <img
@@ -382,7 +515,10 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
                   />
                   <button
                     type="button"
-                    onClick={() => setPhotoPreview(null)}
+                    onClick={() => {
+                      setPhotoPreview(null);
+                      setPhotoError(null);
+                    }}
                     className="absolute top-2 right-2 bg-red-600 hover:bg-red-500 text-white p-1 rounded-full text-xs shadow"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -390,6 +526,12 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
                 </div>
               )}
             </div>
+            {photoError && (
+              <p className="text-rose-400 text-[11px] mt-1 flex items-center gap-1 font-medium">
+                <AlertTriangle className="w-3 h-3 shrink-0" />
+                <span>{photoError}</span>
+              </p>
+            )}
           </div>
 
           {/* Street Address (Auto-Populated with Closest Specific Address) */}
@@ -544,6 +686,21 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
             </div>
           </div>
 
+          {/* Validation Errors */}
+          {validationErrors.length > 0 && (
+            <div className="bg-rose-950/60 border border-rose-800 rounded-xl p-2.5 space-y-1">
+              <div className="flex items-center gap-1.5 text-rose-300 font-bold text-[11px]">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                <span>Please fix the following issues:</span>
+              </div>
+              <ul className="list-disc list-inside text-rose-200 text-[10px] space-y-0.5">
+                {validationErrors.map((err, idx) => (
+                  <li key={idx}>{err}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Fixed Action Buttons */}
           <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-slate-800 shrink-0 mt-2">
             <button
@@ -576,6 +733,26 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
         </form>
 
       </div>
+
+      <PermissionRationaleModal
+        isOpen={showLocationRationale}
+        type="location"
+        title="Location Access"
+        rationale="SansPotholes needs your device GPS coordinates to pinpoint the road defect location on the map."
+        confirmLabel="Allow Location"
+        onConfirm={executeRefreshLocation}
+        onCancel={() => setShowLocationRationale(false)}
+      />
+
+      <PermissionRationaleModal
+        isOpen={showCameraRationale}
+        type="camera"
+        title="Camera & Photo Access"
+        rationale="SansPotholes uses your camera or photo library to document road surface conditions for public works dispatch."
+        confirmLabel="Open Camera / Upload"
+        onConfirm={executeLaunchCamera}
+        onCancel={() => setShowCameraRationale(false)}
+      />
     </div>
   );
 };

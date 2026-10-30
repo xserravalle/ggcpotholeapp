@@ -138,7 +138,7 @@ export async function generatePotholePdf(report: PotholeReport): Promise<void> {
   drawHeading('1. Geospatial & Location Details');
   const lat = report.latitude.toFixed(6);
   const lng = report.longitude.toFixed(6);
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lat)},${encodeURIComponent(lng)}`;
 
   drawTableRow('Street / Corridor Address:', report.address || 'Gwinnett County Roadway');
   drawTableRow('Landmark / Specific Location:', report.landmark || 'N/A');

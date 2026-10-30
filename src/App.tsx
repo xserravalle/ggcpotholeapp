@@ -1,15 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PotholeReport, SeverityLevel } from './types/pothole';
 import { TrackedHazardSpot } from './types/sensorQueue';
 import { DriveShockIncident } from './types/driveSession';
 import { ParkingLot, SimulationParams } from './types/parking';
-import { INITIAL_POTHOLES } from './data/potholesData';
 import { HIGH_RISK_ROAD_SEGMENTS } from './data/roadSegmentsData';
 import { PARKING_LOTS } from './data/parkingLotsData';
-import { loadStoredPotholes, saveStoredPotholes } from './services/storageService';
-import { distanceFromCampusMiles } from './services/distanceCalculator';
-import { classifyJurisdiction } from './services/jurisdictionClassifier';
 import { useAuth } from './context/AuthContext';
+import { ReportsProvider, useReports } from './context/ReportsContext';
+import { canAccessTab } from './domain/permissions';
+import { Actor } from './domain/types';
+import { RecipientFilter } from './repository/ReportRepository';
+import { AlertTriangle, X } from 'lucide-react';
 
 // Common Components
 import { Header, ActiveTab } from './components/Header';
@@ -25,6 +26,12 @@ import { MyReportsView } from './components/potholes/MyReportsView';
 import { AboutHelpView } from './components/about/AboutHelpView';
 import { AuthorityHubView } from './components/dispatcher/AuthorityHubView';
 import { PotholeAnalyticsView } from './components/potholes/PotholeAnalyticsView';
+import { 
+  TriageWorkspaceView, 
+  PerformanceWorkspaceView, 
+  OfficerAssignmentsView 
+} from './components/workspaces';
+import { CommunityScoreboardView } from './components/scoreboard/CommunityScoreboardView';
 
 // Modals & Drawers
 import { PotholeDetailDrawer } from './components/potholes/PotholeDetailDrawer';
@@ -33,33 +40,52 @@ import { DocketSuccessModal } from './components/potholes/DocketSuccessModal';
 import { MunicipalDispatcherModal } from './components/potholes/MunicipalDispatcherModal';
 import { LotDetailModal } from './components/parking/LotDetailModal';
 
-export function App() {
-  const { isAdmin, isAuthModalOpen, closeAuthModal, openAuthModal } = useAuth();
+function AppContent() {
+  const { user, isAdmin, isOfficer, isAuthModalOpen, closeAuthModal, openAuthModal } = useAuth();
+  const {
+    potholes,
+    submitReport,
+    confirmReport,
+    updateReportStatus,
+    promoteSensorSpot,
+    promoteDriveIncidents,
+    updateReport,
+    deleteReport,
+    storageWarning,
+    dismissStorageWarning,
+  } = useReports();
 
   // Navigation: Default to Map & Hazards
   const [activeTab, setActiveTab] = useState<ActiveTab>('potholes');
 
-  // Core Data State with Local Persistence
-  const [potholes, setPotholes] = useState<PotholeReport[]>(() => loadStoredPotholes(INITIAL_POTHOLES));
+  // Core Data State
   const [roadSegments] = useState(HIGH_RISK_ROAD_SEGMENTS);
   const [parkingLots] = useState<ParkingLot[]>(PARKING_LOTS);
-
-  // Auto-save whenever potholes state changes
-  useEffect(() => {
-    saveStoredPotholes(potholes);
-  }, [potholes]);
 
   // Always reset window scroll position to top on tab change
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [activeTab]);
 
-  // Route security: if a non-admin is currently on an admin-only tab, redirect safely to Map
+  // Route security: verify tab access against user role permissions using canAccessTab(tab, role)
   useEffect(() => {
-    if (!isAdmin && (activeTab === 'dispatcher' || activeTab === 'analytics')) {
-      setActiveTab('potholes');
+    if (!canAccessTab(activeTab, user.role)) {
+      if (user.role === 'admin') {
+        setActiveTab('admin-overview');
+      } else if (user.role === 'officer') {
+        setActiveTab('my-assignments');
+      } else {
+        setActiveTab('dashboard');
+      }
     }
-  }, [isAdmin, activeTab]);
+  }, [activeTab, user.role]);
+
+  // Open report modal when report tab is selected
+  useEffect(() => {
+    if (activeTab === 'report') {
+      setIsReportModalOpen(true);
+    }
+  }, [activeTab]);
 
   // Interactive Selection State
   const [selectedPothole, setSelectedPothole] = useState<PotholeReport | null>(null);
@@ -103,179 +129,52 @@ export function App() {
   };
 
   // Verification Handler (Upvote)
-  const handleVerifyPothole = (id: string) => {
-    setPotholes(prev => prev.map(p => {
-      if (p.id === id) {
-        const newCount = p.verificationsCount + 1;
-        return {
-          ...p,
-          verificationsCount: newCount,
-          userConfirmed: true,
-          lastVerifiedAt: new Date().toISOString()
-        };
-      }
-      return p;
-    }));
-
+  const handleVerifyPothole = async (id: string) => {
+    const updated = await confirmReport(id);
     if (selectedPothole && selectedPothole.id === id) {
-      setSelectedPothole(prev => prev ? {
-        ...prev,
-        verificationsCount: prev.verificationsCount + 1,
-        userConfirmed: true
-      } : null);
+      setSelectedPothole(updated);
     }
   };
 
   // Submit New Pothole Report
-  const handleSubmitNewReport = (
-    newReportData: Omit<PotholeReport, 'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt'>
+  const handleSubmitNewReport = async (
+    newReportData: Omit<PotholeReport, 'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt' | 'priority' | 'priorityScore' | 'timeline'>
   ) => {
-    const uuid = crypto.randomUUID();
-    const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
-    const newId = `GW-POT-${uuid}`;
-    const dist = distanceFromCampusMiles({ lat: newReportData.latitude, lng: newReportData.longitude });
-
-    const newReport: PotholeReport = {
-      ...newReportData,
-      id: newId,
-      trackingCode,
-      verificationsCount: 1,
-      userConfirmed: true,
-      reportedAt: new Date().toISOString(),
-      lastVerifiedAt: new Date().toISOString(),
-      workOrderNumber: `REF-${trackingCode}`,
-      distanceFromGgcMiles: dist,
-      source: 'user'
-    };
-
-    setPotholes(prev => [newReport, ...prev]);
+    const newReport = await submitReport(newReportData);
     setSelectedPothole(newReport);
     setDocketSuccessReport(newReport);
     setSensorTriggeredTelemetry(undefined);
   };
 
   // Update Status Lifecycle
-  const handleUpdateStatus = (id: string, newStatus: PotholeReport['status']) => {
-    setPotholes(prev => prev.map(p => {
-      if (p.id === id) {
-        return { ...p, status: newStatus };
-      }
-      return p;
-    }));
-
+  const handleUpdateStatus = async (id: string, newStatus: PotholeReport['status']) => {
+    const updated = await updateReportStatus(id, newStatus);
     if (selectedPothole && selectedPothole.id === id) {
-      setSelectedPothole(prev => prev ? { ...prev, status: newStatus } : null);
+      setSelectedPothole(updated);
     }
   };
 
   // Promote a spot that hit 3x into an official confirmed PotholeReport
-  const handlePromoteSpotToReport = (spot: TrackedHazardSpot) => {
-    const uuid = crypto.randomUUID();
-    const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
-    const newId = `GW-POT-${uuid}`;
-    const dist = distanceFromCampusMiles({ lat: spot.latitude, lng: spot.longitude });
-    const classification = classifyJurisdiction(spot.latitude, spot.longitude, spot.roadName);
-
-    const newReport: PotholeReport = {
-      id: newId,
-      trackingCode,
-      title: `Possible Road Hazard on ${spot.roadName}`,
-      roadName: spot.roadName || 'Detected Road Hazard',
-      address: `${spot.latitude.toFixed(5)}, ${spot.longitude.toFixed(5)}`,
-      city: spot.city || 'Lawrenceville',
-      jurisdiction: classification.authority.name,
-      authorityId: classification.authority.id,
-      authorityName: classification.authority.name,
-      authorityEmail: classification.authority.contactEmail,
-      latitude: spot.latitude,
-      longitude: spot.longitude,
-      severity: spot.severity,
-      hazardType: 'POTHOLE',
-      status: 'reported',
-      verificationsCount: 0,
-      userConfirmed: false,
-      reportedAt: new Date().toISOString(),
-      lastVerifiedAt: new Date().toISOString(),
-      description: `Sensor recorded ${spot.hitCount} impacts near this location. Review the road condition before treating this as a confirmed pothole.`,
-      estimatedDepthInches: spot.maxGForce >= 6.0 ? 3.5 : 2.5,
-      estimatedWidthInches: spot.maxGForce >= 6.0 ? 20 : 14,
-      surfaceType: 'Asphalt',
-      damageRisk: spot.maxGForce >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
-      detectedBy: 'Vehicle Accelerometer Telemetry',
-      sensorDetected: true,
-      sensorEvidence: {
-        hitCount: spot.hitCount,
-        maxGForce: spot.maxGForce,
-        firstDetectedAt: spot.createdAt,
-        lastDetectedAt: spot.lastHitAt
-      },
-      bumpIntensity: spot.maxGForce,
-      workOrderNumber: `REF-${newId}`,
-      distanceFromGgcMiles: dist,
-      source: 'sensor'
-    };
-
-    setPotholes(prev => [newReport, ...prev]);
+  const handlePromoteSpotToReport = async (spot: TrackedHazardSpot) => {
+    await promoteSensorSpot(spot);
   };
 
   // Promote all incidents from a completed Drive Session to official reports
-  const handlePromoteDriveIncidents = (incidents: DriveShockIncident[]) => {
-    const newReports: PotholeReport[] = incidents.map(inc => {
-      const uuid = crypto.randomUUID();
-      const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
-      const newId = `GW-POT-${uuid}`;
-      const dist = distanceFromCampusMiles({ lat: inc.latitude, lng: inc.longitude });
-      const classification = classifyJurisdiction(inc.latitude, inc.longitude, inc.roadName);
-
-      return {
-        id: newId,
-        trackingCode,
-        title: `Pothole on ${inc.roadName || 'Roadway'}`,
-        roadName: inc.roadName || 'Corridor',
-        address: inc.address || `${inc.latitude.toFixed(5)}, ${inc.longitude.toFixed(5)}`,
-        city: inc.city || 'Lawrenceville',
-        jurisdiction: classification.authority.name,
-        authorityId: classification.authority.id,
-        authorityName: classification.authority.name,
-        authorityEmail: classification.authority.contactEmail,
-        latitude: inc.latitude,
-        longitude: inc.longitude,
-        severity: inc.severity,
-        hazardType: 'POTHOLE',
-        status: 'reported',
-        verificationsCount: 1,
-        userConfirmed: true,
-        reportedAt: new Date(inc.timestamp).toISOString(),
-        lastVerifiedAt: new Date(inc.timestamp).toISOString(),
-        description: `Logged during Drive-Time Patrol (${inc.peakG.toFixed(2)}G Shock). Nearest address: ${inc.address}.`,
-        estimatedDepthInches: inc.peakG >= 6.0 ? 3.5 : 2.5,
-        estimatedWidthInches: inc.peakG >= 6.0 ? 20 : 14,
-        surfaceType: 'Asphalt',
-        damageRisk: inc.peakG >= 6.0 ? 'Tire / Rim Damage' : 'Suspension / Alignment',
-        detectedBy: 'Vehicle Accelerometer Telemetry',
-        sensorDetected: true,
-        bumpIntensity: inc.peakG,
-        imageUrl: inc.imageUrl,
-        workOrderNumber: `REF-${newId}`,
-        distanceFromGgcMiles: dist,
-        source: 'sensor'
-      };
-    });
-
-    setPotholes(prev => [...newReports, ...prev]);
+  const handlePromoteDriveIncidents = async (incidents: DriveShockIncident[]) => {
+    await promoteDriveIncidents(incidents);
   };
 
   // Update report details (from My Reports edit modal)
-  const handleUpdateReport = (updatedReport: PotholeReport) => {
-    setPotholes(prev => prev.map(p => p.id === updatedReport.id ? updatedReport : p));
+  const handleUpdateReport = async (updatedReport: PotholeReport) => {
+    const saved = await updateReport(updatedReport);
     if (selectedPothole && selectedPothole.id === updatedReport.id) {
-      setSelectedPothole(updatedReport);
+      setSelectedPothole(saved);
     }
   };
 
   // Delete report (from My Reports edit modal)
-  const handleDeleteReport = (id: string) => {
-    setPotholes(prev => prev.filter(p => p.id !== id));
+  const handleDeleteReport = async (id: string) => {
+    await deleteReport(id);
     if (selectedPothole && selectedPothole.id === id) {
       setSelectedPothole(null);
     }
@@ -294,23 +193,49 @@ export function App() {
         setActiveTab={setActiveTab}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenAuthModal={openAuthModal}
+        onOpenReportModal={() => setIsReportModalOpen(true)}
+        onSelectReport={(reportId) => {
+          const found = potholes.find((p) => p.id === reportId);
+          if (found) setSelectedPothole(found);
+        }}
         potholeCount={potholes.length}
       />
+
+      {/* Storage Quota Warning Banner */}
+      {storageWarning && (
+        <div className="bg-amber-500/15 border-b border-amber-500/30 px-4 py-2.5 flex items-center justify-between text-amber-200 text-xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="font-medium">{storageWarning}</span>
+          </div>
+          <button
+            type="button"
+            onClick={dismissStorageWarning}
+            aria-label="Dismiss storage warning"
+            className="text-amber-400 hover:text-amber-200 p-1 rounded-lg hover:bg-amber-500/20 transition cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Main Tab Content */}
       <main className={`flex-1 ${activeTab === 'my-reports' ? 'min-h-0 overflow-hidden flex flex-col' : ''}`}>
         {/* Tab 1: Campus Parking Availability */}
         {activeTab === 'dashboard' && (
           <UnifiedDashboard
+            potholes={potholes}
+            onSelectPothole={(p) => setSelectedPothole(p)}
             parkingLots={parkingLots}
             simulationParams={simulationParams}
             onChangeSimulationParams={setSimulationParams}
             onSelectLot={setSelectedLot}
+            onOpenReportModal={() => setIsReportModalOpen(true)}
           />
         )}
 
         {/* Tab 2: Interactive OpenStreetMap Hazard Map */}
-        {activeTab === 'potholes' && (
+        {(activeTab === 'potholes' || activeTab === 'report') && (
           <PotholeMapView
             potholes={potholes}
             roadSegments={roadSegments}
@@ -324,9 +249,10 @@ export function App() {
           />
         )}
 
-        {/* Tab 3: Dedicated Drive Sensor View with Silent Auto-Logging */}
+        {/* Tab 3: Dedicated Drive Sensor View with Audio Hazard Warnings */}
         {activeTab === 'sensor' && (
           <DriveSensorView
+            potholes={potholes}
             onPromoteSpotToReport={handlePromoteSpotToReport}
             onPromoteDriveIncidents={handlePromoteDriveIncidents}
             onNavigateToMyReports={() => setActiveTab('my-reports')}
@@ -348,30 +274,73 @@ export function App() {
           />
         )}
 
-        {/* Secondary Tab: Municipal Dispatcher Hub (accessible ONLY by Admins) */}
-        {isAdmin && activeTab === 'dispatcher' && (
+        {/* Admin Workspaces: Overview & Dispatch Hub */}
+        {(activeTab === 'admin-overview' || activeTab === 'dispatcher' || activeTab === 'dispatch-board') && (
           <AuthorityHubView
             potholes={potholes}
+            activeSubTab={activeTab === 'dispatch-board' || activeTab === 'dispatcher' ? 'dispatch' : 'overview'}
             onUpdateStatus={handleUpdateStatus}
             onOpenDispatcherModal={handleOpenDispatcher}
             onSelectPotholeForMap={(p) => {
               setSelectedPothole(p);
               setActiveTab('potholes');
             }}
+            onNavigateTab={setActiveTab}
           />
         )}
 
-        {/* Secondary Tab: Pavement Corridor Analytics (accessible ONLY by Admins) */}
-        {isAdmin && activeTab === 'analytics' && (
+        {/* Admin Workspaces: Triage Queue */}
+        {activeTab === 'triage' && (
+          <TriageWorkspaceView
+            potholes={potholes}
+            onSelectPotholeForMap={(p) => {
+              setSelectedPothole(p);
+              setActiveTab('potholes');
+            }}
+            onNavigateTab={setActiveTab}
+          />
+        )}
+
+        {/* Admin Workspaces: Performance & SLA Dashboard */}
+        {activeTab === 'performance' && (
+          <PerformanceWorkspaceView
+            potholes={potholes}
+            onSelectPothole={(p) => setSelectedPothole(p)}
+          />
+        )}
+
+        {/* Admin Workspaces: Pavement Corridor Analytics */}
+        {activeTab === 'analytics' && (
           <PotholeAnalyticsView
             potholes={potholes}
             roadSegments={roadSegments}
           />
         )}
 
+        {/* Officer Workspaces: My Field Assignments */}
+        {activeTab === 'my-assignments' && (
+          <OfficerAssignmentsView
+            potholes={potholes}
+            onSelectPothole={(p) => {
+              setSelectedPothole(p);
+            }}
+            onNavigateToMap={() => setActiveTab('potholes')}
+          />
+        )}
+
         {/* Tab 6: About & Help Documentation */}
         {activeTab === 'about' && (
           <AboutHelpView
+            onNavigateTab={setActiveTab}
+            onOpenReportModal={() => setIsReportModalOpen(true)}
+          />
+        )}
+
+        {/* Tab: Public Community Scoreboard */}
+        {activeTab === 'scoreboard' && (
+          <CommunityScoreboardView
+            potholes={potholes}
+            onSelectPothole={(p) => setSelectedPothole(p)}
             onNavigateTab={setActiveTab}
             onOpenReportModal={() => setIsReportModalOpen(true)}
           />
@@ -397,10 +366,29 @@ export function App() {
           setIsReportModalOpen(false);
           setSensorTriggeredTelemetry(undefined);
           setDroppedPinCoords(undefined);
+          if (activeTab === 'report') {
+            setActiveTab('dashboard');
+          }
         }}
         onSubmitReport={handleSubmitNewReport}
         initialTelemetry={sensorTriggeredTelemetry}
         initialCoords={droppedPinCoords}
+        existingReports={potholes}
+        onConfirmExistingReport={async (id, customMsg) => {
+          const actor: Actor = {
+            name: user.displayName || 'Citizen Commuter',
+            email: user.email,
+            role: (user.role as any) || 'user',
+          };
+          const updated = await confirmReport(id, actor, customMsg);
+          setSelectedPothole(updated);
+          setIsReportModalOpen(false);
+          setSensorTriggeredTelemetry(undefined);
+          setDroppedPinCoords(undefined);
+          if (activeTab === 'report') {
+            setActiveTab('dashboard');
+          }
+        }}
       />
 
       {/* Incident Docket Success Modal */}
@@ -479,6 +467,13 @@ export function App() {
             {isAdmin ? (
               <>
                 <button
+                  onClick={() => setActiveTab('admin-overview')}
+                  className="hover:text-blue-400 transition"
+                >
+                  Admin Overview
+                </button>
+                <span>&bull;</span>
+                <button
                   onClick={() => setActiveTab('dispatcher')}
                   className="hover:text-blue-400 transition"
                 >
@@ -496,6 +491,26 @@ export function App() {
                   Admin Portal Active
                 </span>
               </>
+            ) : isOfficer ? (
+              <>
+                <button
+                  onClick={() => setActiveTab('my-assignments')}
+                  className="hover:text-purple-400 transition"
+                >
+                  My Assignments
+                </button>
+                <span>&bull;</span>
+                <button
+                  onClick={() => setActiveTab('potholes')}
+                  className="hover:text-emerald-400 transition"
+                >
+                  Hazard Map
+                </button>
+                <span>&bull;</span>
+                <span className="text-purple-400 font-semibold font-mono text-[11px]">
+                  Officer Crew Active ({user.agencyId || 'Field'})
+                </span>
+              </>
             ) : (
               <button
                 onClick={openAuthModal}
@@ -509,6 +524,21 @@ export function App() {
       </footer>
 
     </div>
+  );
+}
+
+export function App() {
+  const { user } = useAuth();
+  const recipient = useMemo<RecipientFilter>(() => ({
+    role: (user?.role as any) || 'user',
+    name: user?.displayName,
+    email: user?.email,
+  }), [user?.role, user?.displayName, user?.email]);
+
+  return (
+    <ReportsProvider activeRecipient={recipient}>
+      <AppContent />
+    </ReportsProvider>
   );
 }
 
