@@ -10,7 +10,9 @@ import {
   AlertCircle,
   Building2,
   Sparkles,
-  Wrench
+  Wrench,
+  Trash2,
+  Database
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { getOfficersGroupedByAgency, DEMO_OFFICERS } from '../../data/officersData';
@@ -21,51 +23,99 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-  const { user, isAdmin, isOfficer, isLoggedIn, loginAsAdmin, loginAsUser, loginAsOfficer, logout } = useAuth();
+  const { 
+    user, 
+    isAdmin, 
+    isOfficer, 
+    isLoggedIn, 
+    isBackendConnected,
+    loginAsAdmin, 
+    loginAsUser, 
+    loginAsOfficer, 
+    logout,
+    deleteAccount
+  } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'admin' | 'commuter' | 'officer'>('admin');
   const [adminPasscode, setAdminPasscode] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState<string | null>(null);
 
   const [commuterEmail, setCommuterEmail] = useState('');
   const [commuterName, setCommuterName] = useState('');
+  const [commuterPassword, setCommuterPassword] = useState('');
 
   const officerGroups = getOfficersGroupedByAgency();
   const [selectedOfficerId, setSelectedOfficerId] = useState<string>(DEMO_OFFICERS[0]?.id || '');
+  const [officerPassword, setOfficerPassword] = useState('');
+
+  const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleAdminSubmit = (e: React.FormEvent) => {
+  const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdminError(null);
-    const result = loginAsAdmin(adminPasscode);
-    if (result.success) {
-      setAdminPasscode('');
-      onClose();
-    } else {
-      setAdminError(result.error || 'Authentication failed');
+    setAuthLoading(true);
+    try {
+      const result = await loginAsAdmin(adminEmail || adminPasscode, adminPassword || undefined);
+      if (result.success) {
+        setAdminPasscode('');
+        setAdminEmail('');
+        setAdminPassword('');
+        onClose();
+      } else {
+        setAdminError(result.error || 'Authentication failed');
+      }
+    } finally {
+      setAuthLoading(false);
     }
   };
 
-  const handleCommuterSubmit = (e: React.FormEvent) => {
+  const handleCommuterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!commuterEmail.trim()) return;
-    loginAsUser(commuterEmail, commuterName);
-    setCommuterEmail('');
-    setCommuterName('');
-    onClose();
+    setAuthLoading(true);
+    try {
+      await loginAsUser(commuterEmail, commuterName, commuterPassword || undefined);
+      setCommuterEmail('');
+      setCommuterName('');
+      setCommuterPassword('');
+      onClose();
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
-  const handleOfficerSubmit = (e: React.FormEvent) => {
+  const handleOfficerSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedOfficerId) return;
-    loginAsOfficer(selectedOfficerId);
-    onClose();
+    setAuthLoading(true);
+    try {
+      await loginAsOfficer(selectedOfficerId, officerPassword || undefined);
+      onClose();
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const handleSignOut = () => {
     logout();
     onClose();
+  };
+
+  const handleDeleteAccount = async () => {
+    setIsDeletingAccount(true);
+    try {
+      await deleteAccount();
+      setDeleteAccountConfirm(false);
+      onClose();
+    } finally {
+      setIsDeletingAccount(false);
+    }
   };
 
   return (
@@ -89,9 +139,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               {isAdmin ? <ShieldCheck className="w-5 h-5" /> : isOfficer ? <Wrench className="w-5 h-5" /> : <User className="w-5 h-5" />}
             </div>
             <div>
-              <h3 id="auth-modal-title" className="text-lg font-bold text-white tracking-tight">
-                {isLoggedIn ? 'Account Profile' : 'Sign In / Role Access'}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 id="auth-modal-title" className="text-lg font-bold text-white tracking-tight">
+                  {isLoggedIn ? 'Account Profile' : 'Sign In / Role Access'}
+                </h3>
+                {isBackendConnected ? (
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-800 flex items-center gap-1">
+                    <Database className="w-2.5 h-2.5" /> Supabase
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-950/80 text-amber-300 border border-amber-800/60">
+                    Demo Mode
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-400">
                 {isLoggedIn ? 'Manage your active session' : 'Sign in for staff, crew demo, or citizen tools'}
               </p>
@@ -161,11 +222,48 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
             <button
               onClick={handleSignOut}
-              className="w-full py-2.5 bg-rose-900/40 hover:bg-rose-900/70 text-rose-300 border border-rose-800/60 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition"
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition"
             >
               <LogOut className="w-4 h-4" />
               <span>Sign Out (Return to Guest Mode)</span>
             </button>
+
+            {/* Apple App Store Mandated Account Deletion (Guideline 5.1.1(v)) */}
+            <div className="pt-2 border-t border-slate-800">
+              {!deleteAccountConfirm ? (
+                <button
+                  type="button"
+                  onClick={() => setDeleteAccountConfirm(true)}
+                  className="w-full py-2 px-3 text-slate-400 hover:text-rose-400 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete Account & Personal Data</span>
+                </button>
+              ) : (
+                <div className="bg-rose-950/40 border border-rose-800/60 rounded-xl p-3 space-y-2">
+                  <p className="text-[11px] text-rose-300">
+                    Are you sure? This permanently wipes your user credentials and unlinks your submitted reports, complying with Apple App Store account deletion requirements.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDeleteAccountConfirm(false)}
+                      className="flex-1 py-1.5 bg-slate-800 text-slate-300 text-xs rounded-lg border border-slate-700"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeleteAccount}
+                      disabled={isDeletingAccount}
+                      className="flex-1 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg shadow"
+                    >
+                      {isDeletingAccount ? 'Deleting...' : 'Confirm Account Deletion'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           /* Sign In Options */
@@ -219,7 +317,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               </button>
             </div>
 
-            {/* Admin Passcode Form */}
+            {/* Admin Passcode / Backend Login Form */}
             {activeTab === 'admin' ? (
               <form onSubmit={handleAdminSubmit} className="space-y-3.5">
                 <div className="bg-blue-950/30 border border-blue-800/40 rounded-2xl p-3 text-xs text-blue-200">
@@ -227,26 +325,66 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                     <Building2 className="w-4 h-4" /> Municipal Authority Access
                   </p>
                   <p className="text-[11px] text-blue-300/80 mt-1">
-                    Unlocks Municipal Dispatch Hub, structured road crew work orders, and corridor pavement analytics.
+                    {isBackendConnected
+                      ? 'Secure administrator sign-in verified by Supabase Postgres Row-Level Security.'
+                      : 'Unlocks Municipal Dispatch Hub, structured road crew work orders, and corridor pavement analytics.'}
                   </p>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Staff Passcode
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                    <input
-                      type="password"
-                      value={adminPasscode}
-                      onChange={(e) => setAdminPasscode(e.target.value)}
-                      placeholder="Enter admin passcode"
-                      className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                      autoFocus
-                    />
+                {isBackendConnected ? (
+                  <>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Staff Email
+                      </label>
+                      <div className="relative">
+                        <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                        <input
+                          type="email"
+                          required
+                          value={adminEmail}
+                          onChange={(e) => setAdminEmail(e.target.value)}
+                          placeholder="staff@gwinnettcounty.gov"
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                        <input
+                          type="password"
+                          required
+                          value={adminPassword}
+                          onChange={(e) => setAdminPassword(e.target.value)}
+                          placeholder="••••••••••••"
+                          className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Staff Passcode
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                      <input
+                        type="password"
+                        value={adminPasscode}
+                        onChange={(e) => setAdminPasscode(e.target.value)}
+                        placeholder="Enter admin passcode"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        autoFocus
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {adminError && (
                   <div className="bg-rose-950/40 border border-rose-800/50 rounded-xl p-2.5 text-xs text-rose-300 flex items-center gap-2">
@@ -257,10 +395,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-600/20 transition active:scale-95"
+                  disabled={authLoading}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-600/20 transition active:scale-95 disabled:opacity-60"
                 >
-                  Unlock Admin Portal
+                  {authLoading ? 'Verifying...' : 'Unlock Admin Portal'}
                 </button>
+
+                {!isBackendConnected && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      loginAsAdmin('admin');
+                      onClose();
+                    }}
+                    className="w-full py-2 bg-slate-800/80 hover:bg-slate-700 text-blue-300 border border-blue-900/60 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Quick Demo Staff Access</span>
+                  </button>
+                )}
               </form>
             ) : activeTab === 'officer' ? (
               /* Officer / Agency Crew Form */
@@ -268,10 +421,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <div className="bg-purple-950/30 border border-purple-800/40 rounded-2xl p-3 text-xs text-purple-200">
                   <div className="flex items-center justify-between">
                     <p className="font-semibold flex items-center gap-1.5 text-purple-300">
-                      <Wrench className="w-4 h-4" /> Agency Crew Simulation
+                      <Wrench className="w-4 h-4" /> Agency Crew Access
                     </p>
                     <span className="text-[10px] font-mono bg-purple-900/60 text-purple-200 px-2 py-0.5 rounded-full border border-purple-700">
-                      Demo Mode
+                      {isBackendConnected ? 'Supabase RLS' : 'Demo Mode'}
                     </span>
                   </div>
                   <p className="text-[11px] text-purple-300/80 mt-1">
@@ -302,7 +455,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-purple-600/20 transition active:scale-95 flex items-center justify-center gap-1.5"
+                  disabled={authLoading}
+                  className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-purple-600/20 transition active:scale-95 flex items-center justify-center gap-1.5 disabled:opacity-60"
                 >
                   <Wrench className="w-4 h-4" />
                   <span>Simulate Officer Login</span>
@@ -352,7 +506,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/20 transition active:scale-95"
+                  disabled={authLoading}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-emerald-600/20 transition active:scale-95 disabled:opacity-60"
                 >
                   Sign In & Sync Reports
                 </button>

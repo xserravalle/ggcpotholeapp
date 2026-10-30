@@ -6,7 +6,7 @@ import { ActionPayload, ApplyActionResult } from '../domain/actions';
 import { TrackedHazardSpot } from '../types/sensorQueue';
 import { DriveShockIncident } from '../types/driveSession';
 import { ReportRepository, RecipientFilter, UserDataExport } from '../repository/ReportRepository';
-import { reportRepository as defaultRepo } from '../repository/LocalStorageReportRepository';
+import { supabaseReportRepository as defaultRepo } from '../repository/SupabaseReportRepository';
 import { distanceFromCampusMiles } from '../services/distanceCalculator';
 import { classifyJurisdiction } from '../services/jurisdictionClassifier';
 import { migrateReport, checkStorageQuota } from '../services/storageService';
