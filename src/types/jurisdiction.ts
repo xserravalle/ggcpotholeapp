@@ -30,6 +30,7 @@ export interface AuthorityContact {
   website: string;
   badgeColor: string; // Tailwind color name like 'emerald', 'purple', etc.
   slaTurnaround: string;
+  slaTargetDays: number;
   description: string;
   potholeHotline: string;
   portalUrl: string;

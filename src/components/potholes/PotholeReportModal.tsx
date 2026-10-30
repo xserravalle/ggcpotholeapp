@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { PotholeReport, SeverityLevel, HazardType } from '../../types/pothole';
@@ -6,23 +6,27 @@ import { classifyJurisdiction } from '../../services/jurisdictionClassifier';
 import { reverseGeocode } from '../../services/reverseGeocoding';
 import { generateMapSnapshot } from '../../services/mapSnapshotService';
 import { compressImageFile } from '../../utils/imageCompressor';
+import { CLUSTER_DISTANCE_MILES, milesBetween } from '../../services/distanceCalculator';
+import { isOpenStatus } from '../../domain/status';
+import { StatusBadge } from '../kit/StatusBadge';
+import { ReportsContext } from '../../context/ReportsContext';
 import { 
   X, 
   MapPin, 
   Activity, 
   CheckCircle2, 
-  Mail,
-  AlertTriangle,
-  RefreshCw,
-  Camera,
-  Building2,
-  GraduationCap
+  Mail, 
+  AlertTriangle, 
+  RefreshCw, 
+  Camera, 
+  Building2, 
+  GraduationCap 
 } from 'lucide-react';
 
 interface PotholeReportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmitReport: (newReport: Omit<PotholeReport, 'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt'>) => void;
+  onSubmitReport: (newReport: Omit<PotholeReport, 'id' | 'verificationsCount' | 'userConfirmed' | 'reportedAt' | 'lastVerifiedAt' | 'priority' | 'priorityScore' | 'timeline'>) => void;
   initialTelemetry?: {
     sensorDetected: boolean;
     bumpIntensity: number;
@@ -33,6 +37,8 @@ interface PotholeReportModalProps {
     lng: number;
     address?: string;
   };
+  existingReports?: PotholeReport[];
+  onConfirmExistingReport?: (reportId: string, customMessage?: string) => Promise<void> | void;
 }
 
 // Controller to keep mini map centered when GPS coordinates change
@@ -80,6 +86,22 @@ const createReportMarkerIcon = (severity: SeverityLevel) => {
   });
 };
 
+function formatReportAge(isoDateString?: string): string {
+  if (!isoDateString) return 'recently';
+  const time = new Date(isoDateString).getTime();
+  if (isNaN(time)) return 'recently';
+  const diffMs = Date.now() - time;
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays === 1) return '1d ago';
+  return `${diffDays}d ago`;
+}
+
 export const PotholeReportModal: React.FC<PotholeReportModalProps> = (props) =>
   props.isOpen ? <PotholeReportDialogBody {...props} /> : null;
 
@@ -87,8 +109,14 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   onClose,
   onSubmitReport,
   initialTelemetry,
-  initialCoords
+  initialCoords,
+  existingReports,
+  onConfirmExistingReport
 }) => {
+  const reportsContext = useContext(ReportsContext);
+  const reportsList = existingReports || reportsContext?.potholes || [];
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
   const [title, setTitle] = useState('');
   const [address, setAddress] = useState(initialCoords?.address || 'Locating nearest street address...');
   const [roadName, setRoadName] = useState('');
@@ -112,6 +140,36 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Dynamic duplicate detection: find open reports within CLUSTER_DISTANCE_MILES (~115 ft)
+  const nearbyDuplicates = useMemo(() => {
+    if (!reportsList || reportsList.length === 0) return [];
+    return reportsList.filter(report => {
+      if (!isOpenStatus(report.status)) return false;
+      const dist = milesBetween(
+        { lat: latitude, lng: longitude },
+        { lat: report.latitude, lng: report.longitude }
+      );
+      return dist <= CLUSTER_DISTANCE_MILES;
+    });
+  }, [reportsList, latitude, longitude]);
+
+  const handleConfirmInstead = async (duplicateId: string) => {
+    setConfirmingId(duplicateId);
+    try {
+      const confirmMessage = 'Confirmed via duplicate check (+1) instead of filing a new report.';
+      if (onConfirmExistingReport) {
+        await onConfirmExistingReport(duplicateId, confirmMessage);
+      } else if (reportsContext) {
+        await reportsContext.confirmReport(duplicateId, undefined, confirmMessage);
+      }
+      onClose();
+    } catch (err) {
+      console.error('Failed to confirm existing duplicate:', err);
+    } finally {
+      setConfirmingId(null);
+    }
+  };
 
   // Dynamic jurisdiction classification
   const classification = classifyJurisdiction(latitude, longitude, `${roadName} ${address}`);
@@ -347,6 +405,64 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Nearby Duplicate Reports Alert */}
+          {nearbyDuplicates.length > 0 && (
+            <div className="bg-amber-950/40 border border-amber-800/80 rounded-2xl p-3.5 space-y-2.5 animate-in fade-in">
+              <div className="flex items-center gap-2 text-amber-300 font-bold text-xs">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Already reported nearby ({nearbyDuplicates.length} open hazard{nearbyDuplicates.length > 1 ? 's' : ''})</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                A hazard has already been reported within 115 ft of this location. To help crews prioritize faster, you can add your confirmation instead of creating a duplicate ticket.
+              </p>
+
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {nearbyDuplicates.map((dup) => (
+                  <div
+                    key={dup.id}
+                    className="bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-white text-xs truncate max-w-[180px]">
+                          {dup.title || dup.roadName}
+                        </span>
+                        <StatusBadge status={dup.status} size="sm" />
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                        <span className="font-mono text-emerald-400 font-semibold">
+                          {dup.verificationsCount || 0} confirmation{(dup.verificationsCount || 0) === 1 ? '' : 's'}
+                        </span>
+                        <span>&bull;</span>
+                        <span>{formatReportAge(dup.reportedAt)}</span>
+                        {dup.trackingCode && (
+                          <>
+                            <span>&bull;</span>
+                            <span className="font-mono text-slate-300">{dup.trackingCode}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmInstead(dup.id)}
+                      disabled={confirmingId === dup.id}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs transition shadow flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>{confirmingId === dup.id ? 'Confirming...' : 'Confirm this one instead'}</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="text-[10px] text-slate-400 italic pt-1 border-t border-amber-900/40">
+                Or continue filling out the details below if you are reporting a different pothole.
+              </div>
+            </div>
+          )}
 
           {/* Photo Evidence (Mobile Camera Shutter / Upload) */}
           <div>

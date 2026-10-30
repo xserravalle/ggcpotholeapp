@@ -9,9 +9,11 @@ import {
   CheckCircle2, 
   AlertCircle,
   Building2,
-  Sparkles
+  Sparkles,
+  Wrench
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { getOfficersGroupedByAgency, DEMO_OFFICERS } from '../../data/officersData';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -19,14 +21,17 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
-  const { user, isAdmin, isLoggedIn, loginAsAdmin, loginAsUser, logout } = useAuth();
+  const { user, isAdmin, isOfficer, isLoggedIn, loginAsAdmin, loginAsUser, loginAsOfficer, logout } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'admin' | 'commuter'>('admin');
+  const [activeTab, setActiveTab] = useState<'admin' | 'commuter' | 'officer'>('admin');
   const [adminPasscode, setAdminPasscode] = useState('');
   const [adminError, setAdminError] = useState<string | null>(null);
 
   const [commuterEmail, setCommuterEmail] = useState('');
   const [commuterName, setCommuterName] = useState('');
+
+  const officerGroups = getOfficersGroupedByAgency();
+  const [selectedOfficerId, setSelectedOfficerId] = useState<string>(DEMO_OFFICERS[0]?.id || '');
 
   if (!isOpen) return null;
 
@@ -51,6 +56,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     onClose();
   };
 
+  const handleOfficerSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOfficerId) return;
+    loginAsOfficer(selectedOfficerId);
+    onClose();
+  };
+
   const handleSignOut = () => {
     logout();
     onClose();
@@ -70,16 +82,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             <div className={`w-10 h-10 rounded-2xl flex items-center justify-center border ${
               isAdmin 
                 ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' 
+                : isOfficer
+                ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
                 : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
             }`}>
-              {isAdmin ? <ShieldCheck className="w-5 h-5" /> : <User className="w-5 h-5" />}
+              {isAdmin ? <ShieldCheck className="w-5 h-5" /> : isOfficer ? <Wrench className="w-5 h-5" /> : <User className="w-5 h-5" />}
             </div>
             <div>
               <h3 id="auth-modal-title" className="text-lg font-bold text-white tracking-tight">
                 {isLoggedIn ? 'Account Profile' : 'Sign In / Role Access'}
               </h3>
               <p className="text-xs text-slate-400">
-                {isLoggedIn ? 'Manage your active session' : 'Sign in for admin tools or save reports'}
+                {isLoggedIn ? 'Manage your active session' : 'Sign in for staff, crew demo, or citizen tools'}
               </p>
             </div>
           </div>
@@ -101,9 +115,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold font-mono border ${
                   isAdmin 
                     ? 'bg-blue-950 text-blue-300 border-blue-800' 
+                    : isOfficer
+                    ? 'bg-purple-950 text-purple-300 border-purple-800'
                     : 'bg-emerald-950 text-emerald-300 border-emerald-800'
                 }`}>
-                  {isAdmin ? 'Staff Administrator' : 'Registered Commuter'}
+                  {isAdmin ? 'Staff Administrator' : isOfficer ? 'Agency Crew (Demo)' : 'Registered Commuter'}
                 </span>
               </div>
 
@@ -124,6 +140,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   <CheckCircle2 className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
                   <span>
                     Municipal Dispatch Hub & Pavement Analytics are unlocked in the navigation menu.
+                  </span>
+                </div>
+              ) : isOfficer ? (
+                <div className="pt-2 border-t border-slate-700/60 text-xs text-purple-200/90 flex items-start gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
+                  <span>
+                    Field work order execution and My Assignments workspace are enabled.
                   </span>
                 </div>
               ) : (
@@ -148,21 +171,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           /* Sign In Options */
           <div className="space-y-4">
             {/* Tab Selector */}
-            <div className="grid grid-cols-2 gap-1 bg-slate-800/70 p-1 rounded-2xl border border-slate-700">
+            <div className="grid grid-cols-3 gap-1 bg-slate-800/70 p-1 rounded-2xl border border-slate-700">
               <button
                 type="button"
                 onClick={() => {
                   setActiveTab('admin');
                   setAdminError(null);
                 }}
-                className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                className={`py-2 px-1 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition ${
                   activeTab === 'admin'
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <ShieldCheck className="w-4 h-4" />
-                <span>Admin Staff</span>
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Admin</span>
               </button>
               <button
                 type="button"
@@ -170,14 +193,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   setActiveTab('commuter');
                   setAdminError(null);
                 }}
-                className={`py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition ${
+                className={`py-2 px-1 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition ${
                   activeTab === 'commuter'
                     ? 'bg-emerald-600 text-white shadow-md'
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <User className="w-4 h-4" />
-                <span>Commuter Sign In</span>
+                <User className="w-3.5 h-3.5" />
+                <span>Citizen</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('officer');
+                  setAdminError(null);
+                }}
+                className={`py-2 px-1 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition ${
+                  activeTab === 'officer'
+                    ? 'bg-purple-600 text-white shadow-md'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Wrench className="w-3.5 h-3.5" />
+                <span>Agency Crew (Demo)</span>
               </button>
             </div>
 
@@ -208,9 +246,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                       autoFocus
                     />
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Prototype test passcode: <code className="text-amber-300 font-mono">admin</code>
-                  </p>
                 </div>
 
                 {adminError && (
@@ -225,6 +260,52 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                   className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-600/20 transition active:scale-95"
                 >
                   Unlock Admin Portal
+                </button>
+              </form>
+            ) : activeTab === 'officer' ? (
+              /* Officer / Agency Crew Form */
+              <form onSubmit={handleOfficerSubmit} className="space-y-3.5">
+                <div className="bg-purple-950/30 border border-purple-800/40 rounded-2xl p-3 text-xs text-purple-200">
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold flex items-center gap-1.5 text-purple-300">
+                      <Wrench className="w-4 h-4" /> Agency Crew Simulation
+                    </p>
+                    <span className="text-[10px] font-mono bg-purple-900/60 text-purple-200 px-2 py-0.5 rounded-full border border-purple-700">
+                      Demo Mode
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-purple-300/80 mt-1">
+                    Select a fictional field officer to test repair work order management, status updates, and officer-specific assignments.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Select Demo Officer (Grouped by Agency)
+                  </label>
+                  <select
+                    value={selectedOfficerId}
+                    onChange={(e) => setSelectedOfficerId(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                  >
+                    {officerGroups.map((group) => (
+                      <optgroup key={group.id} label={group.name} className="bg-slate-900 text-slate-300 font-semibold">
+                        {group.officers.map((off) => (
+                          <option key={off.id} value={off.id} className="bg-slate-800 text-white">
+                            {off.name} — {off.title}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-purple-600/20 transition active:scale-95 flex items-center justify-center gap-1.5"
+                >
+                  <Wrench className="w-4 h-4" />
+                  <span>Simulate Officer Login</span>
                 </button>
               </form>
             ) : (

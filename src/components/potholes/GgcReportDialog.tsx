@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { PotholeReport } from '../../types/pothole';
 import { buildGgcTextReport, downloadTextReport } from '../../services/textReportGenerator';
-import { FileText, Download, Copy, Check, Send, X } from 'lucide-react';
+import { FileText, Download, Copy, Check, Send, X, AlertCircle } from 'lucide-react';
+import { formatDispatchMailto } from '../../config/dispatch';
 
 interface GgcReportDialogProps {
   isOpen: boolean;
@@ -22,6 +23,13 @@ const GgcReportDialogBody: React.FC<GgcReportDialogProps> = ({
   const [copied, setCopied] = useState(false);
   const reportText = buildGgcTextReport(potholes);
 
+  const dispatchMail = formatDispatchMailto({
+    realEmail: 'facilities@ggc.edu',
+    agencyName: 'Georgia Gwinnett College Facilities & GDOT',
+    subject: 'GGC Area Pothole & Roadway Hazard Report',
+    body: reportText,
+  });
+
   const handleCopy = () => {
     navigator.clipboard.writeText(reportText);
     setCopied(true);
@@ -29,9 +37,7 @@ const GgcReportDialogBody: React.FC<GgcReportDialogProps> = ({
   };
 
   const handleSendEmail = () => {
-    const subject = encodeURIComponent('GGC Area Pothole & Roadway Hazard Report');
-    const body = encodeURIComponent(reportText);
-    window.location.href = `mailto:facilities@ggc.edu?cc=dotcustomerservice@gwinnettcounty.com,511@dot.ga.gov&subject=${subject}&body=${body}`;
+    window.location.href = dispatchMail.url;
   };
 
   return (
@@ -100,6 +106,14 @@ const GgcReportDialogBody: React.FC<GgcReportDialogProps> = ({
             </button>
           </div>
         </div>
+
+        {dispatchMail.isDemo && (
+          <div className="mt-2 text-right">
+            <span className="text-[11px] text-amber-400 font-medium bg-amber-950/40 border border-amber-800/40 px-2.5 py-1 rounded-md inline-block">
+              Demo Mode: routed to <span className="font-mono text-amber-300 font-bold">{dispatchMail.recipient}</span>
+            </span>
+          </div>
+        )}
 
       </div>
     </div>

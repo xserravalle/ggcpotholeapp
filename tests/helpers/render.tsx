@@ -2,12 +2,15 @@ import React, { ReactElement } from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { AccessibilityProvider } from '@/context/AccessibilityContext';
 import { AuthProvider } from '@/context/AuthContext';
+import { ReportsProvider } from '@/context/ReportsContext';
 
 const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
   return (
     <AuthProvider>
       <AccessibilityProvider>
-        {children}
+        <ReportsProvider>
+          {children}
+        </ReportsProvider>
       </AccessibilityProvider>
     </AuthProvider>
   );

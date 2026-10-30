@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AuthUser, AuthContextType } from '../types/auth';
+import { getOfficerById } from '../data/officersData';
 
 const STORAGE_KEY = 'ggc-auth-user';
 
@@ -10,9 +11,11 @@ const DEFAULT_GUEST: AuthUser = {
 const defaultContext: AuthContextType = {
   user: DEFAULT_GUEST,
   isAdmin: false,
+  isOfficer: false,
   isLoggedIn: false,
   loginAsAdmin: () => ({ success: false, error: 'AuthProvider not initialized' }),
   loginAsUser: () => {},
+  loginAsOfficer: () => ({ success: false, error: 'AuthProvider not initialized' }),
   logout: () => {},
   isAuthModalOpen: false,
   openAuthModal: () => {},
@@ -27,7 +30,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed && (parsed.role === 'admin' || parsed.role === 'user' || parsed.role === 'guest')) {
+        if (
+          parsed &&
+          (parsed.role === 'admin' ||
+            parsed.role === 'user' ||
+            parsed.role === 'officer' ||
+            parsed.role === 'guest')
+        ) {
           return parsed;
         }
       }
@@ -68,7 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return { 
       success: false, 
-      error: 'Invalid staff passcode. (Hint: Use passcode "admin" for prototype access)' 
+      error: 'Invalid staff passcode.' 
     };
   };
 
@@ -81,6 +90,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
     setUser(commuterUser);
     setIsAuthModalOpen(false);
+  };
+
+  const loginAsOfficer = (officerId: string): { success: boolean; error?: string } => {
+    const officer = getOfficerById(officerId);
+    if (!officer) {
+      return { success: false, error: 'Demo officer not found.' };
+    }
+    const officerUser: AuthUser = {
+      id: officer.id,
+      role: 'officer',
+      officerId: officer.id,
+      agencyId: officer.agencyId,
+      displayName: officer.name,
+      agency: `${officer.title} — ${officer.agencyId}`,
+    };
+    setUser(officerUser);
+    setIsAuthModalOpen(false);
+    return { success: true };
   };
 
   const logout = () => {
@@ -96,6 +123,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const closeAuthModal = () => setIsAuthModalOpen(false);
 
   const isAdmin = user.role === 'admin';
+  const isOfficer = user.role === 'officer';
   const isLoggedIn = user.role !== 'guest';
 
   return (
@@ -103,9 +131,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       value={{
         user,
         isAdmin,
+        isOfficer,
         isLoggedIn,
         loginAsAdmin,
         loginAsUser,
+        loginAsOfficer,
         logout,
         isAuthModalOpen,
         openAuthModal,

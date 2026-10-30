@@ -1,0 +1,331 @@
+import { PotholeReport, Actor, UserRole } from './types';
+import { canTransition, ReportStatus } from './status';
+
+export type CivicAction =
+  | 'create'
+  | 'confirm'
+  | 'comment'
+  | 'rateFix'
+  | 'reopen'
+  | 'verify'
+  | 'reject'
+  | 'merge'
+  | 'setPriority'
+  | 'assign'
+  | 'reassign'
+  | 'close'
+  | 'exportData'
+  | 'dispatchEmail'
+  | 'startWork'
+  | 'resolve'
+  | 'viewAssignments';
+
+type PermissionRule = boolean | ((report?: PotholeReport, actor?: Actor) => boolean);
+
+type PermissionMatrix = Record<CivicAction, Record<UserRole, PermissionRule>>;
+
+/**
+ * Checks if a report belongs to the actor (by matching email or name).
+ */
+export function isOwnReport(report?: PotholeReport, actor?: Actor): boolean {
+  if (!report || !actor) return false;
+  
+  if (actor.email && report.reporterEmail) {
+    if (actor.email.trim().toLowerCase() === report.reporterEmail.trim().toLowerCase()) {
+      return true;
+    }
+  }
+
+  if (actor.name && report.reporterName) {
+    if (actor.name.trim().toLowerCase() === report.reporterName.trim().toLowerCase()) {
+      return true;
+    }
+  }
+
+  // Also check if actor's ID matches reporter email/id
+  if (actor.id && (actor.id === report.reporterEmail || actor.id === report.reporterName)) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Checks if a report is assigned to the specified officer.
+ */
+export function isAssignedOfficer(report?: PotholeReport, actor?: Actor): boolean {
+  if (!report || !actor) return false;
+
+  if (report.assignedOfficerId && actor.id) {
+    if (report.assignedOfficerId === actor.id) {
+      return true;
+    }
+  }
+
+  if (report.assignedOfficerId && actor.email) {
+    if (report.assignedOfficerId.trim().toLowerCase() === actor.email.trim().toLowerCase()) {
+      return true;
+    }
+  }
+
+  if (report.assignedOfficerId && actor.name) {
+    if (report.assignedOfficerId.trim().toLowerCase() === actor.name.trim().toLowerCase()) {
+      return true;
+    }
+  }
+
+  if (report.assignedCrew && actor.name) {
+    if (report.assignedCrew.trim().toLowerCase().includes(actor.name.trim().toLowerCase())) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Readable permissions matrix mapping every civic action to role rules.
+ * Keeps permissions clear, declarative, and easily auditable.
+ */
+export const PERMISSIONS_TABLE: PermissionMatrix = {
+  create: {
+    guest: true,
+    user: true,
+    admin: true,
+    officer: true,
+    system: true,
+  },
+
+  confirm: {
+    guest: true,
+    user: true,
+    admin: true,
+    officer: true,
+    system: false,
+  },
+
+  comment: {
+    guest: true,
+    user: true,
+    admin: true,
+    officer: (report, actor) => isAssignedOfficer(report, actor),
+    system: false,
+  },
+
+  rateFix: {
+    guest: (report, actor) => isOwnReport(report, actor) && (report?.status === 'resolved' || report?.status === 'closed'),
+    user: (report, actor) => isOwnReport(report, actor) && (report?.status === 'resolved' || report?.status === 'closed'),
+    admin: false,
+    officer: false,
+    system: false,
+  },
+
+  reopen: {
+    guest: (report, actor) =>
+      isOwnReport(report, actor) && (report?.status === 'resolved' || report?.status === 'closed'),
+    user: (report, actor) =>
+      isOwnReport(report, actor) && (report?.status === 'resolved' || report?.status === 'closed'),
+    admin: false,
+    officer: false,
+    system: false,
+  },
+
+  verify: {
+    guest: false,
+    user: false,
+    admin: true,
+    officer: false,
+    system: false,
+  },
+
+  reject: {
+    guest: false,
+    user: false,
+    admin: true,
+    officer: false,
+    system: false,
+  },
+
+  merge: {
+    guest: false,
+    user: false,
+    admin: true,
+    officer: false,
+    system: false,
+  },
+
+  setPriority: {
+    guest: false,
+    user: false,
+    admin: true,
+    officer: false,
+    system: false,
+  },
+
+  assign: {
+    guest: false,
+    user: false,
+    admin: true,
+    officer: false,
+    system: false,
+  },
+
+  reassign: {
+    guest: false,
+    user: false,
+    admin: true,
+    officer: false,
+    system: false,
+  },
+
+  close: {
+    guest: false,
+    user: false,
+    admin: true,
+    officer: false,
+    system: false,
+  },
+
+  exportData: {
+    guest: false,
+    user: false,
+    admin: true,
+    officer: false,
+    system: false,
+  },
+
+  dispatchEmail: {
+    guest: false,
+    user: false,
+    admin: true,
+    officer: false,
+    system: false,
+  },
+
+  startWork: {
+    guest: false,
+    user: false,
+    admin: false,
+    officer: (report, actor) => isAssignedOfficer(report, actor) && report?.status === 'assigned',
+    system: false,
+  },
+
+  resolve: {
+    guest: false,
+    user: false,
+    admin: false,
+    officer: (report, actor) => isAssignedOfficer(report, actor) && report?.status === 'in_progress',
+    system: false,
+  },
+
+  viewAssignments: {
+    guest: false,
+    user: false,
+    admin: false,
+    officer: (report, actor) => (report ? isAssignedOfficer(report, actor) : true),
+    system: false,
+  },
+};
+
+/**
+ * Validates whether an actor with a given role can perform a civic action on a report.
+ */
+export function can(
+  role: UserRole,
+  action: CivicAction,
+  report?: PotholeReport,
+  actor?: Actor
+): boolean {
+  const rule = PERMISSIONS_TABLE[action]?.[role];
+  if (typeof rule === 'function') {
+    return rule(report, actor);
+  }
+  return Boolean(rule);
+}
+
+/**
+ * Scopes a list of reports to only those an officer is authorized to view.
+ * Backed by the domain permissions can() check.
+ */
+export function getReportsForOfficer(
+  reports: PotholeReport[],
+  actor: Actor | string
+): PotholeReport[] {
+  const normActor: Actor =
+    typeof actor === 'string'
+      ? { id: actor, name: actor, role: 'officer' }
+      : actor;
+
+  return reports.filter((report) => can(normActor.role, 'viewAssignments', report, normActor));
+}
+
+/**
+ * Maps each navigation tab to its authorizing civic action for route-level protection.
+ */
+export const TAB_ACTION_MAP: Record<string, CivicAction> = {
+  dashboard: 'confirm',
+  potholes: 'confirm',
+  report: 'create',
+  'my-reports': 'create',
+  'admin-overview': 'assign',
+  triage: 'verify',
+  'dispatch-board': 'assign',
+  performance: 'exportData',
+  analytics: 'exportData',
+  'my-assignments': 'viewAssignments',
+  dispatcher: 'assign',
+  sensor: 'confirm',
+  about: 'confirm',
+  scoreboard: 'confirm',
+};
+
+/**
+ * Evaluates whether a role is permitted to access a given workspace tab.
+ */
+export function canAccessTab(tab: string, role: UserRole): boolean {
+  if (role === 'system') {
+    return false;
+  }
+
+  if (role === 'officer') {
+    if (tab === 'my-assignments') return can(role, 'viewAssignments');
+    if (tab === 'potholes') return can(role, 'confirm');
+    if (tab === 'scoreboard' || tab === 'about') return true;
+    return false;
+  }
+
+  if (role === 'admin') {
+    if (tab === 'admin-overview' || tab === 'dispatch-board' || tab === 'dispatcher') {
+      return can(role, 'assign');
+    }
+    if (tab === 'triage') {
+      return can(role, 'verify');
+    }
+    if (tab === 'performance' || tab === 'analytics') {
+      return can(role, 'exportData');
+    }
+    if (tab === 'potholes' || tab === 'scoreboard' || tab === 'about') {
+      return true;
+    }
+    return false;
+  }
+
+  // Citizen (guest / user)
+  if (
+    tab === 'admin-overview' ||
+    tab === 'dispatch-board' ||
+    tab === 'dispatcher' ||
+    tab === 'triage' ||
+    tab === 'performance' ||
+    tab === 'analytics'
+  ) {
+    return false;
+  }
+  if (tab === 'my-assignments') {
+    return can(role, 'viewAssignments');
+  }
+
+  const action = TAB_ACTION_MAP[tab];
+  if (!action) return false;
+  return can(role, action);
+}

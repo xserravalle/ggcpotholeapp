@@ -15,18 +15,23 @@ vi.mock('@/components/potholes/PotholeMapView', () => ({
   PotholeMapView: () => <div data-testid="pothole-map">Map</div>,
 }));
 
-import { render } from '../helpers/render';
+import { render, waitFor } from '../helpers/render';
 import App from '@/App';
 
 describe('App Component', () => {
-  it('should render without crashing', () => {
+  it('should render without crashing', async () => {
     const { container } = render(<App />);
     expect(container).toBeTruthy();
+    await waitFor(() => {
+      expect(container.querySelector('header')).toBeTruthy();
+    });
   });
 
-  it('should render the main application structure', () => {
+  it('should render the main application structure', async () => {
     const { container } = render(<App />);
-    const header = container.querySelector('header');
-    expect(header).toBeTruthy();
+    await waitFor(() => {
+      const header = container.querySelector('header');
+      expect(header).toBeTruthy();
+    });
   });
 });

@@ -10,8 +10,11 @@ import {
   MapPin,
   ExternalLink,
   Camera,
-  RefreshCw
+  RefreshCw,
+  Copy
 } from 'lucide-react';
+import { AUTHORITIES_DIRECTORY } from '../../data/jurisdictionsData';
+import { formatDispatchMailto, isDemoDispatch, DEMO_DISPATCH_EMAIL, getEffectiveDispatchEmail } from '../../config/dispatch';
 
 interface DocketSuccessModalProps {
   isOpen: boolean;
@@ -27,34 +30,58 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
   onViewOnMap
 }) => {
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   if (!isOpen || !report) return null;
 
   const trackingCode = report.trackingCode || `GAP-2026-${report.id.replace(/[^0-9]/g, '').slice(-4) || '1042'}`;
-  const targetEmail = 'peyton.holland@gmail.com';
 
-  const emailSubject = encodeURIComponent(`[GGC SansPotholes] Road Hazard Report - ${trackingCode} (${report.severity.toUpperCase()})`);
-  const emailBody = encodeURIComponent(
-    `GGC SANSPOTHOLES ROAD HAZARD DOCKET\n` +
-    `========================================\n\n` +
-    `Incident Tracking Code: ${trackingCode}\n` +
-    `Severity Rating:        ${report.severity.toUpperCase()}\n` +
-    `Hazard Type:            ${report.hazardType || 'POTHOLE'}\n` +
-    `Nearest Street Address: ${report.address}\n` +
-    `Landmark / Specifics:   ${report.landmark || 'None provided'}\n` +
-    `Potential Damage Risk:  ${report.damageRisk || 'Tire / Rim Damage'}\n` +
-    `Detection Source:       ${report.sensorDetected ? `In-Vehicle Accelerometer (${report.bumpIntensity}G Shock Spike)` : report.detectedBy}\n` +
-    `Driver Notes:           ${report.description || 'No additional details.'}\n` +
-    `Submitted Date & Time:  ${new Date().toLocaleString()}\n` +
-    `Reporter:               ${report.reporterName || 'Anonymous Citizen'}${report.reporterEmail ? ` <${report.reporterEmail}>` : ''}\n\n` +
-    `Centralized Map Location:\n` +
-    `https://www.google.com/maps?q=${report.latitude},${report.longitude}\n` +
-    `Location Snapshot:      Generated & attached to incident PDF docket\n\n` +
-    `========================================\n` +
-    `Dispatched via GGC SansPotholes (Academic Prototype)`
-  );
+  const authority = (report.authorityId && AUTHORITIES_DIRECTORY[report.authorityId]) ||
+    Object.values(AUTHORITIES_DIRECTORY).find(
+      a => a.name === report.authorityName || a.name === report.jurisdiction
+    ) || AUTHORITIES_DIRECTORY.GWINNETT_COUNTY;
 
-  const mailtoUrl = `mailto:${targetEmail}?subject=${emailSubject}&body=${emailBody}`;
+  const agencyName = report.authorityName || report.jurisdiction || authority?.name || 'Gwinnett County DOT';
+  const targetDays = authority?.slaTargetDays ?? 5;
+  const targetEmail = getEffectiveDispatchEmail(authority?.contactEmail);
+
+  const handleCopyTrackingCode = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(trackingCode);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const mailtoUrl = formatDispatchMailto({
+    to: authority?.contactEmail || 'dotcustomerservice@gwinnettcounty.com',
+    agencyName,
+    subject: `[GGC SansPotholes] Road Hazard Report - ${trackingCode} (${report.severity.toUpperCase()})`,
+    body: (
+      `GGC SANSPOTHOLES ROAD HAZARD DOCKET\n` +
+      `========================================\n\n` +
+      `Incident Tracking Code: ${trackingCode}\n` +
+      `Severity Rating:        ${report.severity.toUpperCase()}\n` +
+      `Hazard Type:            ${report.hazardType || 'POTHOLE'}\n` +
+      `Nearest Street Address: ${report.address}\n` +
+      `Landmark / Specifics:   ${report.landmark || 'None provided'}\n` +
+      `Potential Damage Risk:  ${report.damageRisk || 'Tire / Rim Damage'}\n` +
+      `Detection Source:       ${report.sensorDetected ? `In-Vehicle Accelerometer (${report.bumpIntensity}G Shock Spike)` : report.detectedBy}\n` +
+      `Driver Notes:           ${report.description || 'No additional details.'}\n` +
+      `Submitted Date & Time:  ${new Date().toLocaleString()}\n` +
+      `Reporter:               ${report.reporterName || 'Anonymous Citizen'}${report.reporterEmail ? ` <${report.reporterEmail}>` : ''}\n\n` +
+      `Centralized Map Location:\n` +
+      `https://www.google.com/maps?q=${report.latitude},${report.longitude}\n` +
+      `Location Snapshot:      Generated & attached to incident PDF docket\n\n` +
+      `========================================\n` +
+      `Dispatched via GGC SansPotholes (Academic Prototype)`
+    ),
+  });
 
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
@@ -86,17 +113,55 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
 
         <div className="overflow-y-auto pr-0.5 space-y-3">
           {/* Tracking Code Centerpiece */}
-          <div className="text-center py-1">
-            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+          <div className="text-center py-2 bg-slate-950/70 border border-slate-800 rounded-2xl p-4">
+            <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
               Incident Tracking Code
             </span>
-            <div className="text-2xl font-black font-mono text-emerald-400 tracking-wide mt-0.5">
-              {trackingCode}
+            <div className="flex items-center justify-center gap-2 mt-1 flex-wrap">
+              <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-400 tracking-wider">
+                {trackingCode}
+              </span>
+              <button
+                type="button"
+                onClick={handleCopyTrackingCode}
+                className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 text-xs font-semibold transition cursor-pointer"
+                title="Copy tracking code"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-400 text-[11px]">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-[11px]">Copy</span>
+                  </>
+                )}
+              </button>
             </div>
-            <p className="text-xs text-slate-300 mt-0.5 font-semibold flex items-center justify-center gap-1">
+            <p className="text-xs text-slate-300 mt-1.5 font-semibold flex items-center justify-center gap-1">
               <Mail className="w-3.5 h-3.5 text-teal-400" />
               <span>Target: <strong className="font-mono text-teal-300">{targetEmail}</strong></span>
             </p>
+          </div>
+
+          {/* Routed Agency & Target Repair Time */}
+          <div className="bg-emerald-950/20 border border-emerald-800/40 rounded-xl p-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-950 border border-emerald-700 flex items-center justify-center shrink-0 text-emerald-400">
+              <Building2 className="w-4 h-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                Routed Agency
+              </div>
+              <div className="text-xs font-bold text-white truncate">
+                {agencyName}
+              </div>
+              <div className="text-[11px] text-emerald-400 font-medium">
+                {agencyName} usually responds within {targetDays} days
+              </div>
+            </div>
           </div>
 
           {/* Centralized Location Map Screenshot Image */}
@@ -129,6 +194,14 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
               <span className="text-slate-500 shrink-0">Closest Address:</span>
               <span className="font-semibold text-white text-right truncate max-w-[220px]">{report.address}</span>
             </div>
+            <div className="flex justify-between items-start gap-2">
+              <span className="text-slate-500 shrink-0">Routed Agency:</span>
+              <span className="font-semibold text-white text-right truncate max-w-[220px]">{agencyName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Target Repair Time:</span>
+              <span className="font-semibold text-emerald-400">{targetDays} days</span>
+            </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Severity:</span>
               <span className={`font-bold uppercase ${
@@ -156,12 +229,17 @@ export const DocketSuccessModal: React.FC<DocketSuccessModalProps> = ({
           {/* Actions */}
           <div className="space-y-2 pt-1">
             <a
-              href={mailtoUrl}
+              href={mailtoUrl.url}
               className="w-full py-2.5 px-4 bg-teal-600 hover:bg-teal-500 text-white font-bold rounded-xl shadow-lg shadow-teal-600/25 transition flex items-center justify-center gap-2 active:scale-98"
             >
               <Mail className="w-4 h-4" />
-              <span>Send Report to {targetEmail}</span>
+              <span>Send Report Email ({agencyName})</span>
             </a>
+            {isDemoDispatch() && (
+              <span className="text-[11px] text-amber-400 font-medium block text-center">
+                Demo mode: email routes to {DEMO_DISPATCH_EMAIL}
+              </span>
+            )}
 
             <button
               onClick={handleDownloadPdf}

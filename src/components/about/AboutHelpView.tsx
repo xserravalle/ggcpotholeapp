@@ -19,9 +19,11 @@ import {
   Mail,
   Smartphone,
   Navigation,
-  ShieldCheck
+  ShieldCheck,
+  Trophy
 } from 'lucide-react';
 import { ActiveTab } from '../Header';
+import { DEMO_DISPATCH_EMAIL, DISPATCH_MODE } from '../../config/dispatch';
 
 interface AboutHelpViewProps {
   onNavigateTab: (tab: ActiveTab) => void;
@@ -105,6 +107,30 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({
             <span>Full Evaluation (12 Slides)</span>
           </a>
         </div>
+      </div>
+
+      {/* Community Scoreboard & Civic Accountability Banner */}
+      <div className="bg-gradient-to-r from-amber-950/40 via-slate-900 to-slate-900 border border-amber-500/40 rounded-3xl p-6 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 uppercase">
+            <Trophy className="w-3.5 h-3.5" />
+            <span>Civic Accountability &bull; NagarSetu Transparency</span>
+          </div>
+          <h2 className="text-base sm:text-lg font-bold text-white">
+            Community Roadway Scoreboard
+          </h2>
+          <p className="text-xs text-slate-300 max-w-xl">
+            Inspect real-time municipal repair times, on-time SLA compliance, and community-verified hazard rankings.
+          </p>
+        </div>
+
+        <button
+          onClick={() => onNavigateTab('scoreboard')}
+          className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-2 cursor-pointer shrink-0"
+        >
+          <Trophy className="w-4 h-4" />
+          <span>Open Community Scoreboard</span>
+        </button>
       </div>
 
       {/* Data Transparency & Real Evidence Policy Notice */}
@@ -228,7 +254,7 @@ export const AboutHelpView: React.FC<AboutHelpViewProps> = ({
                   <strong>Automated Map Snapshot</strong>: Stitches canvas tiles and exports a certified screenshot image with pulsing radar pin and GPS overlay.
                 </li>
                 <li>
-                  <strong>Direct Testing Dispatch</strong>: Dispatches reports directly to <code className="text-teal-300 font-mono">peyton.holland@gmail.com</code>.
+                  <strong>Direct Testing Dispatch</strong>: Dispatches reports directly to <code className="text-teal-300 font-mono">{DEMO_DISPATCH_EMAIL}</code> ({DISPATCH_MODE} mode).
                 </li>
               </ul>
             </div>
