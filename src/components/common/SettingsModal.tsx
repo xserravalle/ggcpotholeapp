@@ -9,9 +9,25 @@ import {
   Square, 
   Activity, 
   ChevronRight,
-  Sparkles
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Clock,
+  Download,
+  Trash2,
+  Shield,
+  ShieldCheck,
+  CheckCircle2,
+  AlertTriangle,
+  Info
 } from 'lucide-react';
 import { useAccessibility, FontSizeKey, FontFamilyKey, ThemeKey, FONT_SIZES } from '../../context/AccessibilityContext';
+import { useReports } from '../../context/ReportsContext';
+import { 
+  getDriveRetentionDays, 
+  setDriveRetentionDays, 
+  getStoredDriveSessionCount 
+} from '../../services/driveSessionService';
 import { PotholeReport } from '../../types/pothole';
 
 interface SettingsModalProps {
@@ -44,14 +60,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [draftFontFamily, setDraftFontFamily] = useState<FontFamilyKey>(fontFamily);
   const [draftTheme, setDraftTheme] = useState<ThemeKey>(theme);
 
+  // Data Sovereignty & Drive Retention state (Task S4)
+  const { exportAllData, deleteAllData } = useReports();
+  const [retentionDays, setRetentionDaysState] = useState<number>(30);
+  const [driveSessionCount, setDriveSessionCount] = useState<number>(0);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isPrivacyExpanded, setIsPrivacyExpanded] = useState(false);
+
   // Synchronize draft state with actual context when modal opens
   useEffect(() => {
     if (isOpen) {
       setDraftFontSize(fontSize);
       setDraftFontFamily(fontFamily);
       setDraftTheme(theme);
+      setRetentionDaysState(getDriveRetentionDays());
+      setDriveSessionCount(getStoredDriveSessionCount());
+      setIsConfirmingDelete(false);
+      setDeleteSuccess(false);
     }
   }, [isOpen, fontSize, fontFamily, theme]);
+
+  const handleRetentionChange = (days: number) => {
+    setRetentionDaysState(days);
+    setDriveRetentionDays(days);
+    setDriveSessionCount(getStoredDriveSessionCount());
+  };
+
+  const handleDownloadData = async () => {
+    setIsExporting(true);
+    try {
+      const data = await exportAllData();
+      const jsonStr = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sanspotholes-my-data-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to export data:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleDeleteAllData = async () => {
+    try {
+      await deleteAllData();
+      setDriveSessionCount(0);
+      setIsConfirmingDelete(false);
+      setDeleteSuccess(true);
+      setTimeout(() => setDeleteSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to delete data:', err);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -297,6 +365,182 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <span>Open Sensor</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
+            )}
+          </div>
+        </div>
+
+        {/* Section 5: Drive History Retention */}
+        <div className="space-y-3">
+          <div className="flex items-center space-x-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
+            <Clock className="w-4 h-4" />
+            <span>Drive History Retention</span>
+          </div>
+
+          <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700/80 space-y-3">
+            <div>
+              <span className="text-xs font-bold text-white block">Auto-Purge Retention Window</span>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                Automatically purges raw drive tracks and sensor shock telemetry older than your chosen period.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { value: 7, label: '7 Days', desc: 'Minimal history' },
+                { value: 30, label: '30 Days', desc: 'Default' },
+                { value: -1, label: 'Until I delete', desc: 'Keep all' },
+              ].map(opt => {
+                const isSelected = retentionDays === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => handleRetentionChange(opt.value)}
+                    className={`py-2 px-2 rounded-xl text-center border transition flex flex-col items-center justify-center gap-0.5 ${
+                      isSelected
+                        ? 'bg-emerald-600 text-white border-emerald-500 shadow-md font-bold'
+                        : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                    }`}
+                  >
+                    <span className="text-xs font-bold">{opt.label}</span>
+                    <span className="text-[9px] opacity-80">{opt.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 border-t border-slate-700/60 flex items-center justify-between text-[11px] text-slate-400">
+              <span className="font-mono">
+                Currently stored: <strong className="text-emerald-400">{driveSessionCount}</strong> {driveSessionCount === 1 ? 'drive session' : 'drive sessions'}
+              </span>
+              <span className="text-[10px] text-slate-400">Older sessions automatically purged</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 6: My Data & Sovereignty */}
+        <div className="space-y-3">
+          <div className="flex items-center space-x-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
+            <Shield className="w-4 h-4" />
+            <span>My Data</span>
+          </div>
+
+          <div className="bg-slate-800/60 rounded-2xl p-4 border border-slate-700/80 space-y-3">
+            <p className="text-[11px] text-slate-300">
+              Export your reported road hazards, comments, notifications, and drive sessions, or permanently erase all locally stored data.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <button
+                type="button"
+                onClick={handleDownloadData}
+                disabled={isExporting}
+                className="flex-1 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 disabled:opacity-60 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{isExporting ? 'Exporting...' : 'Download My Data (JSON)'}</span>
+              </button>
+
+              {!isConfirmingDelete ? (
+                <button
+                  type="button"
+                  onClick={() => setIsConfirmingDelete(true)}
+                  className="flex-1 py-2 px-3 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/60 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Delete All My Data</span>
+                </button>
+              ) : (
+                <div className="flex-1 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsConfirmingDelete(false)}
+                    className="flex-1 py-2 px-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-medium border border-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDeleteAllData}
+                    className="flex-1 py-2 px-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-900/40"
+                  >
+                    Confirm Wipe
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {deleteSuccess && (
+              <div className="flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 rounded-xl p-2 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>All local reports, drive history, and cached data have been wiped.</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section 7: In-App Privacy Policy */}
+        <div className="space-y-3">
+          <div className="flex items-center space-x-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
+            <ShieldCheck className="w-4 h-4" />
+            <span>Privacy Information</span>
+          </div>
+
+          <div className="bg-slate-800/40 rounded-2xl border border-slate-700/60 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setIsPrivacyExpanded(!isPrivacyExpanded)}
+              className="w-full p-3.5 text-left flex items-center justify-between gap-2 hover:bg-slate-800/60 transition cursor-pointer"
+            >
+              <div className="flex items-center space-x-2 min-w-0">
+                <Info className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="text-xs font-bold text-white">How SansPotholes Protects Your Privacy</span>
+              </div>
+              {isPrivacyExpanded ? (
+                <ChevronUp className="w-4 h-4 text-slate-400 shrink-0" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+              )}
+            </button>
+
+            {isPrivacyExpanded && (
+              <div className="p-4 pt-1 border-t border-slate-700/50 space-y-3 text-xs text-slate-300">
+                <div>
+                  <h5 className="font-bold text-white text-[11px] uppercase tracking-wide text-emerald-400">
+                    1. What is collected and why
+                  </h5>
+                  <p className="mt-0.5 text-slate-300 leading-relaxed text-[11px]">
+                    We collect road hazard coordinates and road names to plot potholes on the map; device accelerometer motion data during active drive sessions to calculate G-force road shocks; and optional photos to help public works verify surface breakdown.
+                  </p>
+                </div>
+
+                <div>
+                  <h5 className="font-bold text-white text-[11px] uppercase tracking-wide text-emerald-400">
+                    2. Stays on this device
+                  </h5>
+                  <p className="mt-0.5 text-slate-300 leading-relaxed text-[11px]">
+                    SansPotholes runs client-first in your browser. All reported potholes, comments, notifications, and drive sessions remain stored in this device&apos;s local storage. No advertising identifiers, telemetry beacons, or third-party ad networks are used.
+                  </p>
+                </div>
+
+                <div>
+                  <h5 className="font-bold text-white text-[11px] uppercase tracking-wide text-emerald-400">
+                    3. Outside services receiving coordinates
+                  </h5>
+                  <p className="mt-0.5 text-slate-300 leading-relaxed text-[11px]">
+                    To display the map and convert GPS points into street names, the app contacts OpenStreetMap tile mirrors for map graphics and Photon (Komoot) or Nominatim for reverse geocoding. Only coordinate pairs are transmitted—never your name, email, or device ID.
+                  </p>
+                </div>
+
+                <div>
+                  <h5 className="font-bold text-white text-[11px] uppercase tracking-wide text-emerald-400">
+                    4. Complete user control and deletion
+                  </h5>
+                  <p className="mt-0.5 text-slate-300 leading-relaxed text-[11px]">
+                    You have permanent control over your data. You can download a complete JSON backup or immediately erase all local data using the buttons in the &quot;My Data&quot; section above.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>

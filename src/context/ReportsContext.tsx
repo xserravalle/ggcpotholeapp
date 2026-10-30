@@ -5,7 +5,7 @@ import { CivicAction } from '../domain/permissions';
 import { ActionPayload, ApplyActionResult } from '../domain/actions';
 import { TrackedHazardSpot } from '../types/sensorQueue';
 import { DriveShockIncident } from '../types/driveSession';
-import { ReportRepository, RecipientFilter } from '../repository/ReportRepository';
+import { ReportRepository, RecipientFilter, UserDataExport } from '../repository/ReportRepository';
 import { reportRepository as defaultRepo } from '../repository/LocalStorageReportRepository';
 import { distanceFromCampusMiles } from '../services/distanceCalculator';
 import { classifyJurisdiction } from '../services/jurisdictionClassifier';
@@ -51,6 +51,10 @@ export interface ReportsContextType {
   // Admin Demo Tools
   resetDemoData: () => Promise<void>;
   loadSampleWorkflow: () => Promise<void>;
+
+  // Data Sovereignty (Task S4)
+  exportAllData: () => Promise<UserDataExport>;
+  deleteAllData: () => Promise<void>;
 
   // Storage Quota Warning
   storageWarning: string | null;
@@ -451,6 +455,17 @@ export const ReportsProvider: React.FC<ReportsProviderProps> = ({
     }
   };
 
+  const exportAllData = useCallback(async (): Promise<UserDataExport> => {
+    return repository.exportAllData();
+  }, [repository]);
+
+  const deleteAllData = useCallback(async (): Promise<void> => {
+    await repository.deleteAllData();
+    setPotholes([]);
+    setNotifications([]);
+    evaluateQuota();
+  }, [repository, evaluateQuota]);
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
@@ -478,6 +493,8 @@ export const ReportsProvider: React.FC<ReportsProviderProps> = ({
         markAllNotificationsRead,
         resetDemoData,
         loadSampleWorkflow,
+        exportAllData,
+        deleteAllData,
         storageWarning,
         dismissStorageWarning,
       }}
@@ -513,6 +530,16 @@ export const useReports = (): ReportsContextType => {
       markAllNotificationsRead: async () => {},
       resetDemoData: async () => {},
       loadSampleWorkflow: async () => {},
+      exportAllData: async () => ({
+        exportedAt: new Date().toISOString(),
+        version: '1.0.0',
+        reports: [],
+        comments: [],
+        notifications: [],
+        driveSessions: [],
+        retentionDays: 30,
+      }),
+      deleteAllData: async () => {},
       storageWarning: null,
       dismissStorageWarning: () => {},
     };

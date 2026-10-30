@@ -291,6 +291,10 @@ export function loadStoredPotholes(fallbackList: PotholeReport[] = INITIAL_POTHO
       return migratedFallback;
     }
 
+    if (parsed.length === 0) {
+      return [];
+    }
+
     const sanitizedList: PotholeReport[] = [];
     for (const item of parsed) {
       const repaired = repairOrSanitizeReport(item);

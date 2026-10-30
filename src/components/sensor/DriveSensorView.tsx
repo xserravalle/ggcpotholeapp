@@ -41,6 +41,7 @@ import { reverseGeocode } from '../../services/reverseGeocoding';
 import { generateMapSnapshot } from '../../services/mapSnapshotService';
 import { DriveRouteMap } from './DriveRouteMap';
 import { DriveReportModal } from './DriveReportModal';
+import { PermissionRationaleModal } from '../common/PermissionRationaleModal';
 import {
   milesBetween,
   isHazardAhead,
@@ -214,6 +215,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
   // Hazard IDs already announced this drive (alert once per pothole)
   const alertedHazardIds = useRef<Set<string>>(new Set());
   const simulationTimerRef = useRef<number | null>(null);
+  const [showMotionRationale, setShowMotionRationale] = useState(false);
 
   useEffect(() => {
     isMutedRef.current = isMuted;
@@ -460,16 +462,21 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
     }, 2500);
   };
 
-  // Start Active Drive-Time Patrol
-  const handleStartDrive = async () => {
+  // Start Active Drive-Time Patrol (prompts rationale first, requests permission on gesture tap)
+  const handleStartDrive = () => {
+    setShowMotionRationale(true);
+  };
+
+  const executeStartDrive = async () => {
+    setShowMotionRationale(false);
     const deviceMotion = window.DeviceMotionEvent as unknown as {
       requestPermission?: () => Promise<'granted' | 'denied'>;
     };
     if (typeof deviceMotion?.requestPermission === 'function') {
       try {
         await deviceMotion.requestPermission();
-      } catch {
-        // Continue
+      } catch (e) {
+        console.warn('DeviceMotionEvent permission error:', e);
       }
     }
 
@@ -1345,6 +1352,15 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
         />
       )}
 
+      <PermissionRationaleModal
+        isOpen={showMotionRationale}
+        type="motion"
+        title="Motion & Accelerometer Access"
+        rationale="SansPotholes needs motion sensor access to measure road shocks and vehicular impact spikes during your drive."
+        confirmLabel="Allow & Start Drive"
+        onConfirm={executeStartDrive}
+        onCancel={() => setShowMotionRationale(false)}
+      />
     </div>
   );
 };

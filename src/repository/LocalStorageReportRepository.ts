@@ -1,4 +1,4 @@
-import { ReportRepository, ReportFilter, RecipientFilter } from './ReportRepository';
+import { ReportRepository, ReportFilter, RecipientFilter, UserDataExport } from './ReportRepository';
 import { PotholeReport, Comment, NotificationMessage, Actor, UserRole, TimelineEntry } from '../domain/types';
 import { CivicAction } from '../domain/permissions';
 import { ActionPayload, ApplyActionResult, applyAction } from '../domain/actions';
@@ -7,6 +7,7 @@ import { INITIAL_POTHOLES } from '../data/potholesData';
 import { loadStoredPotholes, saveStoredPotholes, migrateReport } from '../services/storageService';
 import { generateSampleWorkflowReports } from './sampleWorkflowData';
 import { validatePotholeReport, validateActionPayload, validateComment } from '../services/reportValidator';
+import { loadDriveSessions, clearAllDriveSessions, getDriveRetentionDays } from '../services/driveSessionService';
 
 /**
  * Storage keys:
@@ -496,6 +497,52 @@ export class LocalStorageReportRepository implements ReportRepository {
     const sampleReports = generateSampleWorkflowReports();
     saveStoredPotholes(sampleReports);
     return sampleReports;
+  }
+
+  // --- DATA SOVEREIGNTY (TASK S4) ---
+
+  async exportAllData(): Promise<UserDataExport> {
+    const reports = await this.list();
+    let comments: Comment[] = [];
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_COMMENTS);
+      comments = raw ? JSON.parse(raw) : [];
+    } catch {
+      comments = [];
+    }
+
+    let notifications: NotificationMessage[] = [];
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
+      notifications = raw ? JSON.parse(raw) : [];
+    } catch {
+      notifications = [];
+    }
+
+    const driveSessions = loadDriveSessions();
+    const retentionDays = getDriveRetentionDays();
+
+    return {
+      exportedAt: new Date().toISOString(),
+      version: '1.0.0',
+      reports,
+      comments,
+      notifications,
+      driveSessions,
+      retentionDays,
+    };
+  }
+
+  async deleteAllData(): Promise<void> {
+    try {
+      localStorage.removeItem(STORAGE_KEY_REPORTS);
+      localStorage.removeItem(STORAGE_KEY_COMMENTS);
+      localStorage.removeItem(STORAGE_KEY_NOTIFICATIONS);
+      clearAllDriveSessions();
+      saveStoredPotholes([]);
+    } catch (e) {
+      console.error('Failed to delete all data:', e);
+    }
   }
 }
 

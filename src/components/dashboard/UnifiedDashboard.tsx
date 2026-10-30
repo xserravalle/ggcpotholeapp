@@ -15,6 +15,7 @@ import {
   EmptyState,
   SectionHeader
 } from '../kit';
+import { PermissionRationaleModal } from '../common/PermissionRationaleModal';
 import { 
   Car, 
   MapPin, 
@@ -62,24 +63,38 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
   const [searchCode, setSearchCode] = useState('');
   const [searchError, setSearchError] = useState('');
 
-  // User GPS or fallback position
+  // User GPS or fallback position (defaults to userLocation prop or campus center without auto-prompting)
   const [detectedCoords, setDetectedCoords] = useState<{ lat: number; lng: number }>(userLocation || CAMPUS_CENTER);
+  const [isLocating, setIsLocating] = useState(false);
+  const [showLocationRationale, setShowLocationRationale] = useState(false);
 
   useEffect(() => {
     if (userLocation) {
       setDetectedCoords(userLocation);
-    } else if ('geolocation' in navigator) {
+    }
+  }, [userLocation]);
+
+  const handleLocateMeClick = () => {
+    setShowLocationRationale(true);
+  };
+
+  const handleConfirmLocation = () => {
+    setShowLocationRationale(false);
+    if ('geolocation' in navigator) {
+      setIsLocating(true);
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           setDetectedCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          setIsLocating(false);
         },
-        () => {
-          setDetectedCoords(CAMPUS_CENTER);
+        (err) => {
+          console.warn('Geolocation denied or unavailable:', err.message);
+          setIsLocating(false);
         },
-        { timeout: 5000, maximumAge: 60000 }
+        { timeout: 10000, maximumAge: 60000 }
       );
     }
-  }, [userLocation]);
+  };
 
   // Citizen Hazard stats math
   const myReports = useMemo(() => {
@@ -340,6 +355,16 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
         <SectionHeader
           title="Open Hazards Near Me"
           subtitle="Unresolved road defects within 1.0 mile of your GPS location or GGC campus"
+          actions={
+            <button
+              onClick={handleLocateMeClick}
+              disabled={isLocating}
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 flex items-center gap-1.5 transition active:scale-95 cursor-pointer"
+            >
+              <MapPin className="w-3.5 h-3.5 text-emerald-400" />
+              <span>{isLocating ? 'Locating...' : 'Update Location'}</span>
+            </button>
+          }
         />
 
         {openHazardsNearMe.length === 0 ? (
@@ -512,6 +537,15 @@ export const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
         )}
       </div>
 
+      <PermissionRationaleModal
+        isOpen={showLocationRationale}
+        type="location"
+        title="Location Access"
+        rationale="SansPotholes needs your device GPS coordinates to calculate proximity and display road hazards closest to you."
+        confirmLabel="Allow Location"
+        onConfirm={handleConfirmLocation}
+        onCancel={() => setShowLocationRationale(false)}
+      />
     </div>
   );
 };

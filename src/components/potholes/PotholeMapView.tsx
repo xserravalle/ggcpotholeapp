@@ -4,6 +4,7 @@ import L from 'leaflet';
 import { PotholeReport, RoadSegment, SeverityLevel, PotholeStatus } from '../../types/pothole';
 import { CAMPUS_CENTER } from '../../data/jurisdictionsData';
 import { MunicipalQuickJump } from '../map/MunicipalQuickJump';
+import { PermissionRationaleModal } from '../common/PermissionRationaleModal';
 import { reverseGeocode } from '../../services/reverseGeocoding';
 import { distanceFromCampusMiles, formatCoords } from '../../services/distanceCalculator';
 import { useAccessibility, ThemeKey } from '../../context/AccessibilityContext';
@@ -238,52 +239,24 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [locationStatusText, setLocationStatusText] = useState<string>('Acquiring GPS...');
 
-  // Map View Scopes: Defaults to 'my-location' as requested
-  const [viewScope, setViewScope] = useState<ViewScope>('my-location');
-  const [activePresetId, setActivePresetId] = useState<string>('my-location');
+  // Map View Scopes: Defaults to 'campus' on mount without auto-prompting GPS
+  const [viewScope, setViewScope] = useState<ViewScope>('campus');
+  const [activePresetId, setActivePresetId] = useState<string>('ggc');
 
-  // Initial map target: defaults to user location on mount, with GGC fallback
+  // Initial map target: defaults to GGC campus
   const [mapTarget, setMapTarget] = useState<{ center: [number, number]; zoom: number }>({
     center: [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng],
-    zoom: 15
+    zoom: 14
   });
 
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [droppedPin, setDroppedPin] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const [showLocationRationale, setShowLocationRationale] = useState(false);
 
-  // Default to User's GPS Location on Component Mount
+  // Set initial status text without auto-requesting GPS
   useEffect(() => {
-    if ('geolocation' in navigator) {
-      setIsLocating(true);
-      setLocationStatusText('Acquiring GPS location...');
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          const accuracy = pos.coords.accuracy;
-          setUserLocation({ lat, lng, accuracy });
-          setMapTarget({ center: [lat, lng], zoom: 16 });
-          setViewScope('my-location');
-          setActivePresetId('my-location');
-          setIsLocating(false);
-          setLocationStatusText('GPS Locked');
-        },
-        err => {
-          console.warn('Initial GPS positioning denied or unavailable; falling back to GGC campus:', err.message);
-          setViewScope('campus');
-          setActivePresetId('ggc');
-          setMapTarget({ center: [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng], zoom: 14 });
-          setIsLocating(false);
-          setLocationStatusText('GGC Campus (GPS Offline)');
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
-      );
-    } else {
-      setViewScope('campus');
-      setActivePresetId('ggc');
-      setLocationStatusText('GGC Campus');
-    }
+    setLocationStatusText('GGC Campus (Tap GPS to locate)');
   }, []);
 
   // Automatically center map around selected pothole shock location
@@ -317,6 +290,10 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
 
   // Quick Preset Click from Municipal bar
   const handlePresetSelect = (lat: number, lng: number, zoom: number, id: string) => {
+    if (id === 'my-location' && !userLocation) {
+      setShowLocationRationale(true);
+      return;
+    }
     setActivePresetId(id);
     setMapTarget({ center: [lat, lng], zoom });
     if (id === 'my-location') {
@@ -330,6 +307,11 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
 
   // Explicit User Re-locate Button Click
   const handleGpsLocate = () => {
+    setShowLocationRationale(true);
+  };
+
+  const executeGpsLocate = () => {
+    setShowLocationRationale(false);
     if ('geolocation' in navigator) {
       setIsLocating(true);
       setLocationStatusText('Locating...');
@@ -347,12 +329,13 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
         },
         err => {
           setIsLocating(false);
-          alert('GPS location access denied or unavailable: ' + err.message);
+          console.warn('GPS location access denied or unavailable:', err.message);
+          setLocationStatusText('GPS Unavailable');
         },
         { enableHighAccuracy: true, timeout: 10000 }
       );
     } else {
-      alert('Geolocation is not supported by your browser.');
+      setLocationStatusText('Geolocation unsupported');
     }
   };
 
@@ -726,6 +709,15 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
 
       </div>
 
+      <PermissionRationaleModal
+        isOpen={showLocationRationale}
+        type="location"
+        title="Location Access"
+        rationale="SansPotholes needs your device GPS coordinates to center the map on your position and display road hazards near you."
+        confirmLabel="Allow Location"
+        onConfirm={executeGpsLocate}
+        onCancel={() => setShowLocationRationale(false)}
+      />
     </div>
   );
 };

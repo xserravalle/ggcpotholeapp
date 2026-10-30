@@ -92,4 +92,26 @@ export interface ReportRepository {
    * Admin demo tool: Seeds ~10 realistic reports across all 7 civic workflow statuses with detailed timelines.
    */
   loadSampleWorkflow(): Promise<PotholeReport[]>;
+
+  /**
+   * Data sovereignty (Task S4): Exports all user reports, comments, notifications,
+   * drive history sessions, and retention preferences as a structured JSON object.
+   */
+  exportAllData(): Promise<UserDataExport>;
+
+  /**
+   * Data sovereignty (Task S4): Permanently wipes all user-stored data across
+   * reports, comments, notifications, and drive sessions.
+   */
+  deleteAllData(): Promise<void>;
+}
+
+export interface UserDataExport {
+  exportedAt: string;
+  version: string;
+  reports: PotholeReport[];
+  comments: Comment[];
+  notifications: NotificationMessage[];
+  driveSessions: any[];
+  retentionDays: number;
 }

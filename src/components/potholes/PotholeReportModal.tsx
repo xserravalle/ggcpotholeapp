@@ -11,6 +11,7 @@ import { isOpenStatus } from '../../domain/status';
 import { ReportsContext } from '../../context/ReportsContext';
 import { validatePotholeReport } from '../../services/reportValidator';
 import { StatusBadge } from '../kit/StatusBadge';
+import { PermissionRationaleModal } from '../common/PermissionRationaleModal';
 import { 
   X, 
   MapPin, 
@@ -174,11 +175,15 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
     }
   };
 
+  const [showLocationRationale, setShowLocationRationale] = useState(false);
+  const [showCameraRationale, setShowCameraRationale] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
   // Dynamic jurisdiction classification
   const classification = classifyJurisdiction(latitude, longitude, `${roadName} ${address}`);
   const assignedAuth = classification.authority;
 
-  // Auto-populate nearest closest address on open
+  // Auto-populate nearest closest address on open without triggering GPS prompt
   useEffect(() => {
     if (initialCoords?.lat && initialCoords?.lng) {
       setIsResolvingAddress(true);
@@ -188,36 +193,13 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
         setCity(geo.city);
         setIsResolvingAddress(false);
       });
-    } else if ('geolocation' in navigator) {
-      setIsResolvingAddress(true);
-      navigator.geolocation.getCurrentPosition(
-        async pos => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          setLatitude(lat);
-          setLongitude(lng);
-          const geo = await reverseGeocode(lat, lng);
-          if (geo && geo.address) {
-            setAddress(geo.address);
-            setRoadName(geo.road);
-            setCity(geo.city);
-          }
-          setIsResolvingAddress(false);
-        },
-        async () => {
-          const geo = await reverseGeocode(latitude, longitude);
-          setAddress(geo.address);
-          setRoadName(geo.road);
-          setCity(geo.city);
-          setIsResolvingAddress(false);
-        },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
-      );
     } else {
+      setIsResolvingAddress(true);
       reverseGeocode(latitude, longitude).then(geo => {
         setAddress(geo.address);
         setRoadName(geo.road);
         setCity(geo.city);
+        setIsResolvingAddress(false);
       });
     }
   }, []);
@@ -237,8 +219,13 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
     }
   };
 
-  // Manual trigger to re-pinpoint via GPS if desired
+  // Manual trigger to re-pinpoint via GPS if desired (shows rationale prompt first)
   const handleRefreshLocation = () => {
+    setShowLocationRationale(true);
+  };
+
+  const executeRefreshLocation = () => {
+    setShowLocationRationale(false);
     if ('geolocation' in navigator) {
       setIsResolvingAddress(true);
       navigator.geolocation.getCurrentPosition(
@@ -257,11 +244,21 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
         },
         () => {
           setIsResolvingAddress(false);
-          alert('Could not update GPS location. Please check browser location permissions.');
+          console.warn('Could not update GPS location.');
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
       );
     }
+  };
+
+  const handleLaunchCameraClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setShowCameraRationale(true);
+  };
+
+  const executeLaunchCamera = () => {
+    setShowCameraRationale(false);
+    fileInputRef.current?.click();
   };
 
   // Re-position when user clicks on the mini map
@@ -486,6 +483,7 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
             </label>
             <div className="border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl p-2.5 bg-slate-950/60 transition text-center relative group">
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 capture="environment"
@@ -495,15 +493,19 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
               />
               
               {!photoPreview ? (
-                <label htmlFor="camera-photo-input" className="cursor-pointer py-2 block">
+                <button
+                  type="button"
+                  onClick={handleLaunchCameraClick}
+                  className="w-full cursor-pointer py-2 block text-center bg-transparent border-0"
+                >
                   <Camera className="w-6 h-6 mx-auto text-slate-400 group-hover:text-emerald-400 transition" />
                   <span className="text-xs font-semibold text-slate-200 block mt-1">
                     Tap to Launch Camera or Upload Image (Optional)
                   </span>
-                  <span className="text-[10px] text-slate-400">
+                  <span className="text-[10px] text-slate-400 block mt-0.5">
                     JPG, PNG, WebP up to 150KB. If omitted, verified OpenStreetMap incident snapshot will be attached
                   </span>
-                </label>
+                </button>
               ) : (
                 <div className="relative">
                   <img
@@ -731,6 +733,26 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
         </form>
 
       </div>
+
+      <PermissionRationaleModal
+        isOpen={showLocationRationale}
+        type="location"
+        title="Location Access"
+        rationale="SansPotholes needs your device GPS coordinates to pinpoint the road defect location on the map."
+        confirmLabel="Allow Location"
+        onConfirm={executeRefreshLocation}
+        onCancel={() => setShowLocationRationale(false)}
+      />
+
+      <PermissionRationaleModal
+        isOpen={showCameraRationale}
+        type="camera"
+        title="Camera & Photo Access"
+        rationale="SansPotholes uses your camera or photo library to document road surface conditions for public works dispatch."
+        confirmLabel="Open Camera / Upload"
+        onConfirm={executeLaunchCamera}
+        onCancel={() => setShowCameraRationale(false)}
+      />
     </div>
   );
 };
