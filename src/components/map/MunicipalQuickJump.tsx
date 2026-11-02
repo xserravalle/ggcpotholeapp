@@ -10,7 +10,6 @@ interface Preset {
 }
 
 const PRESETS: Preset[] = [
-  { id: 'ggc', name: 'GGC Campus', lat: 33.9798, lng: -84.0017, zoom: 15, color: '#10b981' },
   { id: 'lawrenceville', name: 'Lawrenceville', lat: 33.9575, lng: -83.9880, zoom: 14, color: '#3b82f6' },
   { id: 'suwanee', name: 'Suwanee', lat: 34.0525, lng: -84.0722, zoom: 14, color: '#14b8a6' },
   { id: 'duluth', name: 'Duluth', lat: 34.0028, lng: -84.1446, zoom: 14, color: '#06b6d4' },

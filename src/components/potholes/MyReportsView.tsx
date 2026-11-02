@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { PotholeReport } from '../../types/pothole';
 import { useAccessibility } from '../../context/AccessibilityContext';
+import { loadUserCreatedIds } from '../../services/storageService';
 import { EditReportModal } from './EditReportModal';
 import { 
-  CheckCircle2, 
+  Star, 
   AlertTriangle, 
   MapPin, 
   PlusCircle, 
@@ -36,9 +37,11 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
   const [showAll, setShowAll] = useState(false);
   const [showLifecycleHelp, setShowLifecycleHelp] = useState(false);
 
-  // Include user reports, 3x sensor reports, and hazards the user confirmed
+  const userCreatedIds = useMemo(() => loadUserCreatedIds(), [potholes]);
+
+  // Include only user created / submitted reports (confirming does not make it a user report)
   const myReports = potholes.filter(
-    p => p.source === 'user' || p.source === 'sensor' || p.userConfirmed
+    p => p.source === 'user' || userCreatedIds.includes(p.id)
   );
 
   // Dynamic initial count: 4 for small, 3 for normal/large, 2 for huge font
@@ -86,11 +89,11 @@ export const MyReportsView: React.FC<MyReportsViewProps> = ({
         <div>
           <div className="flex items-center space-x-2">
             <h2 className="text-lg sm:text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              <span>My Reports & Confirmations</span>
+              <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+              <span>My Hazard Reports</span>
             </h2>
             <span className="text-xs font-mono bg-emerald-950 text-emerald-300 border border-emerald-800 px-2.5 py-0.5 rounded-full font-bold">
-              {myReports.length} Active
+              {myReports.length} Submitted
             </span>
             <button
               type="button"

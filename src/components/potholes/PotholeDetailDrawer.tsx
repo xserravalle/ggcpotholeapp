@@ -6,6 +6,7 @@ import { generatePotholePdf } from '../../services/pdfGenerator';
 import { 
   MapPin, 
   ThumbsUp, 
+  Check,
   ShieldAlert, 
   Activity, 
   Building2, 
@@ -33,7 +34,7 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
   onOpenDispatcher,
   isAdmin = false
 }) => {
-  const { speakPothole, stopSpeaking, isSpeaking } = useAccessibility();
+  const { toggleSpeakPothole, isSpeaking, isPaused, speakingPotholeId } = useAccessibility();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   if (!pothole) return null;
@@ -86,18 +87,66 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
 
         <div className="flex items-center space-x-1.5">
           {/* Audio Narration */}
-          <button
-            onClick={() => isSpeaking ? stopSpeaking() : speakPothole(pothole)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5 transition ${
-              isSpeaking
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
-                : 'bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700'
-            }`}
-            title="Narrate hazard overview"
-          >
-            {isSpeaking ? <VolumeX className="w-3.5 h-3.5 text-amber-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
-            <span>{isSpeaking ? 'Stop' : 'Listen'}</span>
-          </button>
+          {(() => {
+            const isPlayingThis = isSpeaking && speakingPotholeId === pothole.id;
+            const isPausedThis = isPaused && speakingPotholeId === pothole.id;
+            return (
+              <button
+                type="button"
+                onClick={() => toggleSpeakPothole(pothole)}
+                className={`relative px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition active:scale-95 shadow-sm ${
+                  isPlayingThis
+                    ? 'bg-emerald-950/70 text-emerald-300'
+                    : isPausedThis
+                    ? 'bg-slate-800 text-emerald-400'
+                    : 'bg-slate-800 hover:bg-slate-700 text-emerald-300'
+                }`}
+                title={
+                  isPlayingThis
+                    ? 'Audio playing. Click to stop'
+                    : isPausedThis
+                    ? 'Audio stopped. Click to resume from where it stopped'
+                    : 'Narrate hazard overview'
+                }
+              >
+                {/* Perimeter border SVG: regular border color with animated green beam circling around perimeter */}
+                <svg 
+                  className="absolute inset-0 w-full h-full pointer-events-none rounded-lg"
+                  style={{ width: '100%', height: '100%' }}
+                >
+                  <rect
+                    x="0.75"
+                    y="0.75"
+                    width="calc(100% - 1.5px)"
+                    height="calc(100% - 1.5px)"
+                    rx="8"
+                    fill="none"
+                    stroke={isPlayingThis ? '#064e3b' : '#334155'}
+                    strokeWidth="1.5"
+                  />
+                  {isPlayingThis && (
+                    <rect
+                      x="0.75"
+                      y="0.75"
+                      width="calc(100% - 1.5px)"
+                      height="calc(100% - 1.5px)"
+                      rx="8"
+                      fill="none"
+                      stroke="#10b981"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      pathLength="100"
+                      strokeDasharray="25 75"
+                      className="animate-border-beam"
+                    />
+                  )}
+                </svg>
+
+                <Volume2 className={`w-3.5 h-3.5 relative z-10 text-emerald-400 ${isPlayingThis ? 'animate-pulse' : ''}`} />
+                <span className="relative z-10">{isPlayingThis ? 'Pause' : isPausedThis ? 'Resume' : 'Listen'}</span>
+              </button>
+            );
+          })()}
 
           {/* PDF Docket Download */}
           <button
@@ -256,11 +305,26 @@ export const PotholeDetailDrawer: React.FC<PotholeDetailDrawerProps> = ({
               <span className="font-mono font-bold text-emerald-300">{pothole.verificationsCount}</span>
             </div>
             <button
+              type="button"
               onClick={() => onVerify(pothole.id)}
-              className="mt-1.5 w-full bg-slate-700 hover:bg-emerald-600 hover:text-white text-slate-100 font-semibold py-1 rounded-lg text-[11px] flex items-center justify-center gap-1 transition active:scale-98"
+              className={`mt-1.5 w-full font-semibold py-1 rounded-lg text-[11px] flex items-center justify-center gap-1.5 transition active:scale-98 ${
+                pothole.userConfirmed
+                  ? 'bg-emerald-600/30 text-emerald-300 border border-emerald-500/80 hover:bg-emerald-600/40'
+                  : 'bg-slate-700 hover:bg-emerald-600 hover:text-white text-slate-100'
+              }`}
+              title={pothole.userConfirmed ? 'Confirmed. Click to toggle' : 'Confirm this hazard report (+1)'}
             >
-              <ThumbsUp className="w-3 h-3" />
-              <span>Confirm (+1)</span>
+              {pothole.userConfirmed ? (
+                <>
+                  <span>Confirmed</span>
+                  <Check className="w-3.5 h-3.5 stroke-[3] text-emerald-400 shrink-0" />
+                </>
+              ) : (
+                <>
+                  <ThumbsUp className="w-3 h-3" />
+                  <span>Confirm (+1)</span>
+                </>
+              )}
             </button>
           </div>
         </div>

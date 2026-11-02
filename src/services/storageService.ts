@@ -3,6 +3,50 @@ import { TrackedHazardSpot } from '../types/sensorQueue';
 
 const STORAGE_KEY = 'ggc-pothole-patrol-reports-v2';
 const SPOTS_STORAGE_KEY = 'ggc-pothole-patrol-tracked-spots-v1';
+const USER_CONFIRMED_KEY = 'ggc-user-confirmed-ids-v1';
+const USER_CREATED_KEY = 'ggc-user-created-ids-v1';
+
+export function loadUserConfirmedIds(): string[] {
+  try {
+    const raw = localStorage.getItem(USER_CONFIRMED_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveUserConfirmedIds(ids: string[]): void {
+  try {
+    localStorage.setItem(USER_CONFIRMED_KEY, JSON.stringify(ids));
+  } catch (err) {
+    console.error('Failed to save user confirmed IDs to localStorage', err);
+  }
+}
+
+export function loadUserCreatedIds(): string[] {
+  try {
+    const raw = localStorage.getItem(USER_CREATED_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveUserCreatedId(id: string): void {
+  try {
+    const existing = loadUserCreatedIds();
+    if (!existing.includes(id)) {
+      const updated = [...existing, id];
+      localStorage.setItem(USER_CREATED_KEY, JSON.stringify(updated));
+    }
+  } catch (err) {
+    console.error('Failed to save user created ID to localStorage', err);
+  }
+}
 
 export function loadStoredPotholes(fallbackList: PotholeReport[]): PotholeReport[] {
   try {

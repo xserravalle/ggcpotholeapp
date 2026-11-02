@@ -1,5 +1,5 @@
 import React from 'react';
-import { Car, MapPin, Plus, Route, CheckCircle2 } from 'lucide-react';
+import { Car, MapPin, Plus, Route, Star } from 'lucide-react';
 import { ActiveTab } from '../Header';
 
 interface MobileNavBarProps {
@@ -66,7 +66,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
           activeTab === 'my-reports' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-white'
         }`}
       >
-        <CheckCircle2 className="w-5 h-5" />
+        <Star className="w-5 h-5" />
         <span className="text-[10px] mt-0.5">Reports</span>
       </button>
 

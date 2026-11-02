@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { PotholeReport } from '../types/pothole';
 
 export type FontSizeKey = 'small' | 'normal' | 'large' | 'huge';
@@ -15,10 +15,13 @@ interface AccessibilityContextType {
   cycleTheme: () => void;
   // Text to Speech
   isSpeaking: boolean;
+  isPaused: boolean;
+  speakingPotholeId: string | null;
   speakText: (text: string, onComplete?: () => void) => void;
   stopSpeaking: () => void;
   speakSummary: (potholes: PotholeReport[]) => void;
   speakPothole: (pothole: PotholeReport) => void;
+  toggleSpeakPothole: (pothole: PotholeReport) => void;
 }
 
 const AccessibilityContext = createContext<AccessibilityContextType | undefined>(undefined);
@@ -52,6 +55,11 @@ export const AccessibilityProvider: React.FC<{ children: ReactNode }> = ({ child
   });
 
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [speakingPotholeId, setSpeakingPotholeId] = useState<string | null>(null);
+  const lastCharIndexRef = useRef<number>(0);
+  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const currentSpeechTextRef = useRef<string>('');
 
   // Apply font size
   const setFontSize = (size: FontSizeKey) => {
@@ -101,6 +109,9 @@ export const AccessibilityProvider: React.FC<{ children: ReactNode }> = ({ child
       window.speechSynthesis.cancel();
     }
     setIsSpeaking(false);
+    setIsPaused(false);
+    setSpeakingPotholeId(null);
+    lastCharIndexRef.current = 0;
   };
 
   const speakText = (text: string, onComplete?: () => void) => {
@@ -132,12 +143,31 @@ export const AccessibilityProvider: React.FC<{ children: ReactNode }> = ({ child
       utterance.voice = usVoice;
     }
 
-    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      setIsPaused(false);
+    };
+    utterance.onpause = () => {
+      setIsSpeaking(false);
+      setIsPaused(true);
+    };
+    utterance.onresume = () => {
+      setIsSpeaking(true);
+      setIsPaused(false);
+    };
     utterance.onend = () => {
       setIsSpeaking(false);
+      setIsPaused(false);
+      setSpeakingPotholeId(null);
+      lastCharIndexRef.current = 0;
       if (onComplete) onComplete();
     };
-    utterance.onerror = () => setIsSpeaking(false);
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      setIsPaused(false);
+      setSpeakingPotholeId(null);
+      lastCharIndexRef.current = 0;
+    };
 
     window.speechSynthesis.speak(utterance);
   };
@@ -162,12 +192,121 @@ export const AccessibilityProvider: React.FC<{ children: ReactNode }> = ({ child
     speakText(speech);
   };
 
-  const speakPothole = (p: PotholeReport) => {
+  const buildPotholeSpeech = (p: PotholeReport) => {
     const loc = p.roadName || p.title;
     const dist = p.distanceFromGgcMiles ? `${p.distanceFromGgcMiles.toFixed(1)} miles from campus` : p.city;
     const confirms = `${p.verificationsCount} driver confirmations`;
-    const speech = `Road hazard report: ${loc}. Severity: ${p.severity}. Distance: ${dist}. ${confirms}. Notes: ${p.description || 'Pavement damage reported.'}`;
-    speakText(speech);
+    let speech = `Road hazard report: ${loc}. Severity: ${p.severity}. Distance: ${dist}. ${confirms}. Notes: ${p.description || 'Pavement damage reported.'}`;
+    if (!speech.endsWith("y'all!") && !speech.endsWith("y'all.")) {
+      speech += " ... y'all!";
+    }
+    return speech;
+  };
+
+  const startSpeakingPothole = (p: PotholeReport, startOffset = 0) => {
+    if (!isSpeechSupported()) {
+      alert('Text-to-speech is not supported on this browser.');
+      return;
+    }
+
+    if (isSpeechSupported()) {
+      window.speechSynthesis.cancel();
+    }
+
+    const fullText = buildPotholeSpeech(p);
+    currentSpeechTextRef.current = fullText;
+    const textToSpeak = startOffset > 0 ? fullText.slice(startOffset) : fullText;
+
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+    utterance.rate = 0.84;
+    utterance.pitch = 0.95;
+    utterance.lang = 'en-US';
+
+    const voices = window.speechSynthesis.getVoices();
+    const usVoice = voices.find(
+      v => (v.lang === 'en-US' || v.lang === 'en_US') && !v.name.includes('Google')
+    ) || voices.find(v => v.lang.startsWith('en'));
+
+    if (usVoice) {
+      utterance.voice = usVoice;
+    }
+
+    utterance.onboundary = (e) => {
+      if (typeof e.charIndex === 'number') {
+        lastCharIndexRef.current = startOffset + e.charIndex;
+      }
+    };
+
+    utterance.onstart = () => {
+      setIsSpeaking(true);
+      setIsPaused(false);
+      setSpeakingPotholeId(p.id);
+    };
+
+    utterance.onpause = () => {
+      setIsSpeaking(false);
+      setIsPaused(true);
+    };
+
+    utterance.onresume = () => {
+      setIsSpeaking(true);
+      setIsPaused(false);
+    };
+
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      setIsPaused(false);
+      setSpeakingPotholeId(null);
+      lastCharIndexRef.current = 0;
+    };
+
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      setIsPaused(false);
+      setSpeakingPotholeId(null);
+      lastCharIndexRef.current = 0;
+    };
+
+    currentUtteranceRef.current = utterance;
+    setSpeakingPotholeId(p.id);
+    setIsSpeaking(true);
+    setIsPaused(false);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const speakPothole = (p: PotholeReport) => {
+    startSpeakingPothole(p, 0);
+  };
+
+  // Toggle audio speech: pause when clicked again, and resume from where it stopped when clicked again
+  const toggleSpeakPothole = (p: PotholeReport) => {
+    if (speakingPotholeId === p.id) {
+      if (isSpeaking) {
+        // Audio is currently playing -> stop / pause audio
+        if (isSpeechSupported()) {
+          window.speechSynthesis.pause();
+        }
+        setIsSpeaking(false);
+        setIsPaused(true);
+      } else if (isPaused) {
+        // Audio was paused -> resume right from where it stopped
+        if (isSpeechSupported() && window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+          setIsSpeaking(true);
+          setIsPaused(false);
+        } else {
+          // Fallback if browser reset paused utterance: resume text slice from last character index
+          const resumeOffset = lastCharIndexRef.current || 0;
+          startSpeakingPothole(p, resumeOffset);
+        }
+      } else {
+        startSpeakingPothole(p, 0);
+      }
+    } else {
+      // New pothole selected -> stop any previous audio and start fresh
+      stopSpeaking();
+      startSpeakingPothole(p, 0);
+    }
   };
 
   return (
@@ -181,10 +320,13 @@ export const AccessibilityProvider: React.FC<{ children: ReactNode }> = ({ child
         setTheme,
         cycleTheme,
         isSpeaking,
+        isPaused,
+        speakingPotholeId,
         speakText,
         stopSpeaking,
         speakSummary,
-        speakPothole
+        speakPothole,
+        toggleSpeakPothole
       }}
     >
       {children}
@@ -197,6 +339,8 @@ const DEFAULT_A11Y_STATE: AccessibilityContextType = {
   fontFamily: 'comic-sans',
   theme: 'colorblind',
   isSpeaking: false,
+  isPaused: false,
+  speakingPotholeId: null,
   setFontSize: () => {},
   setFontFamily: () => {},
   setTheme: () => {},
@@ -204,7 +348,8 @@ const DEFAULT_A11Y_STATE: AccessibilityContextType = {
   speakText: () => {},
   stopSpeaking: () => {},
   speakSummary: () => {},
-  speakPothole: () => {}
+  speakPothole: () => {},
+  toggleSpeakPothole: () => {}
 };
 
 export const useAccessibility = (): AccessibilityContextType => {

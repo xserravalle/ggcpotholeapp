@@ -6,7 +6,7 @@ import {
   Building2,
   Menu, 
   X, 
-  CheckCircle2, 
+  Star, 
   Info, 
   ChevronRight,
   Settings,
@@ -405,7 +405,7 @@ export const Header: React.FC<HeaderProps> = ({
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
-            <CheckCircle2 className="w-4 h-4" />
+            <Star className="w-4 h-4" />
             <span>My Reports</span>
           </button>
 

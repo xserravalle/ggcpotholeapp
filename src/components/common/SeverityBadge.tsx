@@ -23,7 +23,13 @@ export const SeverityBadge: React.FC<SeverityBadgeProps> = ({
   const isHigh = severity === 'critical' || severity === 'severe';
   const isMod = severity === 'moderate';
 
-  const badgeClass = isHigh ? 'severity-badge-high' : isMod ? 'severity-badge-med' : 'severity-badge-low';
+  const badgeClass = severity === 'critical'
+    ? 'severity-badge-critical'
+    : severity === 'severe'
+    ? 'severity-badge-severe'
+    : isMod
+    ? 'severity-badge-med'
+    : 'severity-badge-low';
 
   return (
     <span 

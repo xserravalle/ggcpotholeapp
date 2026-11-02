@@ -53,10 +53,22 @@ select,
 }
 
 /* Dual-Coded Severity Badges */
+.severity-badge-critical {
+  background-color: var(--sev-critical-bg, #431407) !important;
+  color: var(--sev-critical-text, #ffedd5) !important;
+  border-color: var(--sev-critical-border, #9a3412) !important;
+}
+
+.severity-badge-severe {
+  background-color: var(--sev-severe-bg, #4a1508) !important;
+  color: var(--sev-severe-text, #fed7aa) !important;
+  border-color: var(--sev-severe-border, #ea580c) !important;
+}
+
 .severity-badge-high {
-  background-color: var(--sev-high-bg) !important;
-  color: var(--sev-high-text) !important;
-  border-color: var(--sev-high-border) !important;
+  background-color: var(--sev-high-bg, #4a1508) !important;
+  color: var(--sev-high-text, #fed7aa) !important;
+  border-color: var(--sev-high-border, #ea580c) !important;
 }
 
 .severity-badge-med {
@@ -77,9 +89,17 @@ select,
 
 /* 1. Colorblind-Safe Theme (Okabe-Ito / CUD Palette) */
 [data-theme="colorblind"] {
+  --sev-critical-bg: #431407;
+  --sev-critical-text: #ffedd5;
+  --sev-critical-border: #9a3412;
+
+  --sev-severe-bg: #4a1508;
+  --sev-severe-text: #fed7aa;
+  --sev-severe-border: #ea580c;
+
   --sev-high-bg: #4a1508;
   --sev-high-text: #fed7aa;
-  --sev-high-border: #d55e00;
+  --sev-high-border: #ea580c;
 
   --sev-med-bg: #072a4a;
   --sev-med-text: #bae6fd;
@@ -163,8 +183,20 @@ select,
   color: #f8fafc !important;
 }
 
+[data-theme="high-contrast"] .severity-badge-critical {
+  background-color: #7c2d12 !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+}
+
+[data-theme="high-contrast"] .severity-badge-severe {
+  background-color: #ea580c !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+}
+
 [data-theme="high-contrast"] .severity-badge-high {
-  background-color: #ff0000 !important;
+  background-color: #ea580c !important;
   color: #ffffff !important;
   border: 2px solid #ffffff !important;
 }
@@ -187,9 +219,17 @@ select,
 
 /* 3. Standard GGC Campus Theme (Grizzly Green & Gold) */
 [data-theme="standard"] {
-  --sev-high-bg: #450a0a;
-  --sev-high-text: #fca5a5;
-  --sev-high-border: #dc2626;
+  --sev-critical-bg: #431407;
+  --sev-critical-text: #ffedd5;
+  --sev-critical-border: #9a3412;
+
+  --sev-severe-bg: #4a1508;
+  --sev-severe-text: #fed7aa;
+  --sev-severe-border: #ea580c;
+
+  --sev-high-bg: #4a1508;
+  --sev-high-text: #fed7aa;
+  --sev-high-border: #ea580c;
 
   --sev-med-bg: #3b2a05;
   --sev-med-text: #fef08a;
@@ -231,9 +271,17 @@ select,
 
 /* 4. Dark Modern Theme */
 [data-theme="dark"] {
-  --sev-high-bg: #450a0a;
-  --sev-high-text: #fca5a5;
-  --sev-high-border: #ef4444;
+  --sev-critical-bg: #431407;
+  --sev-critical-text: #ffedd5;
+  --sev-critical-border: #9a3412;
+
+  --sev-severe-bg: #4a1508;
+  --sev-severe-text: #fed7aa;
+  --sev-severe-border: #ea580c;
+
+  --sev-high-bg: #4a1508;
+  --sev-high-text: #fed7aa;
+  --sev-high-border: #ea580c;
 
   --sev-med-bg: #451a03;
   --sev-med-text: #fde047;
@@ -317,4 +365,18 @@ body,
 
 .animate-critical-pulse {
   animation: critical-pulse 2s infinite ease-in-out;
+}
+
+/* Perimeter border flow for audio listening */
+@keyframes borderBeamMove {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -100;
+  }
+}
+
+.animate-border-beam {
+  animation: borderBeamMove 2.2s linear infinite;
 }
