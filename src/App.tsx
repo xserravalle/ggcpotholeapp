@@ -282,11 +282,7 @@ export function App() {
   };
 
   return (
-    <div className={`bg-slate-950 text-slate-100 flex flex-col selection:bg-teal-500 selection:text-slate-950 ${
-      activeTab === 'my-reports' 
-        ? 'h-screen max-h-screen overflow-hidden pb-16 md:pb-0' 
-        : 'min-h-screen pb-16 md:pb-0'
-    }`}>
+    <div className="h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-slate-950 pb-16 md:pb-0">
       
       {/* Universal Streamlined Header */}
       <Header
@@ -297,16 +293,18 @@ export function App() {
         potholeCount={potholes.length}
       />
 
-      {/* Main Tab Content */}
-      <main className={`flex-1 ${activeTab === 'my-reports' ? 'min-h-0 overflow-hidden flex flex-col' : ''}`}>
+      {/* Main Tab Content - Pure Internal Scrolling Across All Views */}
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col relative">
         {/* Tab 1: Campus Parking Availability */}
         {activeTab === 'dashboard' && (
-          <UnifiedDashboard
-            parkingLots={parkingLots}
-            simulationParams={simulationParams}
-            onChangeSimulationParams={setSimulationParams}
-            onSelectLot={setSelectedLot}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <UnifiedDashboard
+              parkingLots={parkingLots}
+              simulationParams={simulationParams}
+              onChangeSimulationParams={setSimulationParams}
+              onSelectLot={setSelectedLot}
+            />
+          </div>
         )}
 
         {/* Tab 2: Interactive OpenStreetMap Hazard Map */}
@@ -326,11 +324,13 @@ export function App() {
 
         {/* Tab 3: Dedicated Drive Sensor View with Silent Auto-Logging */}
         {activeTab === 'sensor' && (
-          <DriveSensorView
-            onPromoteSpotToReport={handlePromoteSpotToReport}
-            onPromoteDriveIncidents={handlePromoteDriveIncidents}
-            onNavigateToMyReports={() => setActiveTab('my-reports')}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <DriveSensorView
+              onPromoteSpotToReport={handlePromoteSpotToReport}
+              onPromoteDriveIncidents={handlePromoteDriveIncidents}
+              onNavigateToMyReports={() => setActiveTab('my-reports')}
+            />
+          </div>
         )}
 
         {/* Tab 4: My Reports Submissions View */}
@@ -350,31 +350,37 @@ export function App() {
 
         {/* Secondary Tab: Municipal Dispatcher Hub (accessible ONLY by Admins) */}
         {isAdmin && activeTab === 'dispatcher' && (
-          <AuthorityHubView
-            potholes={potholes}
-            onUpdateStatus={handleUpdateStatus}
-            onOpenDispatcherModal={handleOpenDispatcher}
-            onSelectPotholeForMap={(p) => {
-              setSelectedPothole(p);
-              setActiveTab('potholes');
-            }}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <AuthorityHubView
+              potholes={potholes}
+              onUpdateStatus={handleUpdateStatus}
+              onOpenDispatcherModal={handleOpenDispatcher}
+              onSelectPotholeForMap={(p) => {
+                setSelectedPothole(p);
+                setActiveTab('potholes');
+              }}
+            />
+          </div>
         )}
 
         {/* Secondary Tab: Pavement Corridor Analytics (accessible ONLY by Admins) */}
         {isAdmin && activeTab === 'analytics' && (
-          <PotholeAnalyticsView
-            potholes={potholes}
-            roadSegments={roadSegments}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <PotholeAnalyticsView
+              potholes={potholes}
+              roadSegments={roadSegments}
+            />
+          </div>
         )}
 
         {/* Tab 6: About & Help Documentation */}
         {activeTab === 'about' && (
-          <AboutHelpView
-            onNavigateTab={setActiveTab}
-            onOpenReportModal={() => setIsReportModalOpen(true)}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <AboutHelpView
+              onNavigateTab={setActiveTab}
+              onOpenReportModal={() => setIsReportModalOpen(true)}
+            />
+          </div>
         )}
       </main>
 

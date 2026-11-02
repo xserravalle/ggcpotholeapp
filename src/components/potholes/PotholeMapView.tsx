@@ -405,7 +405,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   }, [potholes, severityFilter, viewScope]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-125px)] relative select-none">
+    <div className="flex flex-col h-full w-full flex-1 min-h-0 relative select-none">
       
       {/* Top Scope Switcher & Action Toolbar */}
       <div className="bg-slate-900 border-b border-slate-800 px-3 sm:px-4 py-2 z-20 flex flex-wrap items-center justify-between gap-2 text-xs">

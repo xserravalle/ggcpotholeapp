@@ -119,15 +119,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     draftTheme !== theme;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-hidden">
       <div 
-        className="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-6 my-8 animate-in fade-in zoom-in-95 duration-150"
+        className="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl flex flex-col max-h-[90dvh] my-auto animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-modal-title"
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="shrink-0 flex items-center justify-between border-b border-slate-800 pb-4">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
               <Settings className="w-5 h-5" />
@@ -150,8 +150,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
 
-        {/* Section 1: Font Sizing & Dyslexia Typography */}
-        <div className="space-y-3">
+        {/* Scrollable Content Body */}
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-6 pr-1 py-1">
+          {/* Section 1: Font Sizing & Dyslexia Typography */}
+          <div className="space-y-3">
           <div className="flex items-center space-x-2 text-xs font-bold text-emerald-400 uppercase tracking-wider">
             <Eye className="w-4 h-4" />
             <span>Text Size & Typography</span>
@@ -300,9 +302,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
           </div>
         </div>
+        </div>
 
         {/* Modal Footer with Cancel and Done */}
-        <div className="pt-3 flex items-center justify-between border-t border-slate-800">
+        <div className="shrink-0 pt-3 flex items-center justify-between border-t border-slate-800">
           <div className="text-[11px]">
             {hasUnsavedChanges ? (
               <span className="text-amber-400 font-medium flex items-center gap-1">

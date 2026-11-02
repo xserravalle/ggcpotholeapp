@@ -151,7 +151,7 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Dropdown Menu */}
               {isMenuOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-150">
+                <div className="absolute right-0 mt-2 w-72 max-h-[calc(100dvh-80px)] overflow-y-auto overscroll-contain bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl py-2 z-50 text-xs animate-in fade-in zoom-in-95 duration-150">
                   
                   {/* Active Profile Header */}
                   <div className="px-3.5 py-2 border-b border-slate-800 flex items-center justify-between">
@@ -355,15 +355,15 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Primary Navigation Tabs */}
-        <nav className="flex space-x-2 sm:space-x-3 mt-3 pt-2.5 border-t border-slate-800 overflow-x-auto no-scrollbar">
+        {/* Primary Navigation Tabs - Visible on Desktop, Hidden on Mobile */}
+        <nav className="hidden md:flex space-x-2 sm:space-x-3 mt-3 pt-2.5 border-t border-slate-800 overflow-x-auto no-scrollbar">
           {/* Map Tab */}
           <button
             onClick={() => setActiveTab('potholes')}
             className={`px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap transition-all ${
               activeTab === 'potholes'
                 ? 'bg-emerald-600 text-white shadow-md'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
             <MapPin className="w-4 h-4" />
@@ -375,11 +375,11 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setActiveTab('sensor')}
             className={`px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap transition-all ${
               activeTab === 'sensor'
-                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-teal-600/30'
-                : 'text-teal-300 hover:text-white hover:bg-slate-800/80 border border-teal-500/20'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
-            <Route className="w-4 h-4 text-teal-400" />
+            <Route className="w-4 h-4" />
             <span>Drive-Time</span>
           </button>
 
@@ -388,8 +388,8 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setActiveTab('dashboard')}
             className={`px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap transition-all ${
               activeTab === 'dashboard'
-                ? 'bg-emerald-700 text-white shadow-md'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
             <Car className="w-4 h-4" />
@@ -401,8 +401,8 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={() => setActiveTab('my-reports')}
             className={`px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap transition-all ${
               activeTab === 'my-reports'
-                ? 'bg-blue-600 text-white shadow-md'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800/80'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
             }`}
           >
             <CheckCircle2 className="w-4 h-4" />
@@ -413,7 +413,7 @@ export const Header: React.FC<HeaderProps> = ({
           {isAdmin && activeTab === 'dispatcher' && (
             <button
               onClick={() => setActiveTab('dispatcher')}
-              className="px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap bg-blue-700 text-white shadow-md"
+              className="px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap bg-emerald-600 text-white shadow-md"
             >
               <Building2 className="w-4 h-4" />
               <span>Dispatch Hub</span>
@@ -423,7 +423,7 @@ export const Header: React.FC<HeaderProps> = ({
           {isAdmin && activeTab === 'analytics' && (
             <button
               onClick={() => setActiveTab('analytics')}
-              className="px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap bg-teal-700 text-white shadow-md"
+              className="px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl flex items-center space-x-2 whitespace-nowrap bg-emerald-600 text-white shadow-md"
             >
               <BarChart3 className="w-4 h-4" />
               <span>Pavement Analytics</span>

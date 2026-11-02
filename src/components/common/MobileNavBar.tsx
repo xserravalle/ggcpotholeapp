@@ -21,7 +21,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
       <button
         onClick={() => setActiveTab('potholes')}
         className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
-          activeTab === 'potholes' ? 'text-emerald-400 font-bold' : 'text-slate-300 hover:text-white'
+          activeTab === 'potholes' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-white'
         }`}
       >
         <MapPin className="w-5 h-5" />
@@ -32,11 +32,11 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
       <button
         onClick={() => setActiveTab('sensor')}
         className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition ${
-          activeTab === 'sensor' ? 'text-teal-400 font-bold' : 'text-teal-400/80 hover:text-teal-300'
+          activeTab === 'sensor' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-white'
         }`}
       >
-        <Route className="w-5 h-5 text-teal-400" />
-        <span className="text-[10px] mt-0.5 font-bold">Drive-Time</span>
+        <Route className="w-5 h-5" />
+        <span className="text-[10px] mt-0.5">Drive-Time</span>
       </button>
 
       {/* 3. Center Report Action Button (Elevated FAB) */}
@@ -52,7 +52,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
       <button
         onClick={() => setActiveTab('dashboard')}
         className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
-          activeTab === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-300 hover:text-white'
+          activeTab === 'dashboard' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-white'
         }`}
       >
         <Car className="w-5 h-5" />
@@ -63,7 +63,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
       <button
         onClick={() => setActiveTab('my-reports')}
         className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
-          activeTab === 'my-reports' ? 'text-blue-400 font-bold' : 'text-slate-300 hover:text-white'
+          activeTab === 'my-reports' ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-white'
         }`}
       >
         <CheckCircle2 className="w-5 h-5" />
