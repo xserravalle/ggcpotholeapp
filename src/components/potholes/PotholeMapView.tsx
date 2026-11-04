@@ -6,10 +6,12 @@ import { CAMPUS_CENTER } from '../../data/jurisdictionsData';
 import { MunicipalQuickJump } from '../map/MunicipalQuickJump';
 import { reverseGeocode } from '../../services/reverseGeocoding';
 import { distanceFromCampusMiles, formatCoords } from '../../services/distanceCalculator';
+import { loadUserCreatedIds } from '../../services/storageService';
 import { useAccessibility, ThemeKey } from '../../context/AccessibilityContext';
 import { 
   Filter, 
   ThumbsUp, 
+  Check,
   Crosshair, 
   GraduationCap, 
   Map as MapIcon,
@@ -40,11 +42,17 @@ const MapController: React.FC<{ center: [number, number]; zoom: number }> = ({ c
   return null;
 };
 
-// Map click event handler to allow dropping a marker
-const MapClickHandler: React.FC<{ onMapClick: (lat: number, lng: number) => void }> = ({ onMapClick }) => {
-  useMapEvents({
+// Map event handler to allow dropping a marker and listening to zoom changes
+const MapEventsHandler: React.FC<{ 
+  onMapClick: (lat: number, lng: number) => void;
+  onZoomEnd: (currentZoom: number) => void;
+}> = ({ onMapClick, onZoomEnd }) => {
+  const map = useMapEvents({
     click(e) {
       onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+    zoomend() {
+      onZoomEnd(map.getZoom());
     }
   });
   return null;
@@ -71,7 +79,8 @@ const createTrafficLightIcon = (
   severity: SeverityLevel,
   status: PotholeStatus,
   verifications: number,
-  theme: ThemeKey = 'colorblind'
+  theme: ThemeKey = 'colorblind',
+  isUserReport: boolean = false
 ) => {
   const isRepaired = status === 'repaired';
   let color = '#0072b2';
@@ -96,25 +105,41 @@ const createTrafficLightIcon = (
       color = '#10b981';
       borderColor = '#059669';
     }
-  } else if (severity === 'severe' || severity === 'critical') {
+  } else if (severity === 'critical') {
     symbol = '▲';
+    textColor = '#ffffff';
+    borderColor = '#ffffff';
     if (theme === 'high-contrast') {
-      color = '#ff0000';
-      textColor = '#ffffff';
-      borderColor = '#ffffff';
-      pulseColor = '#ff0000';
+      color = '#7c2d12';
+      pulseColor = '#9a3412';
     } else if (theme === 'colorblind') {
-      color = '#d55e00'; // Okabe-Ito Vermilion
-      borderColor = '#ffffff';
-      pulseColor = '#d55e00';
+      color = '#9a3412'; // Deep burnt orange
+      pulseColor = '#c2410c';
     } else if (theme === 'standard') {
-      color = '#dc2626';
-      borderColor = '#ffffff';
-      pulseColor = '#dc2626';
+      color = '#9a3412';
+      pulseColor = '#c2410c';
     } else {
-      color = '#ef4444';
-      borderColor = '#b91c1c';
-      pulseColor = '#ef4444';
+      color = '#9a3412';
+      borderColor = '#7c2d12';
+      pulseColor = '#c2410c';
+    }
+  } else if (severity === 'severe') {
+    symbol = '▲';
+    textColor = '#ffffff';
+    borderColor = '#ffffff';
+    if (theme === 'high-contrast') {
+      color = '#ea580c';
+      pulseColor = '#ea580c';
+    } else if (theme === 'colorblind') {
+      color = '#ea580c'; // Rich dark orange
+      pulseColor = '#ea580c';
+    } else if (theme === 'standard') {
+      color = '#ea580c';
+      pulseColor = '#ea580c';
+    } else {
+      color = '#ea580c';
+      borderColor = '#c2410c';
+      pulseColor = '#ea580c';
     }
   } else if (severity === 'moderate') {
     symbol = '◆';
@@ -123,32 +148,32 @@ const createTrafficLightIcon = (
       textColor = '#000000';
       borderColor = '#ffffff';
     } else if (theme === 'colorblind') {
-      color = '#0072b2'; // Okabe-Ito Sky Blue
+      color = '#d97706'; // Okabe-Ito Amber Gold
       borderColor = '#ffffff';
     } else if (theme === 'standard') {
       color = '#c4a35a'; // GGC Gold
       textColor = '#1a1f1c';
       borderColor = '#ffffff';
     } else {
-      color = '#f59e0b';
-      borderColor = '#d97706';
+      color = '#d97706';
+      borderColor = '#b45309';
     }
   } else {
-    // Minor
+    // Minor: Accessible sky blue
     symbol = '●';
     if (theme === 'high-contrast') {
-      color = '#00ffff';
+      color = '#38bdf8';
       textColor = '#000000';
       borderColor = '#ffffff';
     } else if (theme === 'colorblind') {
-      color = '#009e73'; // Okabe-Ito Bluish Green
+      color = '#0284c7'; // Okabe-Ito Sky Blue
       borderColor = '#ffffff';
     } else if (theme === 'standard') {
-      color = '#006747'; // GGC Green
+      color = '#0284c7';
       borderColor = '#ffffff';
     } else {
-      color = '#10b981';
-      borderColor = '#059669';
+      color = '#0284c7';
+      borderColor = '#0369a1';
     }
   }
 
@@ -159,16 +184,44 @@ const createTrafficLightIcon = (
 
   const borderWidth = theme === 'high-contrast' ? '3px' : '2.5px';
 
+  // Golden halo effect for personal reports (user created or confirmed)
+  const haloShadow = isUserReport
+    ? '0 0 0 3px #f59e0b, 0 0 14px rgba(245, 158, 11, 0.85), 0 4px 8px -1px rgba(0,0,0,0.5)'
+    : '0 4px 8px -1px rgba(0,0,0,0.5)';
+
+  // Star badge on top-right of pin
+  const starBadgeHtml = isUserReport ? `
+    <div style="
+      position: absolute; 
+      top: -6px; 
+      right: -6px; 
+      width: 16px; 
+      height: 16px; 
+      border-radius: 50%; 
+      background: #f59e0b; 
+      color: #1e1b4b; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      font-size: 10px; 
+      line-height: 1; 
+      border: 1.5px solid #ffffff; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5); 
+      z-index: 5;
+    ">⭐</div>
+  ` : '';
+
   const svgHtml = `
     <div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
       ${pulseHtml}
+      ${starBadgeHtml}
       <div style="
         width: 28px; 
         height: 28px; 
         background: ${color}; 
         border: ${borderWidth} solid ${borderColor}; 
         border-radius: 50%; 
-        box-shadow: 0 4px 8px -1px rgba(0,0,0,0.5); 
+        box-shadow: ${haloShadow}; 
         display: flex; 
         align-items: center; 
         justify-content: center; 
@@ -255,7 +308,8 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   onMapDropPin,
   onNavigateToDrive
 }) => {
-  const { speakPothole, theme } = useAccessibility();
+  const { toggleSpeakPothole, isSpeaking, isPaused, speakingPotholeId, theme } = useAccessibility();
+  const userCreatedIds = useMemo(() => loadUserCreatedIds(), [potholes]);
 
   // User GPS Location State
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number; accuracy?: number } | null>(null);
@@ -295,7 +349,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
         err => {
           console.warn('Initial GPS positioning denied or unavailable; falling back to GGC campus:', err.message);
           setViewScope('campus');
-          setActivePresetId('ggc');
+          setActivePresetId('');
           setMapTarget({ center: [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng], zoom: 14 });
           setIsLocating(false);
           setLocationStatusText('GGC Campus (GPS Offline)');
@@ -304,7 +358,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
       );
     } else {
       setViewScope('campus');
-      setActivePresetId('ggc');
+      setActivePresetId('');
       setLocationStatusText('GGC Campus');
     }
   }, []);
@@ -330,7 +384,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
         handleGpsLocate();
       }
     } else if (scope === 'campus') {
-      setActivePresetId('ggc');
+      setActivePresetId('');
       setMapTarget({ center: [CAMPUS_CENTER.lat, CAMPUS_CENTER.lng], zoom: 14 });
     } else {
       setActivePresetId('');
@@ -344,10 +398,17 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
     setMapTarget({ center: [lat, lng], zoom });
     if (id === 'my-location') {
       setViewScope('my-location');
-    } else if (id === 'ggc') {
-      setViewScope('campus');
     } else {
       setViewScope('gwinnett');
+    }
+  };
+
+  // Zoom change handler: when starting at GGC campus view and zooming out to see the whole county view,
+  // automatically switch to All Gwinnett view so all hazards across Gwinnett are visible
+  const handleZoomEnd = (currentZoom: number) => {
+    if (viewScope === 'campus' && currentZoom <= 12.5) {
+      setViewScope('gwinnett');
+      setActivePresetId('');
     }
   };
 
@@ -391,8 +452,12 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
   // Filtered potholes
   const filteredPotholes = useMemo(() => {
     return potholes.filter(p => {
-      if (severityFilter === 'critical' && p.severity !== 'critical' && p.severity !== 'severe') return false;
+      const isUser = p.source === 'user' || userCreatedIds.includes(p.id);
+      if (severityFilter === 'my-reports' && !isUser) return false;
+      if (severityFilter === 'critical' && p.severity !== 'critical') return false;
+      if (severityFilter === 'severe' && p.severity !== 'severe') return false;
       if (severityFilter === 'moderate' && p.severity !== 'moderate') return false;
+      if (severityFilter === 'minor' && p.severity !== 'minor') return false;
       if (severityFilter === 'resolved' && p.status !== 'repaired') return false;
       
       // When explicitly scoped to GGC Campus, filter by 1.8 mi radius
@@ -402,10 +467,10 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
       }
       return true;
     });
-  }, [potholes, severityFilter, viewScope]);
+  }, [potholes, severityFilter, viewScope, userCreatedIds]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-125px)] relative select-none">
+    <div className="flex flex-col h-full w-full flex-1 min-h-0 relative select-none">
       
       {/* Top Scope Switcher & Action Toolbar */}
       <div className="bg-slate-900 border-b border-slate-800 px-3 sm:px-4 py-2 z-20 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -495,9 +560,12 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
             className="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2.5 py-1 outline-none text-xs font-semibold focus:ring-1 focus:ring-teal-500"
           >
             <option value="all">All Hazards ({potholes.length})</option>
-            <option value="critical">🔴 Critical / Action Needed</option>
-            <option value="moderate">🟡 Moderate / Watch</option>
-            <option value="resolved">🟢 Resolved / Repaired</option>
+            <option value="my-reports">⭐ My Reports Only</option>
+            <option value="critical">▲ Critical (Deep Orange)</option>
+            <option value="severe">▲ Severe (Dark Orange)</option>
+            <option value="moderate">◆ Moderate (Amber-Gold)</option>
+            <option value="minor">● Minor (Sky Blue)</option>
+            <option value="resolved">✓ Resolved / Repaired</option>
           </select>
         </div>
 
@@ -519,7 +587,7 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
           className="w-full h-full"
         >
           <MapController center={mapTarget.center} zoom={mapTarget.zoom} />
-          <MapClickHandler onMapClick={handleMapClick} />
+          <MapEventsHandler onMapClick={handleMapClick} onZoomEnd={handleZoomEnd} />
 
           {/* Standard OpenStreetMap Tile Layer - 100% Free, NO API Key Required Watermarks */}
           <TileLayer
@@ -567,18 +635,20 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
             </>
           )}
 
-          {/* GGC Campus 1-Mile Radius Circle */}
-          <Circle
-            center={[CAMPUS_CENTER.lat, CAMPUS_CENTER.lng]}
-            radius={CAMPUS_CENTER.radiusMeters}
-            pathOptions={{
-              color: '#006747',
-              weight: 2,
-              fillColor: '#c4a35a',
-              fillOpacity: 0.10,
-              dashArray: '5, 5'
-            }}
-          />
+          {/* GGC Campus 1-Mile Radius Circle: Hidden in all Gwinnett view */}
+          {viewScope !== 'gwinnett' && (
+            <Circle
+              center={[CAMPUS_CENTER.lat, CAMPUS_CENTER.lng]}
+              radius={CAMPUS_CENTER.radiusMeters}
+              pathOptions={{
+                color: '#006747',
+                weight: 2,
+                fillColor: '#c4a35a',
+                fillOpacity: 0.10,
+                dashArray: '5, 5'
+              }}
+            />
+          )}
 
           {/* GGC Campus Center Marker */}
           <Marker
@@ -616,12 +686,15 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
             const dist = pothole.distanceFromGgcMiles ?? distanceFromCampusMiles({ lat: pothole.latitude, lng: pothole.longitude });
             const freshness = getFreshnessInfo(pothole.reportedAt, pothole.lastVerifiedAt);
             const isCritical = pothole.severity === 'critical' || pothole.severity === 'severe';
+            const isMod = pothole.severity === 'moderate';
+            // Only reports actually created/submitted by the user count as "my report" (confirming does NOT make it my report)
+            const isUserReport = pothole.source === 'user' || userCreatedIds.includes(pothole.id);
 
             return (
               <Marker
-                key={`${pothole.id}-${theme}`}
+                key={pothole.id}
                 position={[pothole.latitude, pothole.longitude]}
-                icon={createTrafficLightIcon(pothole.severity, pothole.status, pothole.verificationsCount, theme)}
+                icon={createTrafficLightIcon(pothole.severity, pothole.status, pothole.verificationsCount, theme, isUserReport)}
               >
                 <Popup>
                   <div className="text-slate-200 text-xs min-w-[260px] space-y-2.5 p-1">
@@ -629,9 +702,17 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
                     {/* Landmark / Road Name Priority */}
                     <div className="flex items-start justify-between border-b border-slate-700 pb-2 gap-2">
                       <div>
-                        <span className="font-bold text-white text-sm leading-tight block">
-                          {pothole.roadName || pothole.title}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-white text-sm leading-tight block">
+                            {pothole.roadName || pothole.title}
+                          </span>
+                          {isUserReport && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/50 flex items-center gap-0.5 shrink-0" title="You reported or confirmed this hazard">
+                              <span>⭐</span>
+                              <span>Your Report</span>
+                            </span>
+                          )}
+                        </div>
                         {pothole.landmark && pothole.landmark !== pothole.roadName && (
                           <span className="text-[11px] text-emerald-300 font-semibold block mt-0.5">
                             🏫 Landmark: {pothole.landmark}
@@ -639,13 +720,25 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
                         )}
                       </div>
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 border ${
-                        isCritical 
-                          ? 'bg-rose-950/80 text-rose-300 border-rose-700' 
-                          : pothole.status === 'repaired'
+                        pothole.status === 'repaired'
                           ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
-                          : 'bg-amber-950/80 text-amber-300 border-amber-700'
+                          : pothole.severity === 'critical'
+                          ? 'bg-amber-950/90 text-orange-200 border-orange-800'
+                          : pothole.severity === 'severe'
+                          ? 'bg-orange-950/80 text-orange-300 border-orange-600'
+                          : pothole.severity === 'moderate'
+                          ? 'bg-amber-950/80 text-amber-300 border-amber-700'
+                          : 'bg-sky-950/80 text-sky-300 border-sky-700'
                       }`}>
-                        {isCritical ? '▲ Critical' : pothole.status === 'repaired' ? '✓ Resolved' : '◆ Moderate'}
+                        {pothole.status === 'repaired'
+                          ? '✓ Resolved'
+                          : pothole.severity === 'critical'
+                          ? '▲ Critical'
+                          : pothole.severity === 'severe'
+                          ? '▲ Severe'
+                          : pothole.severity === 'moderate'
+                          ? '◆ Moderate'
+                          : '● Minor'}
                       </span>
                     </div>
 
@@ -678,30 +771,109 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
 
                     {/* More Details & Inspector Button */}
                     <button
-                      onClick={() => onSelectPothole(pothole)}
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectPothole(pothole);
+                      }}
                       className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition shadow active:scale-98"
                     >
                       <FileText className="w-3.5 h-3.5" />
                       <span>More Details</span>
                     </button>
 
-                    {/* Actions: Listen & Upvote */}
+                    {/* Actions: Listen & Toggle Confirm */}
                     <div className="pt-0.5 flex items-center gap-2">
-                      <button
-                        onClick={() => speakPothole(pothole)}
-                        className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-1.5 px-2.5 rounded-xl text-xs flex items-center justify-center gap-1 transition shadow-sm active:scale-98 border border-slate-700"
-                        title="Listen to this report read aloud in Southern voice"
-                      >
-                        <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Listen</span>
-                      </button>
+                      {(() => {
+                        const isPlayingThis = isSpeaking && speakingPotholeId === pothole.id;
+                        const isPausedThis = isPaused && speakingPotholeId === pothole.id;
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSpeakPothole(pothole);
+                            }}
+                            className={`relative flex-1 font-bold py-1.5 px-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-98 shadow-sm ${
+                              isPlayingThis
+                                ? 'bg-emerald-950/70 text-emerald-300'
+                                : isPausedThis
+                                ? 'bg-slate-800 text-emerald-400'
+                                : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                            }`}
+                            title={
+                              isPlayingThis
+                                ? 'Audio playing. Click to stop'
+                                : isPausedThis
+                                ? 'Audio stopped. Click to resume from where it stopped'
+                                : 'Listen to this report read aloud in Southern voice'
+                            }
+                          >
+                            {/* Perimeter border SVG: regular border color with animated green beam circling around perimeter */}
+                            <svg 
+                              className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"
+                              style={{ width: '100%', height: '100%' }}
+                            >
+                              {/* Regular button border where green is not present */}
+                              <rect
+                                x="0.75"
+                                y="0.75"
+                                width="calc(100% - 1.5px)"
+                                height="calc(100% - 1.5px)"
+                                rx="11"
+                                fill="none"
+                                stroke={isPlayingThis ? '#064e3b' : '#334155'}
+                                strokeWidth="1.5"
+                              />
+                              {/* Animated green color circling the border perimeter */}
+                              {isPlayingThis && (
+                                <rect
+                                  x="0.75"
+                                  y="0.75"
+                                  width="calc(100% - 1.5px)"
+                                  height="calc(100% - 1.5px)"
+                                  rx="11"
+                                  fill="none"
+                                  stroke="#10b981"
+                                  strokeWidth="2.5"
+                                  strokeLinecap="round"
+                                  pathLength="100"
+                                  strokeDasharray="25 75"
+                                  className="animate-border-beam"
+                                />
+                              )}
+                            </svg>
+
+                            <Volume2 className={`w-3.5 h-3.5 relative z-10 text-emerald-400 ${isPlayingThis ? 'animate-pulse' : ''}`} />
+                            <span className="relative z-10">{isPlayingThis ? 'Pause' : isPausedThis ? 'Resume' : 'Listen'}</span>
+                          </button>
+                        );
+                      })()}
 
                       <button
-                        onClick={() => onVerifyPothole(pothole.id)}
-                        className="flex-1 bg-slate-800 hover:bg-emerald-700 text-emerald-300 hover:text-white font-bold py-1.5 px-2.5 rounded-xl text-xs flex items-center justify-center gap-1 transition active:scale-98 border border-emerald-700/60 shadow-sm"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onVerifyPothole(pothole.id);
+                        }}
+                        className={`flex-1 font-bold py-1.5 px-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-98 border shadow-sm ${
+                          pothole.userConfirmed
+                            ? 'bg-emerald-600/30 text-emerald-300 border-emerald-500/80 hover:bg-emerald-600/40'
+                            : 'bg-slate-800 hover:bg-emerald-700 text-emerald-300 hover:text-white border-emerald-700/60'
+                        }`}
+                        title={pothole.userConfirmed ? 'Confirmed. Click to toggle' : 'Confirm this hazard report (+1)'}
                       >
-                        <ThumbsUp className="w-3.5 h-3.5" />
-                        <span>Confirm (+1)</span>
+                        {pothole.userConfirmed ? (
+                          <>
+                            <span>Confirmed</span>
+                            <Check className="w-4 h-4 stroke-[3] text-emerald-400 shrink-0" />
+                          </>
+                        ) : (
+                          <>
+                            <ThumbsUp className="w-3.5 h-3.5" />
+                            <span>Confirm (+1)</span>
+                          </>
+                        )}
                       </button>
                     </div>
 
@@ -715,16 +887,25 @@ export const PotholeMapView: React.FC<PotholeMapViewProps> = ({
         {/* Legend pill on bottom left with Dual Coding Symbols */}
         <div className="absolute bottom-4 left-4 z-20 bg-slate-900/90 backdrop-blur border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-300 shadow-xl hidden sm:flex items-center gap-3">
           <span className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">
-            {theme === 'colorblind' ? 'Colorblind (Okabe-Ito)' : theme === 'high-contrast' ? 'High Contrast' : theme === 'standard' ? 'GGC Grizzly' : 'Dark'}:
+            Pins:
           </span>
-          <span className="flex items-center gap-1 font-semibold" style={{ color: theme === 'high-contrast' ? '#ff4d4d' : theme === 'colorblind' ? '#ff7b25' : '#ef4444' }}>
+          <span className="flex items-center gap-1 font-semibold text-orange-700">
             <span className="text-xs">▲</span> Critical
           </span>
-          <span className="flex items-center gap-1 font-semibold" style={{ color: theme === 'high-contrast' ? '#ffff00' : theme === 'colorblind' ? '#38bdf8' : theme === 'standard' ? '#c4a35a' : '#f59e0b' }}>
+          <span className="flex items-center gap-1 font-semibold text-orange-500">
+            <span className="text-xs">▲</span> Severe
+          </span>
+          <span className="flex items-center gap-1 font-semibold text-amber-400">
             <span className="text-xs">◆</span> Moderate
           </span>
-          <span className="flex items-center gap-1 font-semibold" style={{ color: theme === 'high-contrast' ? '#00ffff' : theme === 'colorblind' ? '#34d399' : theme === 'standard' ? '#00a877' : '#10b981' }}>
-            <span className="text-xs">●</span> Low / Resolved
+          <span className="flex items-center gap-1 font-semibold text-sky-400">
+            <span className="text-xs">●</span> Minor
+          </span>
+          <span className="flex items-center gap-1 font-semibold text-emerald-400">
+            <span className="text-xs">✓</span> Repaired
+          </span>
+          <span className="flex items-center gap-1 font-semibold text-amber-300 border-l border-slate-700 pl-3">
+            <span>⭐</span> My Reports
           </span>
         </div>
 

@@ -58,25 +58,67 @@ const MapClickToReposition: React.FC<{ onPositionChange: (lat: number, lng: numb
   return null;
 };
 
-// Pulsing Shock Pin Marker for Report Modal
+// Shock Pin Marker for Report Modal matching map pin colors, symbols, and pulsing behavior
 const createReportMarkerIcon = (severity: SeverityLevel) => {
-  const color = 
-    severity === 'critical' ? '#f43f5e' : 
-    severity === 'severe' ? '#ef4444' : 
-    severity === 'moderate' ? '#f59e0b' : '#10b981';
+  const isCritical = severity === 'critical';
+  const isSevere = severity === 'severe';
+  const isModerate = severity === 'moderate';
+
+  // Differentiate severe (dark orange #ea580c) vs critical (deeper dark orange #9a3412), both with white triangle
+  const color = isCritical 
+    ? '#9a3412' 
+    : isSevere 
+    ? '#ea580c' 
+    : isModerate 
+    ? '#d97706' 
+    : '#0284c7';
+
+  const symbol = (isCritical || isSevere) ? '▲' : isModerate ? '◆' : '●';
+  // Pulsing halo matches map: ONLY active for severe or critical! Minor and moderate do not pulse.
+  const shouldPulse = isCritical || isSevere;
+
+  const pulseHtml = shouldPulse ? `
+    <span style="position: absolute; width: 34px; height: 34px; border-radius: 50%; background: ${color}44; animation: ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+  ` : '';
 
   return L.divIcon({
     className: 'custom-report-pin',
     html: `
       <div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center;">
-        <span style="position: absolute; width: 34px; height: 34px; border-radius: 50%; background: ${color}44; animation: ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
-        <span style="position: relative; width: 18px; height: 18px; border-radius: 50%; background: ${color}; border: 3px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;">
-          <span style="width: 4px; height: 4px; border-radius: 50%; background: #ffffff;"></span>
-        </span>
+        ${pulseHtml}
+        <div style="
+          width: 28px; 
+          height: 28px; 
+          background: ${color}; 
+          border: 2.5px solid #ffffff; 
+          border-radius: 50%; 
+          box-shadow: 0 4px 10px rgba(0,0,0,0.6); 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          color: #ffffff; 
+          font-weight: 900; 
+          font-size: 13px;
+          position: relative;
+          z-index: 2;
+          user-select: none;
+        ">
+          ${symbol}
+        </div>
+        <div style="
+          position: absolute; 
+          bottom: -3px; 
+          width: 0; 
+          height: 0; 
+          border-left: 5px solid transparent; 
+          border-right: 5px solid transparent; 
+          border-top: 6px solid #ffffff;
+          z-index: 1;
+        "></div>
       </div>
     `,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17]
+    iconSize: [34, 37],
+    iconAnchor: [17, 37]
   });
 };
 
@@ -432,34 +474,85 @@ const PotholeReportDialogBody: React.FC<PotholeReportModalProps> = ({
             />
           </div>
 
-          {/* Severity & Damage Risk */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Severity</label>
-              <select
-                value={severity}
-                onChange={(e) => setSeverity(e.target.value as SeverityLevel)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-medium focus:ring-1 focus:ring-teal-500 outline-none"
-              >
-                <option value="low">Low - Minor Surface Dip</option>
-                <option value="moderate">Moderate - Noticeable Bump</option>
-                <option value="severe">Severe - Heavy Jar / Rim Impact</option>
-                <option value="critical">Critical - Immediate Hazard</option>
-              </select>
+          {/* Severity & Damage Risk with Matching Dual Coding & Accessible Palette */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-slate-300 font-semibold text-[11px]">Severity Level</label>
+              <span className="text-[10px] text-slate-400">Matches Map Pin Colors & Symbols</span>
+            </div>
+            
+            {/* 4-Option Segmented Selector with Matching Dual Coding (No green ring, self-colored borders) */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { 
+                  value: 'minor' as SeverityLevel, 
+                  label: 'Minor', 
+                  symbol: '●', 
+                  activeClass: 'border-2 border-sky-400 bg-sky-950/70 text-sky-200' 
+                },
+                { 
+                  value: 'moderate' as SeverityLevel, 
+                  label: 'Moderate', 
+                  symbol: '◆', 
+                  activeClass: 'border-2 border-amber-400 bg-amber-950/70 text-amber-200' 
+                },
+                { 
+                  value: 'severe' as SeverityLevel, 
+                  label: 'Severe', 
+                  symbol: '▲', 
+                  activeClass: 'border-2 border-orange-500 bg-orange-950/70 text-orange-200' 
+                },
+                { 
+                  value: 'critical' as SeverityLevel, 
+                  label: 'Critical', 
+                  symbol: '▲', 
+                  activeClass: 'border-2 border-orange-700 bg-orange-950/90 text-orange-100' 
+                },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSeverity(opt.value)}
+                  className={`py-1.5 px-1 rounded-lg text-center transition flex flex-col items-center justify-center gap-0.5 ${
+                    severity === opt.value
+                      ? `${opt.activeClass} font-bold shadow-md`
+                      : 'border border-slate-700 bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <span className="text-xs leading-none">{opt.symbol}</span>
+                  <span className="text-[10px] leading-tight">{opt.label}</span>
+                </button>
+              ))}
             </div>
 
-            <div>
-              <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Damage Risk</label>
-              <select
-                value={damageRisk}
-                onChange={(e) => setDamageRisk(e.target.value as any)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-medium focus:ring-1 focus:ring-teal-500 outline-none"
-              >
-                <option value="Tire / Rim Damage">Tire / Rim Damage</option>
-                <option value="Suspension / Alignment">Suspension Risk</option>
-                <option value="Loss of Control Hazard">Axle / Control Hazard</option>
-                <option value="Cosmetic">Cosmetic Damage</option>
-              </select>
+            <div className="grid grid-cols-2 gap-2.5 pt-0.5">
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Severity Category</label>
+                <select
+                  value={severity}
+                  onChange={(e) => setSeverity(e.target.value as SeverityLevel)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-medium focus:ring-1 focus:ring-teal-500 outline-none text-xs"
+                >
+                  <option value="minor">● Minor - Surface Dip (Sky Blue)</option>
+                  <option value="moderate">◆ Moderate - Noticeable Bump (Amber-Gold)</option>
+                  <option value="severe">▲ Severe - Heavy Jar / Rim Risk (Dark Orange)</option>
+                  <option value="critical">▲ Critical - Immediate Hazard (Deep Orange)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1 text-[11px]">Damage Risk</label>
+                <select
+                  value={damageRisk}
+                  onChange={(e) => setDamageRisk(e.target.value as any)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white font-medium focus:ring-1 focus:ring-teal-500 outline-none text-xs"
+                >
+                  <option value="Tire / Rim Damage">Tire / Rim Damage</option>
+                  <option value="Suspension / Alignment">Suspension Risk</option>
+                  <option value="Loss of Control Hazard">Axle / Control Hazard</option>
+                  <option value="Cosmetic">Cosmetic Damage</option>
+                </select>
+              </div>
             </div>
           </div>
 

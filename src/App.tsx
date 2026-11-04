@@ -6,7 +6,14 @@ import { ParkingLot, SimulationParams } from './types/parking';
 import { INITIAL_POTHOLES } from './data/potholesData';
 import { HIGH_RISK_ROAD_SEGMENTS } from './data/roadSegmentsData';
 import { PARKING_LOTS } from './data/parkingLotsData';
-import { loadStoredPotholes, saveStoredPotholes } from './services/storageService';
+import { 
+  loadStoredPotholes, 
+  saveStoredPotholes, 
+  loadUserConfirmedIds, 
+  saveUserConfirmedIds, 
+  loadUserCreatedIds, 
+  saveUserCreatedId 
+} from './services/storageService';
 import { distanceFromCampusMiles } from './services/distanceCalculator';
 import { classifyJurisdiction } from './services/jurisdictionClassifier';
 import { useAuth } from './context/AuthContext';
@@ -39,8 +46,15 @@ export function App() {
   // Navigation: Default to Map & Hazards
   const [activeTab, setActiveTab] = useState<ActiveTab>('potholes');
 
-  // Core Data State with Local Persistence
-  const [potholes, setPotholes] = useState<PotholeReport[]>(() => loadStoredPotholes(INITIAL_POTHOLES));
+  // Core Data State with Local Persistence and Confirmed ID synchronization
+  const [potholes, setPotholes] = useState<PotholeReport[]>(() => {
+    const stored = loadStoredPotholes(INITIAL_POTHOLES);
+    const confirmedIds = loadUserConfirmedIds();
+    return stored.map(p => ({
+      ...p,
+      userConfirmed: confirmedIds.includes(p.id)
+    }));
+  });
   const [roadSegments] = useState(HIGH_RISK_ROAD_SEGMENTS);
   const [parkingLots] = useState<ParkingLot[]>(PARKING_LOTS);
 
@@ -102,28 +116,41 @@ export function App() {
     setIsDispatcherOpen(true);
   };
 
-  // Verification Handler (Upvote)
+  // Verification Handler (Toggle Confirm / Unconfirm once per user device)
   const handleVerifyPothole = (id: string) => {
-    setPotholes(prev => prev.map(p => {
-      if (p.id === id) {
-        const newCount = p.verificationsCount + 1;
-        return {
-          ...p,
-          verificationsCount: newCount,
-          userConfirmed: true,
-          lastVerifiedAt: new Date().toISOString()
-        };
-      }
-      return p;
-    }));
+    setPotholes(prev => {
+      const target = prev.find(p => p.id === id);
+      if (!target) return prev;
+      const willConfirm = !target.userConfirmed;
 
-    if (selectedPothole && selectedPothole.id === id) {
-      setSelectedPothole(prev => prev ? {
-        ...prev,
-        verificationsCount: prev.verificationsCount + 1,
-        userConfirmed: true
-      } : null);
-    }
+      // Update confirmed IDs in storage for persistence across reloads
+      const confirmedIds = loadUserConfirmedIds();
+      const nextConfirmedIds = willConfirm
+        ? Array.from(new Set([...confirmedIds, id]))
+        : confirmedIds.filter(cid => cid !== id);
+      saveUserConfirmedIds(nextConfirmedIds);
+
+      const delta = willConfirm ? 1 : -1;
+      const updated = prev.map(p => {
+        if (p.id === id) {
+          const newCount = Math.max(0, p.verificationsCount + delta);
+          return {
+            ...p,
+            verificationsCount: newCount,
+            userConfirmed: willConfirm,
+            lastVerifiedAt: new Date().toISOString()
+          };
+        }
+        return p;
+      });
+
+      if (selectedPothole && selectedPothole.id === id) {
+        const match = updated.find(p => p.id === id);
+        if (match) setSelectedPothole(match);
+      }
+
+      return updated;
+    });
   };
 
   // Submit New Pothole Report
@@ -134,6 +161,10 @@ export function App() {
     const trackingCode = `GAP-2026-${uuid.slice(0, 8).toUpperCase()}`;
     const newId = `GW-POT-${uuid}`;
     const dist = distanceFromCampusMiles({ lat: newReportData.latitude, lng: newReportData.longitude });
+
+    saveUserCreatedId(newId);
+    const confirmedIds = loadUserConfirmedIds();
+    saveUserConfirmedIds(Array.from(new Set([...confirmedIds, newId])));
 
     const newReport: PotholeReport = {
       ...newReportData,
@@ -175,6 +206,8 @@ export function App() {
     const newId = `GW-POT-${uuid}`;
     const dist = distanceFromCampusMiles({ lat: spot.latitude, lng: spot.longitude });
     const classification = classifyJurisdiction(spot.latitude, spot.longitude, spot.roadName);
+
+    saveUserCreatedId(newId);
 
     const newReport: PotholeReport = {
       id: newId,
@@ -282,11 +315,7 @@ export function App() {
   };
 
   return (
-    <div className={`bg-slate-950 text-slate-100 flex flex-col selection:bg-teal-500 selection:text-slate-950 ${
-      activeTab === 'my-reports' 
-        ? 'h-screen max-h-screen overflow-hidden pb-16 md:pb-0' 
-        : 'min-h-screen pb-16 md:pb-0'
-    }`}>
+    <div className="h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col bg-slate-950 text-slate-100 selection:bg-emerald-500 selection:text-slate-950 pb-16 md:pb-0">
       
       {/* Universal Streamlined Header */}
       <Header
@@ -297,16 +326,18 @@ export function App() {
         potholeCount={potholes.length}
       />
 
-      {/* Main Tab Content */}
-      <main className={`flex-1 ${activeTab === 'my-reports' ? 'min-h-0 overflow-hidden flex flex-col' : ''}`}>
+      {/* Main Tab Content - Pure Internal Scrolling Across All Views */}
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col relative">
         {/* Tab 1: Campus Parking Availability */}
         {activeTab === 'dashboard' && (
-          <UnifiedDashboard
-            parkingLots={parkingLots}
-            simulationParams={simulationParams}
-            onChangeSimulationParams={setSimulationParams}
-            onSelectLot={setSelectedLot}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <UnifiedDashboard
+              parkingLots={parkingLots}
+              simulationParams={simulationParams}
+              onChangeSimulationParams={setSimulationParams}
+              onSelectLot={setSelectedLot}
+            />
+          </div>
         )}
 
         {/* Tab 2: Interactive OpenStreetMap Hazard Map */}
@@ -326,11 +357,13 @@ export function App() {
 
         {/* Tab 3: Dedicated Drive Sensor View with Silent Auto-Logging */}
         {activeTab === 'sensor' && (
-          <DriveSensorView
-            onPromoteSpotToReport={handlePromoteSpotToReport}
-            onPromoteDriveIncidents={handlePromoteDriveIncidents}
-            onNavigateToMyReports={() => setActiveTab('my-reports')}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <DriveSensorView
+              onPromoteSpotToReport={handlePromoteSpotToReport}
+              onPromoteDriveIncidents={handlePromoteDriveIncidents}
+              onNavigateToMyReports={() => setActiveTab('my-reports')}
+            />
+          </div>
         )}
 
         {/* Tab 4: My Reports Submissions View */}
@@ -350,31 +383,37 @@ export function App() {
 
         {/* Secondary Tab: Municipal Dispatcher Hub (accessible ONLY by Admins) */}
         {isAdmin && activeTab === 'dispatcher' && (
-          <AuthorityHubView
-            potholes={potholes}
-            onUpdateStatus={handleUpdateStatus}
-            onOpenDispatcherModal={handleOpenDispatcher}
-            onSelectPotholeForMap={(p) => {
-              setSelectedPothole(p);
-              setActiveTab('potholes');
-            }}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <AuthorityHubView
+              potholes={potholes}
+              onUpdateStatus={handleUpdateStatus}
+              onOpenDispatcherModal={handleOpenDispatcher}
+              onSelectPotholeForMap={(p) => {
+                setSelectedPothole(p);
+                setActiveTab('potholes');
+              }}
+            />
+          </div>
         )}
 
         {/* Secondary Tab: Pavement Corridor Analytics (accessible ONLY by Admins) */}
         {isAdmin && activeTab === 'analytics' && (
-          <PotholeAnalyticsView
-            potholes={potholes}
-            roadSegments={roadSegments}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <PotholeAnalyticsView
+              potholes={potholes}
+              roadSegments={roadSegments}
+            />
+          </div>
         )}
 
         {/* Tab 6: About & Help Documentation */}
         {activeTab === 'about' && (
-          <AboutHelpView
-            onNavigateTab={setActiveTab}
-            onOpenReportModal={() => setIsReportModalOpen(true)}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <AboutHelpView
+              onNavigateTab={setActiveTab}
+              onOpenReportModal={() => setIsReportModalOpen(true)}
+            />
+          </div>
         )}
       </main>
 

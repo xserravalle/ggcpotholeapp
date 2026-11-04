@@ -626,7 +626,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           onClick={() => setActiveMode('patrol')}
           className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition ${
             activeMode === 'patrol'
-              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
+              ? 'bg-emerald-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white'
           }`}
         >
@@ -638,7 +638,7 @@ export const DriveSensorView: React.FC<DriveSensorViewProps> = ({
           onClick={() => setActiveMode('stationary')}
           className={`flex-1 py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition ${
             activeMode === 'stationary'
-              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
+              ? 'bg-emerald-600 text-white shadow-md'
               : 'text-slate-400 hover:text-white'
           }`}
         >
