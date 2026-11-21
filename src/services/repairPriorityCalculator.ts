@@ -31,7 +31,7 @@ export function calculateRepairPriority(
 
   const reasons = [`Severity: ${report.severity}`];
 
-  let score = severityPoints[report.severity] ?? 0;
+  let score: number = severityPoints[report.severity] ?? 0;
 
   const reportedMs = Date.parse(report.reportedAt);
   const nowMs = now.getTime();
